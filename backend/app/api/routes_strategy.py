@@ -28,43 +28,48 @@ async def recommend_strategy(user_id: str):
     recommendations = []
     savings = []
 
-    # 1) 카테고리 편중 분석
+    # 1) 카테고리 편중 분석 (30% 초과 시 경고)
     for cs in profile.category_breakdown:
-        if cs.pct_of_total > 0.4:
+        if cs.pct_of_total > 0.30 and cs.category.value not in ("housing", "utilities"):
             recommendations.append(
                 f"{cs.category.value} 카테고리에 전체 지출의 {cs.pct_of_total*100:.0f}%가 집중되어 있습니다. "
                 f"분산 소비를 고려해보세요."
             )
+            savings.append({
+                "category": cs.category.value,
+                "potential_saving": round(cs.total_amount * 0.1, 0),
+                "reason": f"{cs.category.value} 지출이 전체의 {cs.pct_of_total*100:.0f}%로 편중",
+            })
 
-    # 2) 식비 비율 체크
+    # 2) 식비 비율 체크 (15% 초과 시)
     food = breakdown.get(SpendCategory.FOOD)
-    if food and food.pct_of_total > 0.35:
+    if food and food.pct_of_total > 0.15:
         potential = food.total_amount * 0.15
         recommendations.append("식비 비율이 높습니다. 자취/도시락 등으로 15% 절약이 가능합니다.")
         savings.append({
             "category": "food",
             "potential_saving": round(potential, 0),
-            "reason": "식비가 전체 지출의 35% 초과",
+            "reason": f"식비가 전체 지출의 {food.pct_of_total*100:.0f}%",
         })
 
-    # 3) 쇼핑 충동 소비 체크
+    # 3) 쇼핑 충동 소비 체크 (건당 평균이 전체 평균의 1.2배 초과 시)
     shopping = breakdown.get(SpendCategory.SHOPPING)
-    if shopping and shopping.avg_amount > avg * 1.5:
+    if shopping and shopping.avg_amount > avg * 1.2:
         recommendations.append("쇼핑 건당 평균이 전체 평균보다 높습니다. 구매 전 24시간 냉각기를 두세요.")
         savings.append({
             "category": "shopping",
             "potential_saving": round(shopping.total_amount * 0.2, 0),
-            "reason": "충동 소비 패턴 감지",
+            "reason": f"건당 평균 {shopping.avg_amount:,.0f}원 (전체 평균의 {shopping.avg_amount/avg*100:.0f}%)",
         })
 
-    # 4) 엔터테인먼트 비율
+    # 4) 엔터테인먼트 비율 (5% 초과 시)
     ent = breakdown.get(SpendCategory.ENTERTAINMENT)
-    if ent and ent.pct_of_total > 0.2:
-        recommendations.append("여가/엔터테인먼트 지출 비율이 높습니다. 무료 대안을 탐색해보세요.")
+    if ent and ent.pct_of_total > 0.05:
+        recommendations.append("여가/엔터테인먼트 지출이 있습니다. 무료 대안을 탐색해보세요.")
         savings.append({
             "category": "entertainment",
             "potential_saving": round(ent.total_amount * 0.3, 0),
-            "reason": "여가비 20% 초과",
+            "reason": f"여가비 {ent.pct_of_total*100:.0f}% 절감 가능",
         })
 
     # 5) 예산 대비 초과 여부
