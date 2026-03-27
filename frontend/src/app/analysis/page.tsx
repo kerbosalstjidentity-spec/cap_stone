@@ -112,12 +112,14 @@ export default function AnalysisPage() {
                 </span>
               </div>
               {radarData.length > 0 && (
-                <ResponsiveContainer width="100%" height={220}>
-                  <RadarChart data={radarData}>
+                <ResponsiveContainer width="100%" height={260}>
+                  <RadarChart data={radarData} outerRadius={85}>
                     <PolarGrid stroke="#e2e8f0" />
-                    <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
-                    <PolarRadiusAxis tick={{ fontSize: 10 }} />
-                    <Radar dataKey="pct" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.3} />
+                    <PolarAngleAxis dataKey="category" tick={{ fontSize: 12, fill: "#64748b" }} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9 }} tickCount={4} />
+                    <Radar dataKey="pct" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.35}
+                      dot={{ r: 3, fill: "#4f46e5" }} />
+                    <Tooltip formatter={(v: number) => `${v}%`} />
                   </RadarChart>
                 </ResponsiveContainer>
               )}
@@ -179,13 +181,13 @@ export default function AnalysisPage() {
                 </div>
               </div>
               {forecastBarData.length > 0 && (
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={forecastBarData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <ResponsiveContainer width="100%" height={Math.max(160, forecastBarData.length * 26)}>
+                  <BarChart data={[...forecastBarData].sort((a, b) => (b.amount as number) - (a.amount as number))} layout="vertical" margin={{ left: 4, right: 24 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                     <XAxis type="number" tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={50} />
-                    <Tooltip formatter={(v: number) => formatKRW(v)} />
-                    <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={42} />
+                    <Tooltip formatter={(v: number) => [formatKRW(v), "예측 금액"]} />
+                    <Bar dataKey="amount" radius={[0, 5, 5, 0]} maxBarSize={18}>
                       {forecastBarData.map((entry, idx) => (
                         <Cell key={idx} fill={entry.color} />
                       ))}
@@ -201,31 +203,31 @@ export default function AnalysisPage() {
             <div className="card">
               <h3>과소비 위험도 (XGBoost)</h3>
               <div style={{ margin: "16px 0", textAlign: "center" }}>
-                {/* 게이지 표현 */}
-                <div style={{
-                  position: "relative", width: 160, height: 80, margin: "0 auto",
-                  overflow: "hidden", borderRadius: "80px 80px 0 0",
-                  background: `conic-gradient(
-                    ${overspend.is_overspend ? "var(--danger)" : "var(--success)"}
-                    ${overspend.overspend_probability * 180}deg,
-                    #e2e8f0 0deg
-                  )`,
-                  transform: "rotate(-90deg)",
-                  transformOrigin: "center bottom",
-                }}>
-                  <div style={{
-                    position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)",
-                    width: 120, height: 60, background: "white", borderRadius: "60px 60px 0 0",
-                  }} />
-                </div>
-                <div className="stat-value" style={{
-                  marginTop: -8,
-                  color: overspend.is_overspend ? "var(--danger)" : "var(--success)",
-                }}>
-                  {(overspend.overspend_probability * 100).toFixed(1)}%
-                </div>
+                {/* SVG 반원 게이지 */}
+                {(() => {
+                  const pct = overspend.overspend_probability;
+                  const r = 60;
+                  const arcLen = Math.PI * r;
+                  const gaugeColor = pct > 0.6 ? "var(--danger)" : pct > 0.35 ? "#f59e0b" : "var(--success)";
+                  return (
+                    <svg width="160" height="95" viewBox="0 0 160 90" style={{ overflow: "visible", margin: "0 auto", display: "block" }}>
+                      {/* 배경 호 */}
+                      <path d="M 20 80 A 60 60 0 0 1 140 80" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeLinecap="round" />
+                      {/* 값 호 */}
+                      <path d="M 20 80 A 60 60 0 0 1 140 80" fill="none"
+                        stroke={gaugeColor} strokeWidth="14" strokeLinecap="round"
+                        strokeDasharray={arcLen}
+                        strokeDashoffset={arcLen * (1 - pct)}
+                      />
+                      {/* 퍼센트 텍스트 */}
+                      <text x="80" y="72" textAnchor="middle" fontSize="22" fontWeight="700" fill={gaugeColor}>
+                        {(pct * 100).toFixed(1)}%
+                      </text>
+                    </svg>
+                  );
+                })()}
                 <span className={`badge ${overspend.is_overspend ? "badge-danger" : "badge-success"}`}
-                  style={{ marginTop: 8 }}>
+                  style={{ marginTop: 4, display: "inline-block" }}>
                   {overspend.is_overspend ? "과소비 주의" : "정상 범위"}
                 </span>
               </div>
