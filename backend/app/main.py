@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_analysis, routes_health, routes_profile, routes_strategy
+from app.api import routes_analysis, routes_health, routes_profile, routes_seed, routes_strategy
 from app.config import settings
 
 
@@ -38,3 +38,4 @@ app.include_router(routes_health.router)
 app.include_router(routes_profile.router)
 app.include_router(routes_analysis.router)
 app.include_router(routes_strategy.router)
+app.include_router(routes_seed.router)

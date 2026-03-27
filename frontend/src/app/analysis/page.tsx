@@ -2,11 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell,
+} from "recharts";
 
 const CATEGORY_LABELS: Record<string, string> = {
   food: "식비", shopping: "쇼핑", transport: "교통", entertainment: "여가",
   education: "교육", healthcare: "의료", housing: "주거", utilities: "공과금",
   finance: "금융", travel: "여행", other: "기타",
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  food: "#ef4444", shopping: "#f59e0b", transport: "#3b82f6",
+  entertainment: "#8b5cf6", education: "#22c55e", healthcare: "#06b6d4",
+  housing: "#ec4899", utilities: "#64748b", finance: "#14b8a6",
+  travel: "#f97316", other: "#94a3b8",
 };
 
 function formatKRW(n: number): string {
@@ -45,6 +56,21 @@ export default function AnalysisPage() {
     return map[label] || "badge-primary";
   };
 
+  // K-Means 레이더 차트 데이터
+  const radarData = pattern?.category_breakdown?.map((cat: any) => ({
+    category: CATEGORY_LABELS[cat.category] || cat.category,
+    pct: Math.round(cat.pct_of_total * 100),
+  })) || [];
+
+  // 예측 카테고리별 바 차트 데이터
+  const forecastBarData = forecast?.predicted_by_category
+    ? Object.entries(forecast.predicted_by_category).map(([cat, amt]) => ({
+        name: CATEGORY_LABELS[cat] || cat,
+        amount: amt as number,
+        color: CATEGORY_COLORS[cat] || "#94a3b8",
+      }))
+    : [];
+
   return (
     <>
       <nav>
@@ -73,21 +99,28 @@ export default function AnalysisPage() {
         {loading && <p>분석 중...</p>}
 
         <div className="grid grid-2">
-          {/* K-Means 군집 분석 */}
+          {/* K-Means 군집 분석 + 레이더 차트 */}
           {pattern && (
             <div className="card">
-              <h3>소비 유형 (K-Means)</h3>
-              <div style={{ margin: "16px 0" }}>
+              <h3>소비 유형 (K-Means 군집화)</h3>
+              <div style={{ margin: "16px 0", display: "flex", alignItems: "center", gap: 12 }}>
                 <span className={`badge ${clusterBadge(pattern.cluster_label)}`} style={{ fontSize: 18, padding: "8px 20px" }}>
                   {pattern.cluster_label}
                 </span>
+                <span className="text-secondary">
+                  {pattern.tx_count}건 · 평균 {formatKRW(pattern.avg_amount)}/건
+                </span>
               </div>
-              <p className="text-secondary">
-                총 {pattern.tx_count}건, 평균 {formatKRW(pattern.avg_amount)}/건
-              </p>
-              <p className="text-secondary">
-                주 카테고리: {CATEGORY_LABELS[pattern.top_category] || pattern.top_category}
-              </p>
+              {radarData.length > 0 && (
+                <ResponsiveContainer width="100%" height={220}>
+                  <RadarChart data={radarData}>
+                    <PolarGrid stroke="#e2e8f0" />
+                    <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
+                    <PolarRadiusAxis tick={{ fontSize: 10 }} />
+                    <Radar dataKey="pct" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.3} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           )}
 
@@ -95,38 +128,71 @@ export default function AnalysisPage() {
           {anomalies && (
             <div className="card">
               <h3>이상 지출 탐지 (Isolation Forest)</h3>
-              <div style={{ margin: "16px 0" }}>
+              <div style={{ margin: "16px 0", display: "flex", alignItems: "center", gap: 12 }}>
                 <span className={`badge ${anomalies.anomaly_count > 0 ? "badge-danger" : "badge-success"}`}
                   style={{ fontSize: 16, padding: "6px 16px" }}>
                   {anomalies.anomaly_count > 0 ? `${anomalies.anomaly_count}건 감지` : "이상 없음"}
                 </span>
+                <span className="text-secondary">
+                  전체 {anomalies.total_transactions}건 중 분석
+                </span>
               </div>
-              <p className="text-secondary">전체 {anomalies.total_transactions}건 중 분석</p>
-              {anomalies.anomalies?.slice(0, 5).map((a: any, i: number) => (
-                <div key={i} style={{ marginTop: 8, padding: 8, background: "#fef2f2", borderRadius: 8 }}>
-                  <span className="text-danger">{formatKRW(a.amount)}</span>
-                  <span className="text-secondary"> — {a.reason}</span>
-                </div>
-              ))}
+              <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                {anomalies.anomalies?.length > 0 ? (
+                  anomalies.anomalies.map((a: any, i: number) => (
+                    <div key={i} style={{
+                      marginTop: 8, padding: "10px 12px", background: "#fef2f2",
+                      borderRadius: 8, borderLeft: "3px solid var(--danger)",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontWeight: 600, color: "var(--danger)" }}>{formatKRW(a.amount)}</span>
+                        <span className="badge badge-danger" style={{ fontSize: 11 }}>
+                          score: {a.anomaly_score.toFixed(3)}
+                        </span>
+                      </div>
+                      <div className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>{a.reason}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: 24, textAlign: "center" }}>
+                    <span style={{ fontSize: 32 }}>✅</span>
+                    <p className="text-secondary" style={{ marginTop: 8 }}>모든 거래가 정상 범위입니다</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* LSTM 예측 */}
+          {/* LSTM 예측 + 바 차트 */}
           {forecast && (
             <div className="card">
               <h3>다음 달 지출 예측 (LSTM)</h3>
               <div style={{ margin: "16px 0" }}>
                 <div className="stat-value">{formatKRW(forecast.predicted_total)}</div>
-                <p className="text-secondary" style={{ marginTop: 4 }}>
-                  신뢰도: {(forecast.confidence * 100).toFixed(0)}%
-                </p>
-              </div>
-              {Object.entries(forecast.predicted_by_category || {}).map(([cat, amt]) => (
-                <div key={cat} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                  <span>{CATEGORY_LABELS[cat] || cat}</span>
-                  <span>{formatKRW(amt as number)}</span>
+                <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                  <span className="badge badge-primary">
+                    신뢰도 {(forecast.confidence * 100).toFixed(0)}%
+                  </span>
+                  <span className="badge" style={{ background: "#f8fafc", color: "var(--text-secondary)" }}>
+                    방법: {forecast.confidence > 0.6 ? "LSTM" : "가중이동평균"}
+                  </span>
                 </div>
-              ))}
+              </div>
+              {forecastBarData.length > 0 && (
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={forecastBarData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis type="number" tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={50} />
+                    <Tooltip formatter={(v: number) => formatKRW(v)} />
+                    <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
+                      {forecastBarData.map((entry, idx) => (
+                        <Cell key={idx} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           )}
 
@@ -134,20 +200,49 @@ export default function AnalysisPage() {
           {overspend && (
             <div className="card">
               <h3>과소비 위험도 (XGBoost)</h3>
-              <div style={{ margin: "16px 0" }}>
+              <div style={{ margin: "16px 0", textAlign: "center" }}>
+                {/* 게이지 표현 */}
+                <div style={{
+                  position: "relative", width: 160, height: 80, margin: "0 auto",
+                  overflow: "hidden", borderRadius: "80px 80px 0 0",
+                  background: `conic-gradient(
+                    ${overspend.is_overspend ? "var(--danger)" : "var(--success)"}
+                    ${overspend.overspend_probability * 180}deg,
+                    #e2e8f0 0deg
+                  )`,
+                  transform: "rotate(-90deg)",
+                  transformOrigin: "center bottom",
+                }}>
+                  <div style={{
+                    position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)",
+                    width: 120, height: 60, background: "white", borderRadius: "60px 60px 0 0",
+                  }} />
+                </div>
                 <div className="stat-value" style={{
-                  color: overspend.is_overspend ? "var(--danger)" : "var(--success)"
+                  marginTop: -8,
+                  color: overspend.is_overspend ? "var(--danger)" : "var(--success)",
                 }}>
                   {(overspend.overspend_probability * 100).toFixed(1)}%
                 </div>
-                <span className={`badge ${overspend.is_overspend ? "badge-danger" : "badge-success"}`}>
-                  {overspend.is_overspend ? "과소비 주의" : "정상"}
+                <span className={`badge ${overspend.is_overspend ? "badge-danger" : "badge-success"}`}
+                  style={{ marginTop: 8 }}>
+                  {overspend.is_overspend ? "과소비 주의" : "정상 범위"}
                 </span>
               </div>
-              <p className="text-secondary">
-                이번 달: {formatKRW(overspend.monthly_total)} / 월평균: {formatKRW(overspend.monthly_avg)}
-              </p>
-              <p className="text-secondary">분석 방법: {overspend.method}</p>
+              <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between" }}>
+                <div>
+                  <div className="stat-label">이번 달</div>
+                  <div style={{ fontWeight: 600 }}>{formatKRW(overspend.monthly_total)}</div>
+                </div>
+                <div>
+                  <div className="stat-label">월 평균</div>
+                  <div style={{ fontWeight: 600 }}>{formatKRW(overspend.monthly_avg)}</div>
+                </div>
+                <div>
+                  <div className="stat-label">분석 방법</div>
+                  <div style={{ fontWeight: 600 }}>{overspend.method}</div>
+                </div>
+              </div>
             </div>
           )}
         </div>
