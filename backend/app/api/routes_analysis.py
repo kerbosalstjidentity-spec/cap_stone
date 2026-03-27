@@ -21,7 +21,19 @@ from app.services.spend_profile import profile_store
 router = APIRouter(prefix="/v1/analysis", tags=["analysis"])
 
 
-@router.get("/pattern/{user_id}")
+@router.get(
+    "/pattern/{user_id}",
+    summary="소비 패턴 군집화 (K-Means)",
+    description=(
+        "K-Means 알고리즘으로 사용자의 카테고리별 소비 비중을 분석하여 소비 유형을 분류합니다.\n\n"
+        "**군집 유형 예시**\n"
+        "- `절약형`: 전반적으로 낮은 지출, 식비/교통 중심\n"
+        "- `소비형`: 쇼핑/외식 비중 높음\n"
+        "- `고정비형`: 주거/공과금 비중 높음\n"
+        "- `레저형`: 여행/엔터테인먼트 비중 높음"
+    ),
+    response_description="군집 ID, 라벨, 특성 벡터 포함",
+)
 async def analyze_pattern(user_id: str):
     """K-Means 기반 소비 패턴 군집화 결과."""
     profile = profile_store.get_profile(user_id)
@@ -45,7 +57,16 @@ async def analyze_pattern(user_id: str):
     }
 
 
-@router.get("/anomaly/{user_id}")
+@router.get(
+    "/anomaly/{user_id}",
+    summary="이상 지출 탐지 (Isolation Forest)",
+    description=(
+        "Isolation Forest 알고리즘으로 거래별 이상 패턴을 탐지합니다.\n\n"
+        "이상 거래 판단 기준: 금액 크기, 시간대, 카테고리 조합이 기존 패턴에서 크게 벗어나는 경우.\n\n"
+        "fraud-service의 사기 탐지와 달리, **소비 이상(예: 갑작스런 고가 지출)** 에 초점을 맞춥니다."
+    ),
+    response_description="이상 거래 목록과 IF 스코어",
+)
 async def detect_anomaly(user_id: str) -> dict:
     """Isolation Forest 기반 이상 지출 탐지."""
     profile = profile_store.get_profile(user_id)
@@ -95,7 +116,18 @@ async def detect_anomaly(user_id: str) -> dict:
     }
 
 
-@router.get("/forecast/{user_id}", response_model=ForecastResult)
+@router.get(
+    "/forecast/{user_id}",
+    response_model=ForecastResult,
+    summary="다음 달 지출 예측 (LSTM)",
+    description=(
+        "LSTM 시계열 모델로 다음 달 총 지출과 카테고리별 예상 금액을 예측합니다.\n\n"
+        "- 학습 데이터가 부족한 경우(3개월 미만) 가중이동평균(WMA) fallback 사용\n"
+        "- `confidence`: 예측 신뢰도 (0~1, 데이터 충분할수록 높음)\n"
+        "- `predicted_by_category`: 최근 3개월 카테고리 비율 기반 예측 분배"
+    ),
+    response_description="예측 총액, 카테고리별 예측, 신뢰도",
+)
 async def forecast_spending(user_id: str):
     """LSTM 기반 다음 달 지출 예측."""
     trend = profile_store.get_trend(user_id)
@@ -141,7 +173,17 @@ async def forecast_spending(user_id: str):
     )
 
 
-@router.get("/overspend/{user_id}")
+@router.get(
+    "/overspend/{user_id}",
+    summary="과소비 위험도 예측 (XGBoost)",
+    description=(
+        "XGBoost 분류 모델로 현재 소비 패턴의 과소비 위험도를 0~1 확률로 예측합니다.\n\n"
+        "**입력 특성**: 평균 금액, 상위 카테고리 비중, 피크 시간대, 월간 총액 vs 전월 평균\n\n"
+        "- `overspend_probability >= 0.7`: 과소비 위험 (전략 추천과 연계)\n"
+        "- 모델 미학습 시 규칙 기반(전월 대비 130% 초과) fallback 적용"
+    ),
+    response_description="과소비 확률, 판정, 예측 방법(ML/rule)",
+)
 async def predict_overspend(user_id: str):
     """XGBoost 기반 과소비 확률 예측."""
     profile = profile_store.get_profile(user_id)
@@ -186,7 +228,21 @@ async def predict_overspend(user_id: str):
     }
 
 
-@router.get("/compare/{user_id}", response_model=ComparisonResult)
+@router.get(
+    "/compare/{user_id}",
+    response_model=ComparisonResult,
+    summary="기간 비교 분석 (전월 대비)",
+    description=(
+        "두 기간의 지출을 비교하여 증감액, 증감률, 카테고리별 변화를 반환합니다.\n\n"
+        "**Query Parameters**\n"
+        "- `current`: 비교 기준 기간 (예: `2026-03`). 미입력 시 가장 최근 월\n"
+        "- `previous`: 비교 대상 기간 (예: `2026-02`). 미입력 시 직전 월\n\n"
+        "**insight 기준**\n"
+        "- 전월 대비 +20% 초과: 지출 관리 경고\n"
+        "- 전월 대비 -10% 이상: 절약 효과 메시지"
+    ),
+    response_description="기간별 총액 차이, 카테고리 증감, 인사이트 문구",
+)
 async def compare_periods(user_id: str, current: str = "", previous: str = ""):
     """기간 비교 분석 (전월 대비)."""
     trend = profile_store.get_trend(user_id)

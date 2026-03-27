@@ -13,7 +13,20 @@ router = APIRouter(prefix="/v1/strategy", tags=["strategy"])
 _budgets: dict[str, BudgetSet] = {}
 
 
-@router.get("/recommend/{user_id}", response_model=StrategyRecommendation)
+@router.get(
+    "/recommend/{user_id}",
+    response_model=StrategyRecommendation,
+    summary="개인화 소비 전략 추천",
+    description=(
+        "소비 패턴 분석 결과를 바탕으로 개인화된 절약 전략과 소비 가이드라인을 제안합니다.\n\n"
+        "**분석 로직**\n"
+        "- K-Means 군집 → 소비 유형 라벨 부여\n"
+        "- XGBoost → 과소비 위험도(risk_score) 산출\n"
+        "- 규칙 기반 → 카테고리 편중, 식비/쇼핑/엔터테인먼트 임계값 초과 시 구체적 절약 방법 제시\n\n"
+        "**saving_opportunities**: 절약 가능 카테고리와 예상 절감액"
+    ),
+    response_description="추천 목록, 절약 기회, 군집 라벨, 위험도",
+)
 async def recommend_strategy(user_id: str):
     """개인화 소비 전략 추천."""
     profile = profile_store.get_profile(user_id)
@@ -108,7 +121,16 @@ async def recommend_strategy(user_id: str):
     )
 
 
-@router.post("/budget/{user_id}")
+@router.post(
+    "/budget/{user_id}",
+    summary="월 예산 설정",
+    description=(
+        "사용자의 카테고리별 월 예산을 설정합니다.\n\n"
+        "설정된 예산은 `/recommend` 추천 및 `/savings` 절약 분석에 반영됩니다.\n\n"
+        "**monthly_total**: 카테고리 항목 합산으로 자동 계산됩니다."
+    ),
+    response_description="설정된 월 예산 총액 확인",
+)
 async def set_budget(user_id: str, budget: BudgetSet) -> dict:
     """카테고리별 예산 설정."""
     budget.user_id = user_id
@@ -116,7 +138,12 @@ async def set_budget(user_id: str, budget: BudgetSet) -> dict:
     return {"status": "budget_set", "user_id": user_id, "monthly_total": budget.monthly_total}
 
 
-@router.get("/budget/{user_id}")
+@router.get(
+    "/budget/{user_id}",
+    summary="월 예산 조회",
+    description="설정된 카테고리별 월 예산을 조회합니다.",
+    response_description="카테고리별 예산 목록",
+)
 async def get_budget(user_id: str) -> dict:
     budget = _budgets.get(user_id)
     if not budget:
@@ -124,7 +151,15 @@ async def get_budget(user_id: str) -> dict:
     return {"user_id": user_id, "budget": budget}
 
 
-@router.get("/savings/{user_id}")
+@router.get(
+    "/savings/{user_id}",
+    summary="예산 초과 절약 분석",
+    description=(
+        "설정된 예산과 실제 지출을 비교하여 카테고리별 초과 금액과 절감 제안을 반환합니다.\n\n"
+        "예산 미설정 시 빈 목록을 반환합니다. 먼저 `POST /budget/{user_id}`로 예산을 설정하세요."
+    ),
+    response_description="초과 카테고리별 절감 제안 목록",
+)
 async def get_savings(user_id: str) -> dict:
     """절약 가능 항목 식별."""
     profile = profile_store.get_profile(user_id)
