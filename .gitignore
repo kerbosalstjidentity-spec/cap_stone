@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Node
+node_modules/
+.next/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Models
+*.joblib
+*.pkl
+*.h5
+*.pt
+
+# Logs
+logs/
+*.log
