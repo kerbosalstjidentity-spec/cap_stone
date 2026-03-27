@@ -93,6 +93,8 @@ class ComparisonResult(BaseModel):
     user_id: str
     current_period: str
     previous_period: str
+    current_total: float  # 당월 총액
+    previous_total: float  # 전월 총액
     total_diff: float  # 금액 차이
     total_diff_pct: float  # 변화율 (%)
     category_diffs: dict[str, float]

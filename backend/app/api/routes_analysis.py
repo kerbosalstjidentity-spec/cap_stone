@@ -281,6 +281,8 @@ async def compare_periods(user_id: str, current: str = "", previous: str = ""):
         user_id=user_id,
         current_period=cur_period,
         previous_period=prev_period,
+        current_total=round(cur_total, 2),
+        previous_total=round(prev_total, 2),
         total_diff=round(diff, 2),
         total_diff_pct=round(diff_pct, 2),
         category_diffs=cat_diffs,
