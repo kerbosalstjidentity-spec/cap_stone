@@ -8,6 +8,7 @@ from app.schemas.spend import (
     TransactionIngest,
     TrendPoint,
 )
+from app.services.fraud_client import fetch_fraud_profile
 from app.services.spend_profile import profile_store
 
 router = APIRouter(prefix="/v1/profile", tags=["profile"])
@@ -80,6 +81,41 @@ async def get_trend(user_id: str) -> dict:
         total = amounts.pop("_total", 0.0)
         points.append(TrendPoint(period=period, total_amount=total, category_amounts=amounts))
     return {"user_id": user_id, "trend": points}
+
+
+@router.get(
+    "/{user_id}/fraud",
+    summary="fraud-service 사기 프로필 조회",
+    description=(
+        "fraud-service(port 8010)에서 해당 사용자의 사기 거래 통계 및 velocity 정보를 조회합니다.\n\n"
+        "**반환 필드 예시**\n"
+        "- `tx_count`: fraud-service가 수집한 총 거래 수\n"
+        "- `avg_amount`: 평균 거래 금액\n"
+        "- `max_amount`: 최대 거래 금액\n"
+        "- `peak_hour`: 주요 거래 시간대\n"
+        "- `merchant_diversity`: 가맹점 다양성 지수\n"
+        "- `velocity`: 1분/5분/15분 단위 velocity 메트릭\n\n"
+        "fraud-service가 미기동 상태이거나 해당 사용자 데이터가 없는 경우 404를 반환합니다."
+    ),
+    response_description="fraud-service 사용자 프로필 및 velocity",
+)
+async def get_fraud_profile(user_id: str) -> dict:
+    """fraud-service에서 사용자 사기 프로필 조회."""
+    # 소비 프로필 존재 여부 먼저 확인
+    if not profile_store.get_profile(user_id):
+        raise HTTPException(404, f"User {user_id} not found")
+
+    fraud_data = await fetch_fraud_profile(user_id)
+    if fraud_data is None:
+        raise HTTPException(
+            503,
+            detail={
+                "error": "fraud-service unavailable",
+                "message": "fraud-service(port 8010)에 연결할 수 없습니다. 서비스가 기동 중인지 확인하세요.",
+            },
+        )
+
+    return {"user_id": user_id, "fraud_profile": fraud_data}
 
 
 @router.delete(

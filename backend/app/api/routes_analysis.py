@@ -16,6 +16,7 @@ from app.schemas.spend import (
     ForecastResult,
     SpendCategory,
 )
+from app.services.fraud_client import fetch_fraud_profile
 from app.services.spend_profile import profile_store
 
 router = APIRouter(prefix="/v1/analysis", tags=["analysis"])
@@ -59,16 +60,18 @@ async def analyze_pattern(user_id: str):
 
 @router.get(
     "/anomaly/{user_id}",
-    summary="이상 지출 탐지 (Isolation Forest)",
+    summary="이상 지출 탐지 (Isolation Forest + fraud-service)",
     description=(
         "Isolation Forest 알고리즘으로 거래별 이상 패턴을 탐지합니다.\n\n"
         "이상 거래 판단 기준: 금액 크기, 시간대, 카테고리 조합이 기존 패턴에서 크게 벗어나는 경우.\n\n"
-        "fraud-service의 사기 탐지와 달리, **소비 이상(예: 갑작스런 고가 지출)** 에 초점을 맞춥니다."
+        "fraud-service의 사기 탐지와 달리, **소비 이상(예: 갑작스런 고가 지출)** 에 초점을 맞춥니다.\n\n"
+        "**fraud-service 연계**: `fraud_profile` 필드에 fraud-service의 사용자 거래 통계 및 velocity 정보를 포함합니다. "
+        "fraud-service가 응답하지 않으면 `fraud_profile: null`로 반환됩니다."
     ),
-    response_description="이상 거래 목록과 IF 스코어",
+    response_description="이상 거래 목록, IF 스코어, fraud-service 프로필",
 )
 async def detect_anomaly(user_id: str) -> dict:
-    """Isolation Forest 기반 이상 지출 탐지."""
+    """Isolation Forest 기반 이상 지출 탐지 + fraud-service 프로필 병합."""
     profile = profile_store.get_profile(user_id)
     if not profile:
         raise HTTPException(404, f"User {user_id} not found")
@@ -87,8 +90,12 @@ async def detect_anomaly(user_id: str) -> dict:
         for tx in txs
     ]
 
-    # IF 예측
-    if_results = anomaly_detector.predict(tx_dicts)
+    # IF 예측 + fraud-service 프로필 조회 (병렬)
+    import asyncio
+    if_results, fraud_profile = await asyncio.gather(
+        asyncio.to_thread(anomaly_detector.predict, tx_dicts),
+        fetch_fraud_profile(user_id),
+    )
 
     anomalies: list[AnomalyItem] = []
     avg = profile.avg_amount
@@ -113,6 +120,8 @@ async def detect_anomaly(user_id: str) -> dict:
         "total_transactions": len(txs),
         "avg_amount": avg,
         "anomalies": anomalies,
+        # fraud-service 연계 데이터 (서비스 미기동 시 null)
+        "fraud_profile": fraud_profile,
     }
 
 

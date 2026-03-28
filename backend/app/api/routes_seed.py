@@ -114,6 +114,8 @@ async def seed_demo_data(user_id: str, months: int = 3, tx_per_month: int = 40) 
         months: 생성할 개월 수 (기본 3개월)
         tx_per_month: 월당 거래 수 (기본 40)
     """
+    # 중복 호출 시 누적 방지 — 기존 데이터 초기화 후 재생성
+    profile_store.delete_user(user_id)
     txs = _generate_transactions(user_id, months, tx_per_month)
     for tx in txs:
         profile_store.ingest(tx)
