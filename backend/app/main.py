@@ -7,14 +7,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import routes_analysis, routes_education, routes_health, routes_profile, routes_seed, routes_strategy
 from app.config import settings
+from app.db.session import close_db, init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
     print(f"[{settings.APP_NAME}] Starting v{settings.APP_VERSION} on :{settings.PORT}")
+    await init_db()
     yield
     # shutdown
+    await close_db()
     print(f"[{settings.APP_NAME}] Shutting down")
 
 
