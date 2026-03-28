@@ -57,6 +57,7 @@ export default function StrategyPage() {
           <Link href="/dashboard">대시보드</Link>
           <Link href="/analysis">패턴 분석</Link>
           <Link href="/strategy" className="active">전략 제안</Link>
+          <Link href="/education">교육</Link>
         </div>
       </nav>
       <main className="container">

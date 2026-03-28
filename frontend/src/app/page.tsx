@@ -11,6 +11,7 @@ export default function Home() {
           <Link href="/dashboard">대시보드</Link>
           <Link href="/analysis">패턴 분석</Link>
           <Link href="/strategy">전략 제안</Link>
+          <Link href="/education">교육</Link>
         </div>
       </nav>
       <main className="container">
@@ -21,7 +22,7 @@ export default function Home() {
             <br />
             사용자의 재무 목표에 맞춘 합리적인 소비 가이드라인을 제시합니다.
           </p>
-          <div className="grid grid-3" style={{ maxWidth: 800, margin: "0 auto" }}>
+          <div className="grid grid-4" style={{ maxWidth: 1000, margin: "0 auto" }}>
             <Link href="/dashboard" style={{ textDecoration: "none" }}>
               <div className="card" style={{ cursor: "pointer" }}>
                 <h3>대시보드</h3>
@@ -43,6 +44,14 @@ export default function Home() {
                 <h3>전략 제안</h3>
                 <p className="text-secondary" style={{ marginTop: 8 }}>
                   맞춤형 소비 전략
+                </p>
+              </div>
+            </Link>
+            <Link href="/education" style={{ textDecoration: "none" }}>
+              <div className="card" style={{ cursor: "pointer" }}>
+                <h3>소비습관 코치</h3>
+                <p className="text-secondary" style={{ marginTop: 8 }}>
+                  맞춤 교육 프로그램
                 </p>
               </div>
             </Link>

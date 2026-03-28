@@ -108,6 +108,7 @@ export default function DashboardPage() {
           <Link href="/dashboard" className="active">대시보드</Link>
           <Link href="/analysis">패턴 분석</Link>
           <Link href="/strategy">전략 제안</Link>
+          <Link href="/education">교육</Link>
         </div>
       </nav>
       <main className="container">

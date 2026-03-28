@@ -79,6 +79,7 @@ export default function AnalysisPage() {
           <Link href="/dashboard">대시보드</Link>
           <Link href="/analysis" className="active">패턴 분석</Link>
           <Link href="/strategy">전략 제안</Link>
+          <Link href="/education">교육</Link>
         </div>
       </nav>
       <main className="container">
