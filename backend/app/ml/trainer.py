@@ -11,10 +11,9 @@ PostgreSQL에서 거래 데이터를 읽어 4가지 모델을 학습:
 
 import logging
 from collections import defaultdict
-from datetime import datetime
 
 import numpy as np
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ml.anomaly import anomaly_detector
@@ -216,8 +215,8 @@ async def _train_forecaster(session: AsyncSession) -> dict:
             func.to_char(Transaction.timestamp, "YYYY-MM").label("period"),
             func.sum(Transaction.amount).label("total"),
         )
-        .group_by(func.to_char(Transaction.timestamp, "YYYY-MM"))
-        .order_by(func.to_char(Transaction.timestamp, "YYYY-MM"))
+        .group_by(text("1"))   # PostgreSQL: GROUP BY 위치 참조 (파라미터 바인딩 충돌 방지)
+        .order_by(text("1"))
     )
     rows = result.all()
     if len(rows) < forecaster.seq_length + 1:
