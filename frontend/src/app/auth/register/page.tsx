@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -12,6 +12,12 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 이미 로그인된 경우 대시보드로 이동
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) router.replace("/dashboard");
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,8 +80,7 @@ export default function RegisterPage() {
     <>
       <nav>
         <div className="container">
-          <h2>ConsumePattern</h2>
-          <Link href="/">홈</Link>
+          <h2><Link href="/" style={{ textDecoration: "none", color: "inherit" }}>ConsumePattern</Link></h2>
         </div>
       </nav>
       <main className="container" style={{ maxWidth: 480, paddingTop: 60 }}>

@@ -1,7 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import AuthGuard from "@/components/AuthGuard";
+import NavBar from "@/components/NavBar";
+import { useAuth } from "@/hooks/useAuth";
 
 type UserProfile = {
   user_id: string;
@@ -27,13 +29,13 @@ type FidoCredential = {
   created_at: string;
 };
 
-export default function SecurityPage() {
+function SecurityContent() {
+  const { accessToken } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [history, setHistory] = useState<StepUpHistory[]>([]);
   const [fidoCreds, setFidoCreds] = useState<FidoCredential[]>([]);
   const [tab, setTab] = useState<"overview" | "totp" | "fido" | "history">("overview");
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
 
   // TOTP 설정 상태
   const [totpSetup, setTotpSetup] = useState<{ secret: string; qr_uri: string } | null>(null);
@@ -45,11 +47,9 @@ export default function SecurityPage() {
   const [pwMsg, setPwMsg] = useState("");
 
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
-    setToken(t);
-    if (!t) { setLoading(false); return; }
+    if (!accessToken) { setLoading(false); return; }
 
-    const headers = { Authorization: `Bearer ${t}` };
+    const headers = { Authorization: `Bearer ${accessToken}` };
 
     Promise.all([
       fetch("/api/v1/auth/me", { headers }).then(r => r.ok ? r.json() : null),
@@ -60,12 +60,12 @@ export default function SecurityPage() {
       setHistory(hist?.history ?? []);
       setFidoCreds(Array.isArray(creds) ? creds : []);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [accessToken]);
 
   async function startTotpSetup() {
     const res = await fetch("/api/v1/auth/me/totp/setup", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (res.ok) setTotpSetup(await res.json());
   }
@@ -73,7 +73,7 @@ export default function SecurityPage() {
   async function verifyTotp() {
     const res = await fetch("/api/v1/auth/me/totp/verify", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ code: totpCode }),
     });
     const data = await res.json();
@@ -91,7 +91,7 @@ export default function SecurityPage() {
     if (!code) return;
     const res = await fetch("/api/v1/auth/me/totp/disable", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
     });
     if (res.ok) {
@@ -103,7 +103,7 @@ export default function SecurityPage() {
   async function changePassword() {
     const res = await fetch("/api/v1/auth/me/change-password", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ current_password: pwForm.current, new_password: pwForm.next }),
     });
     const data = await res.json();
@@ -115,24 +115,9 @@ export default function SecurityPage() {
     if (!confirm("이 인증 장치를 삭제하시겠습니까?")) return;
     await fetch(`/api/v1/auth/fido/credentials/${id}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     setFidoCreds(creds => creds.filter(c => c.id !== id));
-  }
-
-  if (!token) {
-    return (
-      <>
-        <nav><div className="container"><h2>ConsumePattern</h2><Link href="/">홈</Link></div></nav>
-        <main className="container" style={{ paddingTop: 80, textAlign: "center" }}>
-          <div className="card" style={{ maxWidth: 400, margin: "0 auto" }}>
-            <h3>로그인이 필요합니다</h3>
-            <p className="text-secondary" style={{ margin: "12px 0 20px" }}>보안 설정을 관리하려면 먼저 로그인하세요.</p>
-            <Link href="/auth/login" style={{ color: "#6366f1", fontWeight: 600 }}>로그인하러 가기 →</Link>
-          </div>
-        </main>
-      </>
-    );
   }
 
   const tabStyle = (t: string) => ({
@@ -152,14 +137,7 @@ export default function SecurityPage() {
 
   return (
     <>
-      <nav>
-        <div className="container">
-          <h2>ConsumePattern</h2>
-          <Link href="/dashboard">대시보드</Link>
-          <Link href="/education">교육</Link>
-          <Link href="/security" style={{ fontWeight: 700 }}>보안</Link>
-        </div>
-      </nav>
+      <NavBar activePath="/security" />
       <main className="container" style={{ paddingTop: 32 }}>
         <h1 style={{ marginBottom: 4 }}>계정 보안 설정</h1>
         <p className="text-secondary" style={{ marginBottom: 28 }}>
@@ -225,7 +203,6 @@ export default function SecurityPage() {
 
             {/* 메인 컨텐츠 */}
             <div>
-              {/* 개요 탭 */}
               {tab === "overview" && (
                 <div>
                   <div className="card" style={{ marginBottom: 16 }}>
@@ -252,7 +229,6 @@ export default function SecurityPage() {
                     )}
                   </div>
 
-                  {/* 비밀번호 변경 */}
                   <div className="card">
                     <h3 style={{ marginBottom: 16 }}>비밀번호 변경</h3>
                     {pwMsg && (
@@ -294,7 +270,6 @@ export default function SecurityPage() {
                 </div>
               )}
 
-              {/* TOTP 탭 */}
               {tab === "totp" && (
                 <div className="card">
                   <h3 style={{ marginBottom: 8 }}>TOTP 2단계 인증</h3>
@@ -385,7 +360,6 @@ export default function SecurityPage() {
                 </div>
               )}
 
-              {/* FIDO2 탭 */}
               {tab === "fido" && (
                 <div className="card">
                   <h3 style={{ marginBottom: 8 }}>FIDO2 / WebAuthn 생체인증</h3>
@@ -449,7 +423,6 @@ export default function SecurityPage() {
                 </div>
               )}
 
-              {/* 보안 이벤트 내역 탭 */}
               {tab === "history" && (
                 <div className="card">
                   <h3 style={{ marginBottom: 16 }}>보안 이벤트 내역 (최근 20건)</h3>
@@ -511,5 +484,13 @@ export default function SecurityPage() {
         )}
       </main>
     </>
+  );
+}
+
+export default function SecurityPage() {
+  return (
+    <AuthGuard>
+      <SecurityContent />
+    </AuthGuard>
   );
 }

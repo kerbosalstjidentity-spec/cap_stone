@@ -3,6 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import AuthGuard from "@/components/AuthGuard";
+import NavBar from "@/components/NavBar";
+import { useAuth } from "@/hooks/useAuth";
 
 const LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   beginner: { label: "기초반", color: "#22c55e", bg: "#f0fdf4" },
@@ -29,17 +32,19 @@ interface Course {
 
 export default function CoursePageWrapper() {
   return (
-    <Suspense fallback={<div className="container" style={{ padding: 48, textAlign: "center" }}>로딩 중...</div>}>
-      <CoursePage />
-    </Suspense>
+    <AuthGuard>
+      <Suspense fallback={<div className="container" style={{ padding: 48, textAlign: "center" }}>로딩 중...</div>}>
+        <CoursePage />
+      </Suspense>
+    </AuthGuard>
   );
 }
 
 function CoursePage() {
+  const { userId } = useAuth();
   const searchParams = useSearchParams();
   const courseIdParam = searchParams.get("id");
 
-  const [userId, setUserId] = useState("demo_user");
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -62,9 +67,9 @@ function CoursePage() {
   }, [courseIdParam]);
 
   const selectCourse = async (course: Course) => {
+    if (!userId) return;
     setSelectedCourse(course);
     setCurrentStep(0);
-    // 진행률 조회
     const res = await fetch(`/api/v1/education/course/${course.course_id}/progress/${userId}`);
     const data = await res.json();
     setProgress(data);
@@ -74,16 +79,14 @@ function CoursePage() {
   };
 
   const advanceStep = async () => {
-    if (!selectedCourse) return;
+    if (!selectedCourse || !userId) return;
     setLoading(true);
-    // 서버에 진행률 업데이트
     await fetch(`/api/v1/education/course/${selectedCourse.course_id}/progress?user_id=${userId}`, {
       method: "POST",
     });
     if (currentStep < selectedCourse.steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // 완료
       const res = await fetch(`/api/v1/education/course/${selectedCourse.course_id}/progress/${userId}`);
       setProgress(await res.json());
     }
@@ -94,7 +97,6 @@ function CoursePage() {
     if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
-  // 코스 목록을 레벨별로 그룹핑
   const grouped = courses.reduce<Record<string, Course[]>>((acc, c) => {
     if (!acc[c.level]) acc[c.level] = [];
     acc[c.level].push(c);
@@ -106,15 +108,7 @@ function CoursePage() {
 
   return (
     <>
-      <nav>
-        <div className="container">
-          <h2>ConsumePattern</h2>
-          <Link href="/dashboard">대시보드</Link>
-          <Link href="/analysis">패턴 분석</Link>
-          <Link href="/strategy">전략 제안</Link>
-          <Link href="/education" className="active">교육</Link>
-        </div>
-      </nav>
+      <NavBar activePath="/education" />
       <main className="container">
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
           <h1>맞춤 교육 코스</h1>
@@ -126,18 +120,10 @@ function CoursePage() {
               코스 목록으로
             </button>
           )}
-          <div style={{ flex: 1 }} />
-          <input
-            value={userId} onChange={(e) => setUserId(e.target.value)}
-            placeholder="User ID"
-            style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: 8 }}
-          />
         </div>
 
-        {/* 코스 상세 보기 */}
         {selectedCourse && step && levelConf && (
           <div>
-            {/* 코스 헤더 */}
             <div className="card" style={{ marginBottom: 24, borderTop: `4px solid ${levelConf.color}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                 <span style={{
@@ -148,7 +134,6 @@ function CoursePage() {
                 </span>
                 <h2 style={{ margin: 0 }}>{selectedCourse.title}</h2>
               </div>
-              {/* 진행 바 */}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ flex: 1, height: 8, background: "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
                   <div style={{
@@ -163,7 +148,6 @@ function CoursePage() {
               </div>
             </div>
 
-            {/* 단계 네비게이션 */}
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
               {selectedCourse.steps.map((s, i) => (
                 <button key={i} onClick={() => setCurrentStep(i)} style={{
@@ -178,7 +162,6 @@ function CoursePage() {
               ))}
             </div>
 
-            {/* 학습 내용 */}
             <div className="card">
               <h3 style={{ marginBottom: 16, color: levelConf.color }}>
                 Step {step.step}: {step.title}
@@ -200,49 +183,23 @@ function CoursePage() {
                   padding: "12px 16px", borderRadius: 8, background: "#eef2ff",
                   fontSize: 13, color: "var(--primary)",
                 }}>
-                  &#x1F517; 실습 연동: {step.interactive === "category_chart" && (
-                    <Link href="/dashboard">대시보드에서 카테고리 차트 확인</Link>
-                  )}
-                  {step.interactive === "seed_demo" && (
-                    <Link href="/dashboard">대시보드에서 데모 데이터 생성</Link>
-                  )}
-                  {step.interactive === "strategy_recommend" && (
-                    <Link href="/strategy">전략 제안 페이지</Link>
-                  )}
-                  {step.interactive === "trend_chart" && (
-                    <Link href="/dashboard">대시보드 월별 추이 차트</Link>
-                  )}
-                  {step.interactive === "diagnosis" && (
-                    <Link href="/education/diagnosis">소비 습관 진단</Link>
-                  )}
-                  {step.interactive === "budget_api" && (
-                    <Link href="/strategy">예산 설정 (전략 제안)</Link>
-                  )}
-                  {step.interactive === "pattern_analysis" && (
-                    <Link href="/analysis">패턴 분석 페이지</Link>
-                  )}
-                  {step.interactive === "anomaly_analysis" && (
-                    <Link href="/analysis">이상 탐지 분석</Link>
-                  )}
-                  {step.interactive === "savings_simulate" && (
-                    <Link href="/education/simulate">절약 시뮬레이션</Link>
-                  )}
-                  {step.interactive === "forecast_analysis" && (
-                    <Link href="/analysis">지출 예측 분석</Link>
-                  )}
-                  {step.interactive === "fraud_quiz" && (
-                    <Link href="/education/security">사기 탐지 퀴즈</Link>
-                  )}
-                  {step.interactive === "fraud_simulate" && (
-                    <Link href="/education/security">사기 시뮬레이터</Link>
-                  )}
-                  {step.interactive === "security_score" && (
-                    <Link href="/education/security">보안 점수 확인</Link>
-                  )}
+                  &#x1F517; 실습 연동:{" "}
+                  {step.interactive === "category_chart" && <Link href="/dashboard">대시보드에서 카테고리 차트 확인</Link>}
+                  {step.interactive === "seed_demo" && <Link href="/dashboard">대시보드에서 데모 데이터 생성</Link>}
+                  {step.interactive === "strategy_recommend" && <Link href="/strategy">전략 제안 페이지</Link>}
+                  {step.interactive === "trend_chart" && <Link href="/dashboard">대시보드 월별 추이 차트</Link>}
+                  {step.interactive === "diagnosis" && <Link href="/education/diagnosis">소비 습관 진단</Link>}
+                  {step.interactive === "budget_api" && <Link href="/strategy">예산 설정 (전략 제안)</Link>}
+                  {step.interactive === "pattern_analysis" && <Link href="/analysis">패턴 분석 페이지</Link>}
+                  {step.interactive === "anomaly_analysis" && <Link href="/analysis">이상 탐지 분석</Link>}
+                  {step.interactive === "savings_simulate" && <Link href="/education/simulate">절약 시뮬레이션</Link>}
+                  {step.interactive === "forecast_analysis" && <Link href="/analysis">지출 예측 분석</Link>}
+                  {step.interactive === "fraud_quiz" && <Link href="/education/security">사기 탐지 퀴즈</Link>}
+                  {step.interactive === "fraud_simulate" && <Link href="/education/security">사기 시뮬레이터</Link>}
+                  {step.interactive === "security_score" && <Link href="/education/security">보안 점수 확인</Link>}
                 </div>
               )}
 
-              {/* 네비게이션 버튼 */}
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
                 <button onClick={goBack} disabled={currentStep === 0} style={{
                   padding: "10px 24px", borderRadius: 8, cursor: "pointer",
@@ -261,7 +218,6 @@ function CoursePage() {
               </div>
             </div>
 
-            {/* 완료 상태 */}
             {progress?.status === "completed" && (
               <div className="card" style={{ marginTop: 16, textAlign: "center", background: "#f0fdf4", borderLeft: "4px solid var(--success)" }}>
                 <span style={{ fontSize: 32 }}>&#x2705;</span>
@@ -271,7 +227,6 @@ function CoursePage() {
           </div>
         )}
 
-        {/* 코스 목록 */}
         {!selectedCourse && (
           <div>
             {["beginner", "intermediate", "advanced"].map((level) => {

@@ -1,21 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import NavBar from "@/components/NavBar";
 
 export default function Home() {
   return (
     <>
-      <nav>
-        <div className="container">
-          <h2>ConsumePattern</h2>
-          <Link href="/dashboard">대시보드</Link>
-          <Link href="/analysis">패턴 분석</Link>
-          <Link href="/strategy">전략 제안</Link>
-          <Link href="/education">교육</Link>
-          <Link href="/security">보안</Link>
-          <Link href="/auth/login">로그인</Link>
-        </div>
-      </nav>
+      <NavBar />
       <main className="container">
         <div style={{ textAlign: "center", padding: "80px 0" }}>
           <h1 style={{ marginBottom: 16 }}>AI 기반 지능형 소비 패턴 분석</h1>
