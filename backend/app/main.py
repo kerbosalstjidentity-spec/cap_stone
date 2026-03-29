@@ -15,16 +15,59 @@ from app.api import (
     routes_seed,
     routes_stepup,
     routes_strategy,
+    routes_train,
 )
 from app.config import settings
 from app.db.redis import close_redis
 from app.db.session import close_db, init_db
 
 
+async def _run_alembic_upgrade() -> None:
+    """서버 시작 시 Alembic 마이그레이션 자동 실행."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    alembic_ini = Path(__file__).parent.parent / "alembic.ini"
+    if not alembic_ini.exists():
+        print("[Alembic] alembic.ini not found, skipping migration")
+        return
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=str(alembic_ini.parent),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            print("[Alembic] Migration complete")
+        else:
+            print(f"[Alembic] Migration warning: {result.stderr.strip()}")
+    except Exception as e:
+        print(f"[Alembic] Migration error (non-fatal): {e}")
+
+
+async def _train_models_on_startup() -> None:
+    """서버 시작 시 ML 모델 학습 (데이터 있을 때만)."""
+    from app.db.session import async_session_factory
+    from app.ml.trainer import train_all
+
+    try:
+        async with async_session_factory() as session:
+            results = await train_all(session)
+        trained = {k: v.get("status") for k, v in results.items()}
+        print(f"[ML] Startup training: {trained}")
+    except Exception as e:
+        print(f"[ML] Startup training skipped: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"[{settings.APP_NAME}] Starting v{settings.APP_VERSION} on :{settings.PORT}")
+    await _run_alembic_upgrade()
     await init_db()
+    await _train_models_on_startup()
     yield
     await close_db()
     await close_redis()
@@ -56,3 +99,4 @@ app.include_router(routes_analysis.router)
 app.include_router(routes_strategy.router)
 app.include_router(routes_seed.router)
 app.include_router(routes_education.router)
+app.include_router(routes_train.router)

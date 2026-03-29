@@ -32,20 +32,42 @@ export default function AnalysisPage() {
   const [forecast, setForecast] = useState<any>(null);
   const [overspend, setOverspend] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const runAnalysis = async () => {
     setLoading(true);
-    const [p, a, f, o] = await Promise.allSettled([
-      fetch(`/api/v1/analysis/pattern/${userId}`).then((r) => r.json()),
-      fetch(`/api/v1/analysis/anomaly/${userId}`).then((r) => r.json()),
-      fetch(`/api/v1/analysis/forecast/${userId}`).then((r) => r.json()),
-      fetch(`/api/v1/analysis/overspend/${userId}`).then((r) => r.json()),
-    ]);
-    if (p.status === "fulfilled") setPattern(p.value);
-    if (a.status === "fulfilled") setAnomalies(a.value);
-    if (f.status === "fulfilled") setForecast(f.value);
-    if (o.status === "fulfilled") setOverspend(o.value);
-    setLoading(false);
+    setError("");
+    try {
+      const [p, a, f, o] = await Promise.allSettled([
+        fetch(`/api/v1/analysis/pattern/${userId}`).then((r) => {
+          if (!r.ok) throw new Error(`pattern ${r.status}`);
+          return r.json();
+        }),
+        fetch(`/api/v1/analysis/anomaly/${userId}`).then((r) => {
+          if (!r.ok) throw new Error(`anomaly ${r.status}`);
+          return r.json();
+        }),
+        fetch(`/api/v1/analysis/forecast/${userId}`).then((r) => {
+          if (!r.ok) throw new Error(`forecast ${r.status}`);
+          return r.json();
+        }),
+        fetch(`/api/v1/analysis/overspend/${userId}`).then((r) => {
+          if (!r.ok) throw new Error(`overspend ${r.status}`);
+          return r.json();
+        }),
+      ]);
+      if (p.status === "fulfilled" && !p.value?.detail) setPattern(p.value);
+      if (a.status === "fulfilled" && !a.value?.detail) setAnomalies(a.value);
+      if (f.status === "fulfilled" && !f.value?.detail) setForecast(f.value);
+      if (o.status === "fulfilled" && !o.value?.detail) setOverspend(o.value);
+
+      const allFailed = [p, a, f, o].every((r) => r.status === "rejected");
+      if (allFailed) setError("분석 데이터를 불러올 수 없습니다. 대시보드에서 먼저 데모 데이터를 생성해주세요.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clusterBadge = (label: string) => {
@@ -98,6 +120,13 @@ export default function AnalysisPage() {
         </div>
 
         {loading && <p>분석 중...</p>}
+
+        {error && (
+          <div className="card" style={{ color: "var(--danger)", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="grid grid-2">
           {/* K-Means 군집 분석 + 레이더 차트 */}
@@ -246,6 +275,15 @@ export default function AnalysisPage() {
                   <div style={{ fontWeight: 600 }}>{overspend.method}</div>
                 </div>
               </div>
+            </div>
+          )}
+          {!pattern && !anomalies && !forecast && !overspend && !loading && !error && (
+            <div className="card" style={{ gridColumn: "1 / -1", textAlign: "center", padding: 48 }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🔬</div>
+              <p className="text-secondary">사용자 ID를 입력하고 분석 실행을 눌러주세요.</p>
+              <p className="text-secondary" style={{ fontSize: 13, marginTop: 8 }}>
+                대시보드에서 먼저 데모 데이터를 생성해야 합니다.
+              </p>
             </div>
           )}
         </div>
