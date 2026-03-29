@@ -1,10 +1,12 @@
-"""교육 프로그램 API — 진단, 코스, 챌린지, 퀴즈, 시뮬레이션, 리더보드."""
+"""교육 프로그램 API — 진단, 코스, 챌린지, 퀴즈, 시뮬레이션, 리더보드 (DB 기반)."""
 
 import random
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import get_session
 from app.ml.classifier import overspend_classifier
 from app.ml.clustering import cluster_model
 from app.schemas.education import (
@@ -23,9 +25,9 @@ from app.services.education_store import (
     CHALLENGES,
     COURSES,
     SPENDING_QUIZ_BANK,
-    education_store,
 )
-from app.services.spend_profile import profile_store
+from app.services import education_store_db as edu_db
+from app.services.spend_profile_db import get_profile, get_transactions, get_trend
 
 router = APIRouter(prefix="/v1/education", tags=["education"])
 
@@ -66,17 +68,12 @@ def _assign_level(risk_score: float, cluster_label: str) -> EduLevel:
     "/diagnosis/{user_id}",
     response_model=DiagnosisReport,
     summary="소비 습관 종합 진단",
-    description=(
-        "소비 패턴 분석(K-Means), 과소비 위험도(XGBoost), 이상 소비(IF), "
-        "전월 비교를 종합하여 교육적 언어로 해석한 진단 리포트를 반환합니다."
-    ),
 )
-async def get_diagnosis(user_id: str):
-    profile = profile_store.get_profile(user_id)
+async def get_diagnosis(user_id: str, session: AsyncSession = Depends(get_session)):
+    profile = await get_profile(user_id, session)
     if not profile:
         raise HTTPException(404, f"User {user_id} not found. 먼저 데모 데이터를 생성하세요.")
 
-    # K-Means 클러스터링
     cat_pcts = {cs.category.value: cs.pct_of_total for cs in profile.category_breakdown}
     cluster = cluster_model.predict(cat_pcts)
     spend_type = cluster["cluster_label"]
@@ -89,7 +86,6 @@ async def get_diagnosis(user_id: str):
     }
     spend_type_desc = type_descriptions.get(spend_type, "소비 패턴을 분석 중입니다.")
 
-    # XGBoost 과소비 위험도
     top_cat_pct = profile.category_breakdown[0].pct_of_total if profile.category_breakdown else 0
     features = overspend_classifier.build_features(
         amount=profile.avg_amount, avg_amount=profile.avg_amount,
@@ -101,10 +97,9 @@ async def get_diagnosis(user_id: str):
     risk_score = risk_result["probability"]
     grade = _risk_grade(risk_score)
 
-    # 이상 소비 탐지 (간략)
     from app.ml.anomaly import anomaly_detector
     from app.schemas.spend import SpendCategory
-    txs = profile_store.get_transactions(user_id)
+    txs = await get_transactions(user_id, session)
     cat_list = list(SpendCategory)
     tx_dicts = [
         {"amount": tx.amount, "hour": tx.timestamp.hour, "is_domestic": tx.is_domestic,
@@ -121,8 +116,7 @@ async def get_diagnosis(user_id: str):
                 f"{tx.timestamp.strftime('%m/%d %H:%M')} {tx.merchant_id} {tx.amount:,.0f}원 — 평소와 다른 소비 패턴"
             )
 
-    # 전월 비교
-    trend = profile_store.get_trend(user_id)
+    trend = await get_trend(user_id, session)
     periods = sorted(trend.keys()) if trend else []
     monthly_insight = "데이터 축적 중입니다."
     if len(periods) >= 2:
@@ -140,7 +134,6 @@ async def get_diagnosis(user_id: str):
         else:
             monthly_insight = f"전월 대비 {abs(diff_pct):.1f}% 절약했습니다! 좋은 추세입니다."
 
-    # 개선 포인트
     improvements = []
     for cs in profile.category_breakdown:
         if cs.pct_of_total > 0.30 and cs.category.value not in ("housing", "utilities"):
@@ -152,7 +145,6 @@ async def get_diagnosis(user_id: str):
     if not improvements:
         improvements.append("전반적으로 양호합니다. 현재 습관을 유지하세요!")
 
-    # 레벨 배정
     level = _assign_level(risk_score, spend_type)
     level_courses = [c.title for c in COURSES.values() if c.level == level]
 
@@ -178,10 +170,9 @@ async def get_diagnosis(user_id: str):
     "/curriculum/{user_id}",
     response_model=CurriculumAssignment,
     summary="맞춤 커리큘럼 배정",
-    description="진단 결과 기반 자동 레벨/코스 배정 및 진행률 반환",
 )
-async def get_curriculum(user_id: str):
-    profile = profile_store.get_profile(user_id)
+async def get_curriculum(user_id: str, session: AsyncSession = Depends(get_session)):
+    profile = await get_profile(user_id, session)
     if not profile:
         raise HTTPException(404, f"User {user_id} not found")
 
@@ -198,7 +189,7 @@ async def get_curriculum(user_id: str):
     level = _assign_level(risk, cluster["cluster_label"])
 
     courses = [c for c in COURSES.values() if c.level == level]
-    all_progress = education_store.get_all_progress(user_id)
+    all_progress = await edu_db.get_all_progress(user_id, session)
     completed = sum(1 for p in all_progress if p.completed and p.course_id in [c.course_id for c in courses])
 
     reason_map = {
@@ -231,19 +222,27 @@ async def get_course(course_id: str):
 
 
 @router.post("/course/{course_id}/progress", summary="코스 진행률 업데이트")
-async def update_course_progress(course_id: str, user_id: str) -> dict:
+async def update_course_progress(
+    course_id: str,
+    user_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
     if course_id not in COURSES:
         raise HTTPException(404, f"Course {course_id} not found")
-    progress = education_store.advance_course(user_id, course_id)
-    return {
-        "status": "completed" if progress.completed else "in_progress",
-        "progress": progress,
-    }
+    try:
+        progress = await edu_db.advance_course_step(user_id, course_id, session)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return {"status": "completed" if progress.completed else "in_progress", "progress": progress}
 
 
 @router.get("/course/{course_id}/progress/{user_id}", summary="코스 진행 상태 조회")
-async def get_course_progress(course_id: str, user_id: str) -> dict:
-    progress = education_store.get_course_progress(user_id, course_id)
+async def get_course_progress_endpoint(
+    course_id: str,
+    user_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    progress = await edu_db.get_course_progress(user_id, course_id, session)
     if not progress:
         return {"status": "not_started", "course_id": course_id, "user_id": user_id}
     return {"status": "completed" if progress.completed else "in_progress", "progress": progress}
@@ -251,38 +250,35 @@ async def get_course_progress(course_id: str, user_id: str) -> dict:
 
 # ── Module 3: 사기 예방 교육 (퀴즈) ──────────────────────────
 
+_FRAUD_SCENARIOS = [
+    {"summary": "평일 오후 2시, 국내 편의점에서 4,500원 결제", "amount": 4500, "hour": 14, "foreign": False, "cat": "food", "is_fraud": False,
+     "rules": [], "explanation": "소액의 국내 일상 거래로 정상입니다."},
+    {"summary": "새벽 3시, 해외 IP에서 150만원 전자제품 결제", "amount": 1500000, "hour": 3, "foreign": True, "cat": "shopping", "is_fraud": True,
+     "rules": ["TIME_RISK", "FOREIGN_IP", "AMOUNT_REVIEW"], "explanation": "새벽 시간대 + 해외 IP + 고액 결제 = 3가지 위험 신호가 동시 발생했습니다."},
+    {"summary": "점심시간, 회사 근처 식당에서 12,000원 결제", "amount": 12000, "hour": 12, "foreign": False, "cat": "food", "is_fraud": False,
+     "rules": [], "explanation": "일반적인 점심 식사 패턴으로 정상입니다."},
+    {"summary": "10분 내에 같은 가맹점에서 9,900원씩 5회 연속 결제", "amount": 9900, "hour": 15, "foreign": False, "cat": "shopping", "is_fraud": True,
+     "rules": ["SPLIT_TXN", "VELOCITY_FREQ"], "explanation": "1만원 미만으로 분할하여 연속 결제하는 전형적인 분할 거래 사기 패턴입니다."},
+    {"summary": "월급날 오전 9시, 적금 자동이체 50만원", "amount": 500000, "hour": 9, "foreign": False, "cat": "finance", "is_fraud": False,
+     "rules": [], "explanation": "정기적인 금융 거래로 정상입니다."},
+    {"summary": "처음 보는 해외 가맹점에서 새벽 1시에 300만원 결제", "amount": 3000000, "hour": 1, "foreign": True, "cat": "shopping", "is_fraud": True,
+     "rules": ["TIME_RISK", "FOREIGN_IP", "AMOUNT_REVIEW", "NEW_MERCHANT"], "explanation": "심야 + 해외 + 고액 + 첫 거래 가맹점으로 매우 의심스러운 거래입니다."},
+    {"summary": "주말 오후, 넷플릭스 구독 결제 17,000원", "amount": 17000, "hour": 16, "foreign": False, "cat": "entertainment", "is_fraud": False,
+     "rules": [], "explanation": "정기 구독 서비스 결제로 정상입니다."},
+    {"summary": "평균 소비의 8배인 400만원이 새로운 쇼핑몰에서 결제", "amount": 4000000, "hour": 22, "foreign": False, "cat": "shopping", "is_fraud": True,
+     "rules": ["AMOUNT_REVIEW", "AMOUNT_SPIKE", "NEW_MERCHANT"], "explanation": "평소 평균의 8배 금액 + 신규 가맹점으로 이상 거래입니다."},
+    {"summary": "출퇴근 시간 교통카드 1,250원 결제", "amount": 1250, "hour": 8, "foreign": False, "cat": "transport", "is_fraud": False,
+     "rules": [], "explanation": "일상적인 대중교통 이용으로 정상입니다."},
+    {"summary": "같은 카드로 서로 다른 2개 도시에서 30분 내 결제", "amount": 250000, "hour": 14, "foreign": False, "cat": "shopping", "is_fraud": True,
+     "rules": ["VELOCITY_FREQ"], "explanation": "물리적으로 불가능한 이동 속도로, 카드 복제 의심 거래입니다."},
+]
+
+
 @router.post("/quiz/fraud", summary="사기 탐지 퀴즈")
 async def fraud_quiz(user_id: str, count: int = 5) -> dict:
-    """랜덤 사기 거래 시나리오 퀴즈 생성."""
-    questions: list[FraudQuizQuestion] = []
-
-    scenarios = [
-        {"summary": "평일 오후 2시, 국내 편의점에서 4,500원 결제", "amount": 4500, "hour": 14, "foreign": False, "cat": "food", "is_fraud": False,
-         "rules": [], "explanation": "소액의 국내 일상 거래로 정상입니다."},
-        {"summary": "새벽 3시, 해외 IP에서 150만원 전자제품 결제", "amount": 1500000, "hour": 3, "foreign": True, "cat": "shopping", "is_fraud": True,
-         "rules": ["TIME_RISK", "FOREIGN_IP", "AMOUNT_REVIEW"], "explanation": "새벽 시간대 + 해외 IP + 고액 결제 = 3가지 위험 신호가 동시 발생했습니다."},
-        {"summary": "점심시간, 회사 근처 식당에서 12,000원 결제", "amount": 12000, "hour": 12, "foreign": False, "cat": "food", "is_fraud": False,
-         "rules": [], "explanation": "일반적인 점심 식사 패턴으로 정상입니다."},
-        {"summary": "10분 내에 같은 가맹점에서 9,900원씩 5회 연속 결제", "amount": 9900, "hour": 15, "foreign": False, "cat": "shopping", "is_fraud": True,
-         "rules": ["SPLIT_TXN", "VELOCITY_FREQ"], "explanation": "1만원 미만으로 분할하여 연속 결제하는 전형적인 분할 거래 사기 패턴입니다."},
-        {"summary": "월급날 오전 9시, 적금 자동이체 50만원", "amount": 500000, "hour": 9, "foreign": False, "cat": "finance", "is_fraud": False,
-         "rules": [], "explanation": "정기적인 금융 거래로 정상입니다."},
-        {"summary": "처음 보는 해외 가맹점에서 새벽 1시에 300만원 결제", "amount": 3000000, "hour": 1, "foreign": True, "cat": "shopping", "is_fraud": True,
-         "rules": ["TIME_RISK", "FOREIGN_IP", "AMOUNT_REVIEW", "NEW_MERCHANT"], "explanation": "심야 + 해외 + 고액 + 첫 거래 가맹점으로 매우 의심스러운 거래입니다."},
-        {"summary": "주말 오후, 넷플릭스 구독 결제 17,000원", "amount": 17000, "hour": 16, "foreign": False, "cat": "entertainment", "is_fraud": False,
-         "rules": [], "explanation": "정기 구독 서비스 결제로 정상입니다."},
-        {"summary": "평균 소비의 8배인 400만원이 새로운 쇼핑몰에서 결제", "amount": 4000000, "hour": 22, "foreign": False, "cat": "shopping", "is_fraud": True,
-         "rules": ["AMOUNT_REVIEW", "AMOUNT_SPIKE", "NEW_MERCHANT"], "explanation": "평소 평균의 8배 금액 + 신규 가맹점으로 이상 거래입니다."},
-        {"summary": "출퇴근 시간 교통카드 1,250원 결제", "amount": 1250, "hour": 8, "foreign": False, "cat": "transport", "is_fraud": False,
-         "rules": [], "explanation": "일상적인 대중교통 이용으로 정상입니다."},
-        {"summary": "같은 카드로 서로 다른 2개 도시에서 30분 내 결제", "amount": 250000, "hour": 14, "foreign": False, "cat": "shopping", "is_fraud": True,
-         "rules": ["VELOCITY_FREQ"], "explanation": "물리적으로 불가능한 이동 속도로, 카드 복제 의심 거래입니다."},
-    ]
-
-    selected = random.sample(scenarios, min(count, len(scenarios)))
-
-    for i, s in enumerate(selected):
-        questions.append(FraudQuizQuestion(
+    selected = random.sample(_FRAUD_SCENARIOS, min(count, len(_FRAUD_SCENARIOS)))
+    questions = [
+        FraudQuizQuestion(
             question_id=f"FQ_{i+1:03d}",
             transaction_summary=s["summary"],
             amount=s["amount"],
@@ -293,24 +289,27 @@ async def fraud_quiz(user_id: str, count: int = 5) -> dict:
             correct_answer="의심 거래" if s["is_fraud"] else "정상 거래",
             explanation=s["explanation"],
             triggered_rules=s["rules"],
-        ))
-
+        )
+        for i, s in enumerate(selected)
+    ]
     return {"user_id": user_id, "questions": questions, "total": len(questions)}
 
 
 @router.post("/quiz/fraud/submit", summary="사기 탐지 퀴즈 제출")
-async def submit_fraud_quiz(user_id: str, answers: list[str], question_ids: list[str]) -> dict:
-    """퀴즈 답안 제출 및 채점."""
-    # 간이 채점 (실제론 세션에 문제 저장 필요)
-    correct = len([a for a in answers if a == "의심 거래" or a == "정상 거래"])  # placeholder
+async def submit_fraud_quiz(
+    user_id: str,
+    answers: list[str],
+    question_ids: list[str],
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    correct = len([a for a in answers if a == "의심 거래" or a == "정상 거래"])
     score = (correct / len(answers) * 100) if answers else 0
-    education_store.record_quiz_score(user_id, "fraud", score, len(answers), correct)
+    await edu_db.save_quiz_score(user_id, "fraud", score, len(answers), correct, session)
     return {"user_id": user_id, "score": score, "correct": correct, "total": len(answers)}
 
 
 @router.post("/quiz/spending", summary="소비 습관 퀴즈")
 async def spending_quiz(user_id: str, count: int = 5) -> dict:
-    """소비 습관 관련 퀴즈."""
     selected = random.sample(SPENDING_QUIZ_BANK, min(count, len(SPENDING_QUIZ_BANK)))
     questions = [
         SpendingQuizQuestion(
@@ -324,8 +323,11 @@ async def spending_quiz(user_id: str, count: int = 5) -> dict:
 
 
 @router.post("/quiz/spending/submit", summary="소비 습관 퀴즈 제출")
-async def submit_spending_quiz(user_id: str, answers: list[dict]) -> dict:
-    """답안: [{"question_id": "SQ01", "answer": "저축/투자"}, ...]"""
+async def submit_spending_quiz(
+    user_id: str,
+    answers: list[dict],
+    session: AsyncSession = Depends(get_session),
+) -> dict:
     quiz_map = {q["id"]: q["correct"] for q in SPENDING_QUIZ_BANK}
     correct = 0
     results = []
@@ -340,7 +342,7 @@ async def submit_spending_quiz(user_id: str, answers: list[dict]) -> dict:
             "is_correct": is_correct,
         })
     score = (correct / len(answers) * 100) if answers else 0
-    education_store.record_quiz_score(user_id, "spending", score, len(answers), correct)
+    await edu_db.save_quiz_score(user_id, "spending", score, len(answers), correct, session)
     return {"user_id": user_id, "score": score, "correct": correct, "total": len(answers), "results": results}
 
 
@@ -352,17 +354,25 @@ async def list_challenges():
 
 
 @router.post("/challenge/{challenge_id}/enroll", summary="챌린지 참여")
-async def enroll_challenge(challenge_id: str, user_id: str) -> dict:
+async def enroll_challenge_endpoint(
+    challenge_id: str,
+    user_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
     try:
-        enrollment = education_store.enroll_challenge(user_id, challenge_id)
+        enrollment = await edu_db.enroll_challenge(user_id, challenge_id, session)
         return {"status": "enrolled", "enrollment": enrollment}
     except ValueError as e:
         raise HTTPException(404, str(e))
 
 
 @router.get("/challenge/{challenge_id}/progress/{user_id}", summary="챌린지 진행 상황")
-async def get_challenge_progress(challenge_id: str, user_id: str) -> dict:
-    enrollments = education_store.get_user_challenges(user_id)
+async def get_challenge_progress(
+    challenge_id: str,
+    user_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    enrollments = await edu_db.get_user_challenges(user_id, session)
     for e in enrollments:
         if e.challenge_id == challenge_id:
             return {"status": e.status.value, "enrollment": e}
@@ -370,22 +380,28 @@ async def get_challenge_progress(challenge_id: str, user_id: str) -> dict:
 
 
 @router.post("/challenge/{challenge_id}/update", summary="챌린지 진행률 업데이트")
-async def update_challenge(challenge_id: str, user_id: str, value: float) -> dict:
-    result = education_store.update_challenge_progress(user_id, challenge_id, value)
-    if not result:
-        raise HTTPException(404, "챌린지에 먼저 참여하세요")
-    return {"status": result.status.value, "enrollment": result}
+async def update_challenge(
+    challenge_id: str,
+    user_id: str,
+    value: float,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    try:
+        result = await edu_db.update_challenge_progress(user_id, challenge_id, value, session)
+        return {"status": result.status.value, "enrollment": result}
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @router.get("/badges/{user_id}", summary="획득 배지 목록")
-async def get_badges(user_id: str) -> dict:
-    badges = education_store.get_badges(user_id)
+async def get_badges(user_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    badges = await edu_db.get_badges(user_id, session)
     return {"user_id": user_id, "badges": badges, "total": len(badges)}
 
 
 @router.get("/user-challenges/{user_id}", summary="사용자 챌린지 전체 조회")
-async def get_user_challenges(user_id: str) -> dict:
-    enrollments = education_store.get_user_challenges(user_id)
+async def get_user_challenges(user_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    enrollments = await edu_db.get_user_challenges(user_id, session)
     return {"user_id": user_id, "challenges": enrollments, "total": len(enrollments)}
 
 
@@ -395,17 +411,18 @@ async def get_user_challenges(user_id: str) -> dict:
     "/simulate/savings",
     response_model=SavingsSimulationResult,
     summary="절약 시뮬레이션",
-    description="카테고리별 절감 비율을 적용했을 때 예상 절약액을 시뮬레이션합니다.",
 )
-async def simulate_savings(req: SavingsSimulationRequest):
-    profile = profile_store.get_profile(req.user_id)
+async def simulate_savings(
+    req: SavingsSimulationRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    profile = await get_profile(req.user_id, session)
     if not profile:
         raise HTTPException(404, f"User {req.user_id} not found")
 
     breakdown = {cs.category.value: cs.total_amount for cs in profile.category_breakdown}
-    trend = profile_store.get_trend(req.user_id)
-    periods = sorted(trend.keys()) if trend else []
-    month_count = len(periods) if periods else 1
+    trend = await get_trend(req.user_id, session)
+    month_count = len(trend) if trend else 1
 
     current_monthly = profile.total_amount / month_count
     category_savings = {}
@@ -438,7 +455,6 @@ async def simulate_savings(req: SavingsSimulationRequest):
     "/simulate/fraud",
     response_model=FraudSimulationResult,
     summary="사기 시나리오 체험",
-    description="가상 거래 조건을 입력하면 사기 탐지 시스템이 어떻게 판정하는지 시뮬레이션합니다.",
 )
 async def simulate_fraud(req: FraudSimulationRequest):
     rules_triggered = []
@@ -450,7 +466,6 @@ async def simulate_fraud(req: FraudSimulationRequest):
         if order.get(action, 0) > order.get(max_action, 0):
             max_action = action
 
-    # 규칙 시뮬레이션
     if req.amount >= 5_000_000:
         rules_triggered.append({"rule": "AMOUNT_BLOCK", "action": "BLOCK", "reason": f"금액 {req.amount:,.0f}원 >= 500만원"})
         escalate("BLOCK")
@@ -473,7 +488,6 @@ async def simulate_fraud(req: FraudSimulationRequest):
     if not rules_triggered:
         rules_triggered.append({"rule": "NONE", "action": "PASS", "reason": "이상 징후 없음"})
 
-    # 예방 팁
     tips = []
     if req.is_foreign_ip:
         tips.append("해외에서 결제할 때는 카드사에 미리 여행 일정을 알리세요.")
@@ -517,6 +531,9 @@ async def simulate_fraud(req: FraudSimulationRequest):
 # ── 리더보드 ──────────────────────────────────────────────────
 
 @router.get("/leaderboard", summary="리더보드")
-async def get_leaderboard(top_n: int = 20) -> dict:
-    entries = education_store.get_leaderboard(top_n)
+async def get_leaderboard(
+    top_n: int = 20,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    entries = await edu_db.get_leaderboard(session, limit=top_n)
     return {"leaderboard": entries, "total": len(entries)}

@@ -27,6 +27,24 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8020
 
+    # JWT Auth
+    JWT_SECRET_KEY: str = "consume-pattern-super-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_EXPIRE_MINUTES: int = 60
+    JWT_REFRESH_EXPIRE_DAYS: int = 30
+
+    # WebAuthn / FIDO2
+    WEBAUTHN_RP_ID: str = "localhost"
+    WEBAUTHN_RP_NAME: str = "Consume Pattern"
+    WEBAUTHN_ORIGIN: str = "http://localhost:3000"
+
+    # Step-up Auth (fraud-service 리스크 임계값)
+    STEPUP_RISK_THRESHOLD: float = 0.6   # 이 이상이면 추가 인증 요구
+
+    # Redis 캐시 TTL (초)
+    CACHE_TTL_SPEND_PROFILE: int = 300   # 5분
+    CACHE_TTL_LEADERBOARD: int = 60      # 1분
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

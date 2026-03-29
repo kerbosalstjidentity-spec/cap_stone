@@ -1,18 +1,38 @@
 """pytest 설정 — API 테스트는 서버 실행 필요, 기본은 skip."""
 
 import pytest
+from fastapi.testclient import TestClient
+
+
+@pytest.fixture(scope="module")
+def api_client():
+    """모듈 스코프 TestClient — DB 연결 풀을 모듈 내에서 공유."""
+    from app.main import app
+    with TestClient(app) as c:
+        yield c
+
+
+_ALWAYS_RUN = {"test_ml_modules", "test_security"}
+
+_API_TEST_FILES = {
+    "test_profile_api",
+    "test_analysis_api",
+    "test_strategy_api",
+    "test_auth_api",
+    "test_education_api",
+}
 
 
 def pytest_collection_modifyitems(items):
-    """API 테스트(TestClient)는 --run-api 플래그 없으면 skip."""
+    """
+    - test_ml_modules, test_security: 항상 실행 (외부 의존성 없음)
+    - 나머지 API 테스트: --run-api 플래그 없으면 skip
+    """
     for item in items:
-        # test_ml_modules.py 는 항상 실행
-        if "test_ml_modules" in str(item.fspath):
+        fname = item.fspath.basename.replace(".py", "")
+        if fname in _ALWAYS_RUN:
             continue
-        # 나머지 API 테스트는 마커 추가
-        if "test_profile_api" in str(item.fspath) or \
-           "test_analysis_api" in str(item.fspath) or \
-           "test_strategy_api" in str(item.fspath):
+        if fname in _API_TEST_FILES:
             item.add_marker(pytest.mark.api)
 
 

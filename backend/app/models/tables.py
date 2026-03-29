@@ -28,12 +28,17 @@ class User(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)  # None = 소셜/FIDO only
     nickname: Mapped[str] = mapped_column(String(100), default="")
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     occupation: Mapped[str] = mapped_column(String(100), default="")  # 직업
     monthly_income: Mapped[float | None] = mapped_column(Float, nullable=True)  # 월 수입
     edu_level: Mapped[str] = mapped_column(String(20), default="beginner")  # beginner/intermediate/advanced
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)   # TOTP 2FA
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # relationships
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -42,6 +47,7 @@ class User(TimestampMixin, Base):
     challenge_enrollments: Mapped[list["ChallengeEnrollment"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     badges: Mapped[list["UserBadge"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     quiz_scores: Mapped[list["QuizScore"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    fido_credentials: Mapped[list["FidoCredential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -211,3 +217,43 @@ class LeaderboardPoints(TimestampMixin, Base):
     badge_count: Mapped[int] = mapped_column(Integer, default=0)
     challenge_completed: Mapped[int] = mapped_column(Integer, default=0)
     quiz_score_avg: Mapped[float] = mapped_column(Float, default=0)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  보안 — FIDO2 / WebAuthn Credential
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class FidoCredential(TimestampMixin, Base):
+    __tablename__ = "fido_credentials"
+    __table_args__ = (
+        Index("ix_fido_user", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    credential_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)  # base64url
+    public_key: Mapped[str] = mapped_column(Text, nullable=False)                  # CBOR base64
+    sign_count: Mapped[int] = mapped_column(Integer, default=0)
+    device_type: Mapped[str] = mapped_column(String(32), default="unknown")        # platform / cross-platform
+    aaguid: Mapped[str] = mapped_column(String(64), default="")                    # authenticator AAGUID
+    name: Mapped[str] = mapped_column(String(128), default="내 인증 장치")          # 사용자 지정 이름
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="fido_credentials")
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  보안 — Step-up Auth 세션 (임시 챌린지 토큰)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class StepUpSession(Base):
+    __tablename__ = "stepup_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    session_token: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)  # fido / totp / sms
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    risk_score: Mapped[float] = mapped_column(Float, default=0.0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

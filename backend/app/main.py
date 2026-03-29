@@ -5,19 +5,29 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_analysis, routes_education, routes_health, routes_profile, routes_seed, routes_strategy
+from app.api import (
+    routes_analysis,
+    routes_auth,
+    routes_education,
+    routes_fido,
+    routes_health,
+    routes_profile,
+    routes_seed,
+    routes_stepup,
+    routes_strategy,
+)
 from app.config import settings
+from app.db.redis import close_redis
 from app.db.session import close_db, init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup
     print(f"[{settings.APP_NAME}] Starting v{settings.APP_VERSION} on :{settings.PORT}")
     await init_db()
     yield
-    # shutdown
     await close_db()
+    await close_redis()
     print(f"[{settings.APP_NAME}] Shutting down")
 
 
@@ -38,6 +48,9 @@ app.add_middleware(
 
 # Routes
 app.include_router(routes_health.router)
+app.include_router(routes_auth.router)
+app.include_router(routes_fido.router)
+app.include_router(routes_stepup.router)
 app.include_router(routes_profile.router)
 app.include_router(routes_analysis.router)
 app.include_router(routes_strategy.router)
