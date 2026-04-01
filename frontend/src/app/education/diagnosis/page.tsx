@@ -36,11 +36,13 @@ function DiagnosisContent() {
     setError("");
     try {
       const res = await fetch(`/api/v1/education/diagnosis/${userId}`);
-      const data = await res.json();
+      let data: any;
+      try { data = await res.json(); } catch { data = {}; }
       if (res.ok) setReport(data);
+      else if (res.status === 404) setError("소비 데이터가 없습니다. 먼저 대시보드에서 '데모 데이터 생성' 버튼을 눌러주세요.");
       else setError(data.detail || "진단 데이터를 불러올 수 없습니다.");
     } catch {
-      setError("서버에 연결할 수 없습니다.");
+      setError("서버에 연결할 수 없습니다. 백엔드 서버(포트 8020)가 실행 중인지 확인하세요.");
     } finally {
       setLoading(false);
     }

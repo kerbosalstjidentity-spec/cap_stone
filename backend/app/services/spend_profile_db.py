@@ -7,7 +7,7 @@ Redis 가용 시 Redis TTL 캐시도 사용.
 from collections import defaultdict
 from datetime import datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -184,13 +184,12 @@ async def get_trend(user_id: str, session: AsyncSession) -> dict[str, dict[str, 
 
     result = await session.execute(
         select(
-            func.to_char(Transaction.timestamp, "YYYY-MM").label("period"),
+            Transaction.timestamp,
             Transaction.category,
-            func.sum(Transaction.amount).label("total"),
+            Transaction.amount,
         )
         .where(Transaction.user_id == user_id)
-        .group_by(func.to_char(Transaction.timestamp, "YYYY-MM"), Transaction.category)
-        .order_by(func.to_char(Transaction.timestamp, "YYYY-MM"))
+        .order_by(Transaction.timestamp)
     )
     rows = result.all()
     if not rows:
@@ -198,8 +197,9 @@ async def get_trend(user_id: str, session: AsyncSession) -> dict[str, dict[str, 
 
     monthly: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for r in rows:
-        monthly[r.period][r.category] += r.total
-        monthly[r.period]["_total"] += r.total
+        period = r.timestamp.strftime("%Y-%m") if r.timestamp else "unknown"
+        monthly[period][r.category] += float(r.amount)
+        monthly[period]["_total"] += float(r.amount)
 
     data = {k: dict(v) for k, v in sorted(monthly.items())}
     await cache_set(cache_key, data, settings.CACHE_TTL_SPEND_PROFILE)
