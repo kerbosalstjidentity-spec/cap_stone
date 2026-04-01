@@ -9,13 +9,16 @@ from app.api import (
     routes_analysis,
     routes_auth,
     routes_education,
+    routes_emotion,
     routes_fido,
     routes_health,
+    routes_notifications,
     routes_profile,
     routes_seed,
     routes_stepup,
     routes_strategy,
     routes_train,
+    routes_xai,
 )
 from app.config import settings
 from app.db.redis import close_redis
@@ -64,11 +67,15 @@ async def _train_models_on_startup() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.services.notification_service import notification_manager
+
     print(f"[{settings.APP_NAME}] Starting v{settings.APP_VERSION} on :{settings.PORT}")
     await _run_alembic_upgrade()
     await init_db()
     await _train_models_on_startup()
+    await notification_manager.start_redis_subscriber()
     yield
+    await notification_manager.stop()
     await close_db()
     await close_redis()
     print(f"[{settings.APP_NAME}] Shutting down")
@@ -100,3 +107,6 @@ app.include_router(routes_strategy.router)
 app.include_router(routes_seed.router)
 app.include_router(routes_education.router)
 app.include_router(routes_train.router)
+app.include_router(routes_notifications.router)
+app.include_router(routes_xai.router)
+app.include_router(routes_emotion.router)

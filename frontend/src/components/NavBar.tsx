@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import NotificationBell from "./NotificationBell";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "대시보드" },
@@ -44,6 +45,7 @@ export default function NavBar({ activePath }: NavBarProps) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {!isLoading && isLoggedIn ? (
             <>
+              <NotificationBell />
               <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                 👤 <strong>{nickname || "사용자"}</strong>
               </span>

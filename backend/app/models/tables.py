@@ -48,6 +48,8 @@ class User(TimestampMixin, Base):
     badges: Mapped[list["UserBadge"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     quiz_scores: Mapped[list["QuizScore"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     fido_credentials: Mapped[list["FidoCredential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    notifications: Mapped[list["Notification"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    emotion_tags: Mapped[list["EmotionTag"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -74,6 +76,7 @@ class Transaction(TimestampMixin, Base):
 
     # relationships
     user: Mapped["User"] = relationship(back_populates="transactions")
+    emotion_tag: Mapped["EmotionTag | None"] = relationship(back_populates="transaction", uselist=False)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -257,3 +260,49 @@ class StepUpSession(Base):
     risk_score: Mapped[float] = mapped_column(Float, default=0.0)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  알림
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class Notification(TimestampMixin, Base):
+    """실시간 알림 — 예산 경고, 이상거래, 챌린지 달성, XAI 인사이트, 감정 위험."""
+    __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notif_user_created", "user_id", "created_at"),
+        Index("ix_notif_user_unread", "user_id", "is_read"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="")
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    user: Mapped["User"] = relationship(back_populates="notifications")
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  감정 태그
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class EmotionTag(TimestampMixin, Base):
+    """거래에 연결된 감정 태그 — 감정×소비 상관 분석용."""
+    __tablename__ = "emotion_tags"
+    __table_args__ = (
+        Index("ix_emotion_user_tx", "user_id", "transaction_id", unique=True),
+        Index("ix_emotion_user_emotion", "user_id", "emotion"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    transaction_id: Mapped[str] = mapped_column(String(128), ForeignKey("transactions.transaction_id", ondelete="CASCADE"), nullable=False)
+    emotion: Mapped[str] = mapped_column(String(16), nullable=False)  # happy / stressed / bored / reward / impulse / neutral
+    intensity: Mapped[int] = mapped_column(Integer, default=3)  # 1~5
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    user: Mapped["User"] = relationship(back_populates="emotion_tags")
+    transaction: Mapped["Transaction"] = relationship(back_populates="emotion_tag")

@@ -81,3 +81,31 @@ async def cache_delete_pattern(pattern: str) -> None:
             await r.delete(*keys)
     except Exception:
         pass
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Pub/Sub — 실시간 알림용
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async def publish(channel: str, data: Any) -> bool:
+    """Redis 채널에 JSON 메시지 발행."""
+    r = await get_redis()
+    if not r:
+        return False
+    try:
+        await r.publish(channel, json.dumps(data, default=str))
+        return True
+    except Exception as e:
+        logger.warning("[Redis] Publish failed: %s", e)
+        return False
+
+
+async def get_pubsub():
+    """Redis PubSub 객체 반환 (패턴 구독용)."""
+    r = await get_redis()
+    if not r:
+        return None
+    try:
+        return r.pubsub()
+    except Exception:
+        return None

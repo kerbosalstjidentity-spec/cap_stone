@@ -83,6 +83,36 @@ class OverspendClassifier:
         self.is_fitted = True
         return {"status": "trained", "n_samples": len(X)}
 
+    def explain(self, features: np.ndarray) -> dict:
+        """SHAP TreeExplainer로 과소비 예측 설명.
+
+        Returns:
+            {method, base_value, shap_values: {fname: val}, top_factor}
+        """
+        if not self.is_fitted or not XGB_AVAILABLE:
+            return {"method": "unavailable", "base_value": 0.5, "shap_values": {}}
+
+        try:
+            import shap
+            explainer = shap.TreeExplainer(self.model)
+            shap_vals = explainer.shap_values(features)
+            # shap_vals: (1, n_features) for binary classification
+            vals = shap_vals[0] if shap_vals.ndim == 2 else shap_vals
+            shap_dict = {
+                fname: float(vals[i])
+                for i, fname in enumerate(self.feature_names)
+            }
+            base_val = float(explainer.expected_value) if not hasattr(explainer.expected_value, '__len__') else float(explainer.expected_value[1])
+            top = max(shap_dict, key=lambda k: abs(shap_dict[k]))
+            return {
+                "method": "shap",
+                "base_value": round(base_val, 4),
+                "shap_values": {k: round(v, 4) for k, v in shap_dict.items()},
+                "top_factor": top,
+            }
+        except Exception:
+            return {"method": "unavailable", "base_value": 0.5, "shap_values": {}}
+
     def predict(self, features: np.ndarray) -> dict:
         """과소비 확률 예측.
 

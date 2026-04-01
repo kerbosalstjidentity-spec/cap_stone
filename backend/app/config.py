@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     CACHE_TTL_SPEND_PROFILE: int = 300   # 5분
     CACHE_TTL_LEADERBOARD: int = 60      # 1분
 
+    # 알림 시스템
+    NOTIFICATION_RETENTION_DAYS: int = 30
+    BUDGET_WARNING_THRESHOLD: float = 0.8  # 예산 80% 도달 시 경고
+
+    # XAI
+    SHAP_MAX_SAMPLES: int = 1000
+
+    # 감정 분석
+    EMOTION_RISK_THRESHOLD: float = 0.6
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

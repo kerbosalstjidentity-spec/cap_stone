@@ -17,6 +17,7 @@ numpy>=1.26
 pandas>=2.2
 joblib>=1.3
 torch>=2.4
+shap>=0.45
 
 # === HTTP / Async ===
 httpx>=0.27

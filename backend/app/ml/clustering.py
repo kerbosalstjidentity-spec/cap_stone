@@ -101,5 +101,79 @@ class SpendClusterModel:
         }
 
 
+    def explain(self, category_pcts: dict[str, float]) -> dict:
+        """클러스터 귀속 이유 — 클러스터 중심과의 per-feature 차이.
+
+        Returns:
+            {cluster_label, distances_to_centers, feature_deviations, top_pull_toward, top_pull_away, summary_text}
+        """
+        vec = self._build_feature_vector(category_pcts).reshape(1, -1)
+
+        if not self.is_fitted:
+            return {
+                "cluster_label": self.predict(category_pcts)["cluster_label"],
+                "distances_to_centers": [],
+                "feature_deviations": [],
+                "top_pull_toward": "",
+                "top_pull_away": "",
+                "summary_text": "모델 학습 후 상세 설명이 제공됩니다.",
+            }
+
+        vec_scaled = self.scaler.transform(vec)
+        cluster_id = int(self.model.predict(vec_scaled)[0])
+        label = self.cluster_labels.get(cluster_id, f"군집_{cluster_id}")
+        centers = self.model.cluster_centers_  # scaled 좌표
+
+        # 각 클러스터까지 거리
+        dists = [
+            {
+                "cluster": i,
+                "label": self.cluster_labels.get(i, f"군집_{i}"),
+                "distance": round(float(np.linalg.norm(vec_scaled - centers[i])), 4),
+            }
+            for i in range(self.n_clusters)
+        ]
+
+        # 할당 클러스터와의 feature 편차 (원래 스케일)
+        center_orig = self.scaler.inverse_transform(centers[cluster_id].reshape(1, -1))[0]
+        user_vec = vec[0]
+        deviations = []
+        for i, cat in enumerate(FEATURE_CATEGORIES):
+            diff = float(user_vec[i]) - float(center_orig[i])
+            deviations.append({
+                "category": cat.value,
+                "category_kr": _CAT_KR.get(cat.value, cat.value),
+                "user_value": round(float(user_vec[i]), 4),
+                "center_value": round(float(center_orig[i]), 4),
+                "deviation": round(diff, 4),
+            })
+
+        deviations.sort(key=lambda x: abs(x["deviation"]), reverse=True)
+        toward = next((d for d in deviations if d["deviation"] < 0), {}).get("category_kr", "")
+        away = next((d for d in deviations if d["deviation"] > 0), {}).get("category_kr", "")
+
+        summary = f"'{label}' 유형 — "
+        if away:
+            summary += f"{away} 지출이 군집 평균보다 높음"
+        if toward:
+            summary += f", {toward} 지출이 낮음"
+
+        return {
+            "cluster_label": label,
+            "distances_to_centers": sorted(dists, key=lambda x: x["distance"]),
+            "feature_deviations": deviations,
+            "top_pull_toward": toward,
+            "top_pull_away": away,
+            "summary_text": summary,
+        }
+
+
+_CAT_KR = {
+    "food": "식비", "shopping": "쇼핑", "transport": "교통",
+    "entertainment": "여가", "education": "교육", "healthcare": "의료",
+    "housing": "주거", "utilities": "공과금", "finance": "금융",
+    "travel": "여행", "other": "기타",
+}
+
 # 싱글턴
 cluster_model = SpendClusterModel()

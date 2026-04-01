@@ -98,6 +98,31 @@ function AnalysisContent() {
     <>
       <NavBar activePath="/analysis" />
       <main className="container">
+        {/* Sub-navigation */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
+          {[
+            { label: "분석 홈", href: "/analysis" },
+            { label: "AI 설명 (XAI)", href: "/analysis/explain" },
+            { label: "감정 분석", href: "/analysis/emotion" },
+          ].map(({ label, href }) => (
+            <a
+              key={href}
+              href={href}
+              style={{
+                padding: "6px 16px",
+                borderRadius: 8,
+                textDecoration: "none",
+                fontWeight: href === "/analysis" ? 700 : 400,
+                background: href === "/analysis" ? "var(--primary)" : "transparent",
+                color: href === "/analysis" ? "#fff" : "var(--text-secondary)",
+                border: href === "/analysis" ? "none" : "1px solid var(--border)",
+              }}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
           <h1>소비 패턴 분석</h1>
           <button

@@ -17,6 +17,8 @@ from app.config import settings
 class SpendAnomalyDetector:
     """소비 패턴 기반 이상 지출 탐지."""
 
+    FEATURE_NAMES = ["amount", "hour", "is_domestic", "category_idx", "amount_log"]
+
     def __init__(self, contamination: float = 0.05, random_state: int = 42):
         self.model = IsolationForest(
             contamination=contamination,
@@ -25,6 +27,8 @@ class SpendAnomalyDetector:
         )
         self.is_fitted = False
         self.threshold = settings.ANOMALY_THRESHOLD
+        self.train_mean_: np.ndarray | None = None
+        self.train_std_: np.ndarray | None = None
 
     def fit(self, transactions: list[dict]) -> None:
         """거래 데이터로 모델 학습.
@@ -38,6 +42,9 @@ class SpendAnomalyDetector:
         X = self._to_matrix(transactions)
         self.model.fit(X)
         self.is_fitted = True
+        # Feature Attribution을 위한 학습 통계 저장
+        self.train_mean_ = X.mean(axis=0)
+        self.train_std_ = X.std(axis=0) + 1e-8  # 0 나눔 방지
 
     def _to_matrix(self, transactions: list[dict]) -> np.ndarray:
         """거래 데이터 → 특성 행렬.
@@ -96,6 +103,35 @@ class SpendAnomalyDetector:
                 "index": i,
                 "anomaly_score": round(float(scores[i]), 4),
                 "is_anomaly": int(preds[i]) == -1,
+            })
+        return results
+
+
+    def explain(self, transactions: list[dict]) -> list[dict]:
+        """Feature별 편차 계산으로 이상 거래 설명.
+
+        Returns:
+            [{contributions: {feature: deviation_sigma}, top_factor, ...}]
+        """
+        if not transactions:
+            return []
+
+        X = self._to_matrix(transactions)
+        results = []
+        for row in X:
+            if self.train_mean_ is not None:
+                devs = (row - self.train_mean_) / self.train_std_
+            else:
+                devs = row * 0  # 학습 전: 편차 0
+
+            contributions = {
+                fname: round(float(devs[i]), 4)
+                for i, fname in enumerate(self.FEATURE_NAMES)
+            }
+            top = max(contributions, key=lambda k: abs(contributions[k]))
+            results.append({
+                "contributions": contributions,
+                "top_factor": top,
             })
         return results
 
