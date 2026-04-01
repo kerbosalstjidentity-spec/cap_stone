@@ -85,6 +85,7 @@ function AnalysisContent() {
     category: CATEGORY_LABELS[cat.category] || cat.category,
     pct: Math.round(cat.pct_of_total * 100),
   })) || [];
+  const radarMax = radarData.length > 0 ? Math.ceil(Math.max(...radarData.map((d: any) => d.pct)) / 5) * 5 + 5 : 100;
 
   const forecastBarData = forecast?.predicted_by_category
     ? Object.entries(forecast.predicted_by_category).map(([cat, amt]) => ({
@@ -147,7 +148,7 @@ function AnalysisContent() {
         <div className="grid grid-2">
           {pattern && (
             <div className="card">
-              <h3>소비 유형 (K-Means 군집화)</h3>
+              <h3>내 소비 유형</h3>
               <div style={{ margin: "16px 0", display: "flex", alignItems: "center", gap: 12 }}>
                 <span className={`badge ${clusterBadge(pattern.cluster_label)}`} style={{ fontSize: 18, padding: "8px 20px" }}>
                   {pattern.cluster_label}
@@ -159,7 +160,7 @@ function AnalysisContent() {
                   <RadarChart data={radarData} outerRadius={85}>
                     <PolarGrid stroke="#e2e8f0" />
                     <PolarAngleAxis dataKey="category" tick={{ fontSize: 12, fill: "#64748b" }} />
-                    <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9 }} tickCount={4} />
+                    <PolarRadiusAxis domain={[0, radarMax]} tick={{ fontSize: 9 }} tickCount={4} />
                     <Radar dataKey="pct" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.35} dot={{ r: 3, fill: "#4f46e5" }} />
                     <Tooltip formatter={(v: number) => `${v}%`} />
                   </RadarChart>
@@ -170,7 +171,7 @@ function AnalysisContent() {
 
           {anomalies && (
             <div className="card">
-              <h3>이상 지출 탐지 (Isolation Forest)</h3>
+              <h3>이상 지출 탐지</h3>
               <div style={{ margin: "16px 0", display: "flex", alignItems: "center", gap: 12 }}>
                 <span className={`badge ${anomalies.anomaly_count > 0 ? "badge-danger" : "badge-success"}`} style={{ fontSize: 16, padding: "6px 16px" }}>
                   {anomalies.anomaly_count > 0 ? `${anomalies.anomaly_count}건 감지` : "이상 없음"}
@@ -200,13 +201,13 @@ function AnalysisContent() {
 
           {forecast && (
             <div className="card">
-              <h3>다음 달 지출 예측 (LSTM)</h3>
+              <h3>다음 달 지출 예측</h3>
               <div style={{ margin: "16px 0" }}>
                 <div className="stat-value">{formatKRW(forecast.predicted_total)}</div>
                 <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                   <span className="badge badge-primary">신뢰도 {(forecast.confidence * 100).toFixed(0)}%</span>
                   <span className="badge" style={{ background: "#f8fafc", color: "var(--text-secondary)" }}>
-                    방법: {forecast.confidence > 0.6 ? "LSTM" : "가중이동평균"}
+                    방법: {forecast.confidence > 0.6 ? "AI 딥러닝" : "이동평균"}
                   </span>
                 </div>
               </div>
@@ -228,7 +229,7 @@ function AnalysisContent() {
 
           {overspend && (
             <div className="card">
-              <h3>과소비 위험도 (XGBoost)</h3>
+              <h3>과소비 위험도</h3>
               <div style={{ margin: "16px 0", textAlign: "center" }}>
                 {(() => {
                   const pct = overspend.overspend_probability;
@@ -249,11 +250,16 @@ function AnalysisContent() {
                 <span className={`badge ${overspend.is_overspend ? "badge-danger" : "badge-success"}`} style={{ marginTop: 4, display: "inline-block" }}>
                   {overspend.is_overspend ? "과소비 주의" : "정상 범위"}
                 </span>
+                {overspend.monthly_total < overspend.monthly_avg * 0.3 && (
+                  <p className="text-secondary" style={{ fontSize: 12, marginTop: 8 }}>
+                    이번 달은 아직 데이터가 적어 위험도가 낮게 산출됩니다. 지출이 쌓이면 더 정확한 분석이 가능합니다.
+                  </p>
+                )}
               </div>
               <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between" }}>
                 <div><div className="stat-label">이번 달</div><div style={{ fontWeight: 600 }}>{formatKRW(overspend.monthly_total)}</div></div>
                 <div><div className="stat-label">월 평균</div><div style={{ fontWeight: 600 }}>{formatKRW(overspend.monthly_avg)}</div></div>
-                <div><div className="stat-label">분석 방법</div><div style={{ fontWeight: 600 }}>{overspend.method}</div></div>
+                <div><div className="stat-label">분석 방법</div><div style={{ fontWeight: 600 }}>{overspend.method === "xgboost" ? "AI 분석" : overspend.method}</div></div>
               </div>
             </div>
           )}

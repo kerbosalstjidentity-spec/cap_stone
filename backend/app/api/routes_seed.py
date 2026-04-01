@@ -8,10 +8,46 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models.tables import Transaction
+from app.models.tables import EmotionTag, Transaction
 from app.schemas.spend import SpendCategory, TransactionIngest
 from app.services.spend_profile import profile_store
 from app.services.spend_profile_db import ingest_batch
+
+# 감정 태그 생성용 매핑 — 카테고리×시간대 기반 현실적 감정 분포
+_EMOTION_BY_CATEGORY: dict[SpendCategory, list[tuple[str, float]]] = {
+    SpendCategory.FOOD: [("happy", 0.35), ("neutral", 0.30), ("stressed", 0.15), ("bored", 0.10), ("reward", 0.05), ("impulse", 0.05)],
+    SpendCategory.SHOPPING: [("impulse", 0.25), ("happy", 0.20), ("reward", 0.20), ("stressed", 0.15), ("bored", 0.10), ("neutral", 0.10)],
+    SpendCategory.ENTERTAINMENT: [("happy", 0.35), ("reward", 0.25), ("bored", 0.20), ("neutral", 0.10), ("impulse", 0.10)],
+    SpendCategory.TRANSPORT: [("neutral", 0.70), ("stressed", 0.20), ("bored", 0.10)],
+    SpendCategory.EDUCATION: [("neutral", 0.50), ("happy", 0.30), ("stressed", 0.20)],
+    SpendCategory.HEALTHCARE: [("stressed", 0.50), ("neutral", 0.40), ("happy", 0.10)],
+    SpendCategory.HOUSING: [("neutral", 0.60), ("stressed", 0.30), ("bored", 0.10)],
+    SpendCategory.UTILITIES: [("neutral", 0.70), ("stressed", 0.20), ("bored", 0.10)],
+    SpendCategory.FINANCE: [("neutral", 0.50), ("stressed", 0.25), ("happy", 0.15), ("reward", 0.10)],
+    SpendCategory.TRAVEL: [("happy", 0.40), ("reward", 0.25), ("impulse", 0.15), ("neutral", 0.20)],
+    SpendCategory.OTHER: [("neutral", 0.40), ("impulse", 0.20), ("bored", 0.20), ("stressed", 0.20)],
+}
+
+
+def _pick_emotion(cat: SpendCategory, hour: int) -> tuple[str, int]:
+    """카테고리와 시간대에 기반하여 감정과 강도를 생성."""
+    emotions_weights = _EMOTION_BY_CATEGORY.get(cat, [("neutral", 1.0)])
+    emotions, weights = zip(*emotions_weights)
+    # 심야(21-3시)엔 impulse/stressed 가중치 상향
+    adj_weights = list(weights)
+    if 21 <= hour or hour <= 3:
+        for i, e in enumerate(emotions):
+            if e in ("impulse", "stressed"):
+                adj_weights[i] *= 2.0
+    emotion = random.choices(emotions, weights=adj_weights, k=1)[0]
+    # 강도: stressed/impulse는 3-5, happy/reward는 2-5, neutral/bored는 1-3
+    if emotion in ("stressed", "impulse"):
+        intensity = random.randint(3, 5)
+    elif emotion in ("happy", "reward"):
+        intensity = random.randint(2, 5)
+    else:
+        intensity = random.randint(1, 3)
+    return emotion, intensity
 
 router = APIRouter(prefix="/v1/seed", tags=["seed"])
 
@@ -120,6 +156,7 @@ async def seed_demo_data(
     """데모 거래 데이터를 자동 생성하여 DB + 인메모리 스토어에 저장."""
     # 기존 데이터 초기화
     profile_store.delete_user(user_id)
+    await session.execute(delete(EmotionTag).where(EmotionTag.user_id == user_id))
     await session.execute(delete(Transaction).where(Transaction.user_id == user_id))
     await session.commit()
 
@@ -132,11 +169,29 @@ async def seed_demo_data(
     # DB 저장 (ML 학습 및 새 분석용)
     await ingest_batch(txs, session)
 
+    # 감정 태그 자동 생성 (약 60%의 거래에 태그 부여)
+    emotion_count = 0
+    for tx in txs:
+        if random.random() < 0.6:
+            hour = tx.timestamp.hour if tx.timestamp else 12
+            emotion, intensity = _pick_emotion(tx.category, hour)
+            tag = EmotionTag(
+                user_id=user_id,
+                transaction_id=tx.transaction_id,
+                emotion=emotion,
+                intensity=intensity,
+                note="",
+            )
+            session.add(tag)
+            emotion_count += 1
+    await session.commit()
+
     profile = profile_store.get_profile(user_id)
     return {
         "status": "seeded",
         "user_id": user_id,
         "transactions_created": len(txs),
+        "emotion_tags_created": emotion_count,
         "months": months,
         "total_amount": profile.total_amount if profile else 0,
         "categories": len(profile.category_breakdown) if profile else 0,

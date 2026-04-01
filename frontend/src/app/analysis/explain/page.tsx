@@ -82,7 +82,7 @@ function XaiContent() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div>
             <h1 style={{ marginBottom: 4 }}>AI 설명 가능 분석</h1>
-            <p className="text-secondary">ML 모델이 왜 그런 판단을 했는지 투명하게 설명합니다.</p>
+            <p className="text-secondary">AI가 왜 그런 판단을 했는지 투명하게 설명합니다.</p>
           </div>
           <button
             onClick={runAnalysis}
@@ -101,7 +101,7 @@ function XaiContent() {
           <div className="card" style={{ textAlign: "center", padding: "48px 24px", color: "#9ca3af" }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🧠</div>
             <p style={{ fontWeight: 600, marginBottom: 8 }}>AI 설명 분석 준비 완료</p>
-            <p style={{ fontSize: 14 }}>위 버튼을 클릭하면 SHAP, Feature Attribution, 군집 설명이 생성됩니다.</p>
+            <p style={{ fontSize: 14 }}>위 버튼을 클릭하면 과소비 원인 분석, 이상거래 설명, 소비 유형 설명이 생성됩니다.</p>
           </div>
         )}
 
@@ -121,7 +121,7 @@ function XaiContent() {
                   </span>
                 )}
                 {overspend?.method === "shap" && (
-                  <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: "auto" }}>SHAP TreeExplainer</span>
+                  <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: "auto" }}>AI 기여도 분석</span>
                 )}
               </div>
 
@@ -143,7 +143,7 @@ function XaiContent() {
                 />
               ) : (
                 <p className="text-secondary" style={{ textAlign: "center", padding: 16 }}>
-                  {overspend?.method === "unavailable" ? "모델 학습 후 SHAP 분석이 가능합니다." : "데이터가 없습니다."}
+                  {overspend?.method === "unavailable" ? "모델 학습 후 AI 기여도 분석이 가능합니다." : "데이터가 없습니다."}
                 </p>
               )}
             </div>
@@ -152,7 +152,7 @@ function XaiContent() {
             <div className="card">
               <h2 style={{ marginBottom: 8 }}>이상 거래 설명</h2>
               <p className="text-secondary" style={{ marginBottom: 20, fontSize: 14 }}>
-                Isolation Forest가 탐지한 이상 거래의 원인을 feature별로 설명합니다.
+                AI가 탐지한 이상 거래의 원인을 항목별로 설명합니다.
               </p>
 
               {!anomalies?.explanations?.length ? (
@@ -183,7 +183,7 @@ function XaiContent() {
                             color: Math.abs(c.deviation) > 2 ? "#dc2626" : "#6b7280",
                             fontWeight: Math.abs(c.deviation) > 2 ? 700 : 400,
                           }}>
-                            {c.feature_kr}: {c.deviation > 0 ? "+" : ""}{c.deviation.toFixed(2)}σ
+                            {c.feature_kr}: {Math.abs(c.deviation) >= 3 ? "매우 " : Math.abs(c.deviation) >= 2 ? "" : "약간 "}{c.deviation > 0 ? "높음" : "낮음"} ({c.deviation > 0 ? "+" : ""}{c.deviation.toFixed(1)}배)
                           </span>
                         ))}
                       </div>
@@ -198,7 +198,7 @@ function XaiContent() {
               <div className="card">
                 <h2 style={{ marginBottom: 8 }}>소비 유형 분류 설명</h2>
                 <p className="text-secondary" style={{ marginBottom: 16, fontSize: 14 }}>
-                  K-Means가 분류한 소비 유형과 그 이유를 설명합니다.
+                  AI가 분류한 내 소비 유형과 그 이유를 설명합니다.
                 </p>
                 <div style={{
                   padding: "12px 16px", background: "#eef2ff", borderRadius: 8,

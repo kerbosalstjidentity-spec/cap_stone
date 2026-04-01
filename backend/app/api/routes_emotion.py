@@ -1,9 +1,11 @@
 """감정×소비 분석 API."""
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.models.tables import Transaction
 from app.schemas.emotion import EmotionTagCreate
 from app.services.emotion_engine import (
     upsert_emotion_tag,
@@ -91,3 +93,33 @@ async def emotion_insights(
 ):
     """감정 기반 소비 인사이트."""
     return await get_insights(session, user_id)
+
+
+@router.get("/recent-transactions/{user_id}")
+async def recent_transactions(
+    user_id: str,
+    limit: int = Query(default=20, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """최근 거래 목록 (감정 태깅용)."""
+    stmt = (
+        select(Transaction)
+        .where(Transaction.user_id == user_id)
+        .order_by(Transaction.timestamp.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    txs = result.scalars().all()
+    return {
+        "transactions": [
+            {
+                "transaction_id": tx.transaction_id,
+                "amount": float(tx.amount),
+                "category": tx.category,
+                "merchant_id": tx.merchant_id,
+                "timestamp": tx.timestamp.isoformat() if tx.timestamp else None,
+            }
+            for tx in txs
+        ],
+        "count": len(txs),
+    }

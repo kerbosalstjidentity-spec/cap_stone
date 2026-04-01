@@ -45,10 +45,8 @@ function EmotionContent() {
   async function fetchRecentTxs() {
     if (!userId) return;
     try {
-      // 이상거래 엔드포인트를 재사용해 최근 거래 ID 추출
-      const res = await fetch(`/api/v1/xai/anomalies/${userId}`).then(r => r.json());
-      const txIds: string[] = res?.explanations?.map((e: any) => e.transaction_id) ?? [];
-      setRecentTxs(res?.explanations ?? []);
+      const res = await fetch(`/api/v1/emotion/recent-transactions/${userId}?limit=20`).then(r => r.json());
+      setRecentTxs(res?.transactions ?? []);
     } catch { /* silent */ }
   }
 
@@ -180,13 +178,13 @@ function EmotionContent() {
         <div className="card">
           <h3 style={{ marginBottom: 8 }}>거래 감정 태깅</h3>
           <p className="text-secondary" style={{ marginBottom: 16, fontSize: 14 }}>
-            최근 이상거래로 탐지된 거래에 감정을 태깅해보세요.
+            최근 거래에 감정을 태깅하면 소비 패턴과 감정의 상관관계를 분석합니다.
           </p>
           {recentTxs.length === 0 ? (
-            <p style={{ color: "#9ca3af", fontSize: 14 }}>분석할 거래가 없습니다. 먼저 AI 설명 페이지에서 분석을 실행하세요.</p>
+            <p style={{ color: "#9ca3af", fontSize: 14 }}>거래 데이터가 없습니다. 대시보드에서 데모 데이터를 생성하세요.</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {recentTxs.slice(0, 8).map((tx, i) => {
+              {recentTxs.slice(0, 12).map((tx, i) => {
                 const tag = tags.find((t: any) => t.transaction_id === tx.transaction_id);
                 return (
                   <div key={i} style={{
