@@ -44,7 +44,13 @@ export default function RegisterPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.detail || "회원가입에 실패했습니다.");
+        const detail = data.detail;
+        const msg = Array.isArray(detail)
+          ? detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join(" / ")
+          : typeof detail === "string"
+          ? detail
+          : "회원가입에 실패했습니다.";
+        setError(msg);
         return;
       }
       const data = await res.json();

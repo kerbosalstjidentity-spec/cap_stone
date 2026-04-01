@@ -3,10 +3,15 @@
 import random
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import get_session
+from app.models.tables import Transaction
 from app.schemas.spend import SpendCategory, TransactionIngest
 from app.services.spend_profile import profile_store
+from app.services.spend_profile_db import ingest_batch
 
 router = APIRouter(prefix="/v1/seed", tags=["seed"])
 
@@ -106,19 +111,26 @@ def _generate_transactions(user_id: str, months: int = 3, tx_per_month: int = 40
 
 
 @router.post("/demo/{user_id}")
-async def seed_demo_data(user_id: str, months: int = 3, tx_per_month: int = 40) -> dict:
-    """데모 거래 데이터를 자동 생성하여 프로필에 주입.
-
-    Args:
-        user_id: 사용자 ID
-        months: 생성할 개월 수 (기본 3개월)
-        tx_per_month: 월당 거래 수 (기본 40)
-    """
-    # 중복 호출 시 누적 방지 — 기존 데이터 초기화 후 재생성
+async def seed_demo_data(
+    user_id: str,
+    months: int = 3,
+    tx_per_month: int = 40,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """데모 거래 데이터를 자동 생성하여 DB + 인메모리 스토어에 저장."""
+    # 기존 데이터 초기화
     profile_store.delete_user(user_id)
+    await session.execute(delete(Transaction).where(Transaction.user_id == user_id))
+    await session.commit()
+
     txs = _generate_transactions(user_id, months, tx_per_month)
+
+    # 인메모리 스토어 (기존 분석용)
     for tx in txs:
         profile_store.ingest(tx)
+
+    # DB 저장 (ML 학습 및 새 분석용)
+    await ingest_batch(txs, session)
 
     profile = profile_store.get_profile(user_id)
     return {
@@ -132,7 +144,13 @@ async def seed_demo_data(user_id: str, months: int = 3, tx_per_month: int = 40) 
 
 
 @router.delete("/reset/{user_id}")
-async def reset_user(user_id: str) -> dict:
+async def reset_user(
+    user_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
     """사용자 데이터 초기화."""
-    deleted = profile_store.delete_user(user_id)
+    profile_store.delete_user(user_id)
+    result = await session.execute(delete(Transaction).where(Transaction.user_id == user_id))
+    await session.commit()
+    deleted = result.rowcount > 0
     return {"status": "reset" if deleted else "not_found", "user_id": user_id}
