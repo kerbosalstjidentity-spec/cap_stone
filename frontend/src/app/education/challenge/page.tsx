@@ -32,8 +32,9 @@ function ChallengeContent() {
   const fetchUserData = async () => {
     if (!userId) return;
     setLoading(true);
+    // 소비 데이터 기반 챌린지 진행률 자동 동기화 후 나머지 데이터 로드
     const [ch, bg, lb] = await Promise.allSettled([
-      fetch(`/api/v1/education/user-challenges/${userId}`).then((r) => r.json()),
+      fetch(`/api/v1/education/user-challenges/${userId}/sync`, { method: "POST" }).then((r) => r.json()),
       fetch(`/api/v1/education/badges/${userId}`).then((r) => r.json()),
       fetch("/api/v1/education/leaderboard?top_n=20").then((r) => r.json()),
     ]);
@@ -110,20 +111,40 @@ function ChallengeContent() {
 
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>배지 컬렉션 <span className="badge badge-primary" style={{ marginLeft: 8 }}>{badges.length}개</span></h3>
-            {badges.length > 0 ? (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {badges.map((b: any, i: number) => (
-                  <div key={i} style={{ textAlign: "center", padding: "16px", borderRadius: 12, border: "1px solid var(--border)", minWidth: 100 }}>
-                    <div style={{ fontSize: 32 }}>{BADGE_ICONS[b.badge_icon] || "🏅"}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>{b.badge_name}</div>
-                    <div className="text-secondary" style={{ fontSize: 11, marginTop: 2 }}>{b.description}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
+            {badges.length > 0 ? (() => {
+              const courseBadges = badges.filter((b: any) => b.badge_name?.startsWith("코스완료_"));
+              const challengeBadges = badges.filter((b: any) => !b.badge_name?.startsWith("코스완료_"));
+              const BadgeCard = ({ b, i }: { b: any; i: number }) => (
+                <div key={i} style={{ textAlign: "center", padding: "12px", borderRadius: 12, border: "1px solid var(--border)", minWidth: 90 }}>
+                  <div style={{ fontSize: 28 }}>{BADGE_ICONS[b.badge_icon] || b.badge_icon || "🏅"}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{b.badge_name}</div>
+                  <div className="text-secondary" style={{ fontSize: 10, marginTop: 2 }}>{b.description}</div>
+                </div>
+              );
+              return (
+                <div>
+                  {challengeBadges.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--primary)", marginBottom: 8 }}>🏆 챌린지 달성</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {challengeBadges.map((b: any, i: number) => <BadgeCard key={i} b={b} i={i} />)}
+                      </div>
+                    </div>
+                  )}
+                  {courseBadges.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#8b5cf6", marginBottom: 8 }}>🎓 코스 수료</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {courseBadges.map((b: any, i: number) => <BadgeCard key={i} b={b} i={i} />)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })() : (
               <div style={{ textAlign: "center", padding: 32 }}>
                 <div style={{ fontSize: 48, opacity: 0.3 }}>🏅</div>
-                <p className="text-secondary" style={{ marginTop: 8 }}>챌린지를 완료하면 배지를 획득할 수 있습니다!</p>
+                <p className="text-secondary" style={{ marginTop: 8 }}>챌린지 완료 또는 코스 수료 시 배지를 획득합니다!</p>
               </div>
             )}
           </div>
@@ -165,7 +186,12 @@ function ChallengeContent() {
 
         {leaderboard.length > 0 && (
           <div style={{ marginTop: 32 }}>
-            <h2 style={{ marginBottom: 16 }}>리더보드</h2>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 }}>
+              <h2>리더보드</h2>
+              <span className="text-secondary" style={{ fontSize: 13 }}>
+                포인트 = 배지(50P) + 챌린지 완료(100P) + 코스 수료(50P) + 퀴즈 점수 반영
+              </span>
+            </div>
             <div className="card">
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>

@@ -405,6 +405,13 @@ async def get_user_challenges(user_id: str, session: AsyncSession = Depends(get_
     return {"user_id": user_id, "challenges": enrollments, "total": len(enrollments)}
 
 
+@router.post("/user-challenges/{user_id}/sync", summary="챌린지 진행률 소비 데이터 기반 자동 동기화")
+async def sync_challenge_progress(user_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    await edu_db.sync_challenge_progress(user_id, session)
+    enrollments = await edu_db.get_user_challenges(user_id, session)
+    return {"user_id": user_id, "challenges": enrollments, "total": len(enrollments)}
+
+
 # ── Module 5: 시뮬레이션 ─────────────────────────────────────
 
 @router.post(

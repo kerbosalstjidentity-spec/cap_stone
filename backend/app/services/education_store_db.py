@@ -4,6 +4,7 @@
 진행 상태·배지·퀴즈 점수·리더보드는 PostgreSQL에 저장.
 """
 
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, func, select, update
@@ -12,10 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.redis import cache_get, cache_set
 from app.models.tables import (
+    Budget,
     ChallengeEnrollment as DBChallengeEnrollment,
     CourseProgress as DBCourseProgress,
     LeaderboardPoints,
     QuizScore,
+    Transaction,
     User,
     UserBadge,
 )
@@ -198,6 +201,116 @@ async def get_user_challenges(user_id: str, session: AsyncSession) -> list[Chall
         .order_by(DBChallengeEnrollment.created_at.desc())
     )
     return [_to_enrollment_schema(r) for r in result.scalars().all()]
+
+
+async def sync_challenge_progress(user_id: str, session: AsyncSession) -> None:
+    """활성 챌린지의 진행률을 소비 데이터 기반으로 자동 계산·업데이트."""
+    active = (await session.execute(
+        select(DBChallengeEnrollment).where(
+            DBChallengeEnrollment.user_id == user_id,
+            DBChallengeEnrollment.status == "active",
+        )
+    )).scalars().all()
+
+    if not active:
+        return
+
+    now = datetime.now(UTC)
+
+    # 최근 30일 트랜잭션 로드 (한 번만)
+    cutoff = now - timedelta(days=30)
+    tx_rows = (await session.execute(
+        select(Transaction.timestamp, Transaction.category, Transaction.amount)
+        .where(Transaction.user_id == user_id, Transaction.timestamp >= cutoff)
+        .order_by(Transaction.timestamp)
+    )).all()
+
+    # 퀴즈 점수 로드 (fraud_quiz_master용)
+    quiz_rows = (await session.execute(
+        select(QuizScore.score, QuizScore.created_at)
+        .where(QuizScore.user_id == user_id)
+        .order_by(QuizScore.created_at)
+    )).all()
+
+    for enrollment in active:
+        metric = CHALLENGES.get(enrollment.challenge_id)
+        if not metric:
+            continue
+
+        value = _compute_metric(
+            metric.target_metric, enrollment, tx_rows, quiz_rows, now, session
+        )
+        if value is None:
+            continue
+
+        enrollment.current_value = value
+        enrollment.progress_pct = min(value / enrollment.target_value * 100, 100) if enrollment.target_value > 0 else 0
+
+        if enrollment.progress_pct >= 100:
+            enrollment.status = "completed"
+            await _award_challenge_badge(user_id, enrollment.challenge_id, session)
+
+    await session.commit()
+
+
+def _compute_metric(
+    target_metric: str,
+    enrollment: DBChallengeEnrollment,
+    tx_rows: list,
+    quiz_rows: list,
+    now: datetime,
+    session,
+) -> float | None:
+    """메트릭별 현재 달성값 계산."""
+
+    if target_metric == "food_cafe_reduction":
+        # 등록 전달 대비 등록 후 식비 감소율 (%)
+        start = enrollment.start_date
+        prev_month = (start - timedelta(days=30))
+        before = sum(r.amount for r in tx_rows if r.category in ("food", "cafe") and prev_month <= r.timestamp < start)
+        after = sum(r.amount for r in tx_rows if r.category in ("food", "cafe") and r.timestamp >= start)
+        if before <= 0:
+            return 0.0
+        reduction_pct = max((before - after) / before * 100, 0)
+        return round(reduction_pct, 1)
+
+    elif target_metric == "zero_spend_days":
+        # 챌린지 기간(7일) 내 무지출 일수
+        start = enrollment.start_date
+        end = min(enrollment.end_date, now)
+        spend_days = {r.timestamp.date() for r in tx_rows if start <= r.timestamp <= end}
+        total_days = (end.date() - start.date()).days + 1
+        zero_days = max(total_days - len(spend_days), 0)
+        return float(zero_days)
+
+    elif target_metric == "budget_compliance":
+        # 이번 달 예산 준수율: (1 - 초과율) * 100, 예산 정보 없으면 0
+        current_period = now.strftime("%Y-%m")
+        month_spend = sum(r.amount for r in tx_rows if r.timestamp.strftime("%Y-%m") == current_period)
+        # 간단히: 지출이 0이면 100%, 지출이 많을수록 낮아짐 (예산 DB 없으면 기준 200만)
+        budget_ref = 2_000_000.0
+        compliance = max((1 - month_spend / budget_ref) * 100, 0) if budget_ref > 0 else 0
+        return round(compliance, 1)
+
+    elif target_metric == "fraud_quiz_streak":
+        # 연속 정답 최대 streak
+        if not quiz_rows:
+            return 0.0
+        streak = 0
+        best = 0
+        for q in quiz_rows:
+            if q.score >= 60:  # 60점 이상 = 정답
+                streak += 1
+                best = max(best, streak)
+            else:
+                streak = 0
+        return float(best)
+
+    elif target_metric == "cluster_change":
+        # 소비 패턴 변화는 자동 계산 어려움 → 수동 진행률 유지
+        return None
+
+    return None
 
 
 # ──────────────────────────────────────────────
