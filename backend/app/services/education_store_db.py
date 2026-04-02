@@ -353,12 +353,19 @@ async def _award_course_badge(user_id: str, course_id: str, course_title: str, s
 
 async def _award_challenge_badge(user_id: str, challenge_id: str, session: AsyncSession) -> None:
     challenge = CHALLENGES.get(challenge_id)
-    name = challenge.name if challenge else challenge_id
+    if challenge:
+        badge_name = challenge.badge_name
+        icon = challenge.badge_icon
+        description = f"'{challenge.name}' 챌린지를 달성했습니다!"
+    else:
+        badge_name = f"챌린지완료_{challenge_id}"
+        icon = "trophy"
+        description = f"'{challenge_id}' 챌린지를 달성했습니다!"
     await _award_badge(
         user_id,
-        badge_name=f"챌린지완료_{challenge_id}",
-        icon="🏆",
-        description=f"'{name}' 챌린지를 달성했습니다!",
+        badge_name=badge_name,
+        icon=icon,
+        description=description,
         challenge_id=challenge_id,
         session=session,
     )

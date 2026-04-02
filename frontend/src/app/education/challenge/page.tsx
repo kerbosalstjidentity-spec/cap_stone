@@ -35,7 +35,7 @@ function ChallengeContent() {
     const [ch, bg, lb] = await Promise.allSettled([
       fetch(`/api/v1/education/user-challenges/${userId}`).then((r) => r.json()),
       fetch(`/api/v1/education/badges/${userId}`).then((r) => r.json()),
-      fetch("/api/v1/education/leaderboard?top_n=10").then((r) => r.json()),
+      fetch("/api/v1/education/leaderboard?top_n=20").then((r) => r.json()),
     ]);
     if (ch.status === "fulfilled") setUserChallenges(ch.value.challenges || []);
     if (bg.status === "fulfilled") setBadges(bg.value.badges || []);
