@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ─────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: consume_pattern
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Redis ──────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Fraud Service (포트 8010) ──────────────
+  fraud-service:
+    build: ./fraud-service
+    ports:
+      - "8010:8010"
+    environment:
+      PYTHONUNBUFFERED: "1"
+
+  # ── Backend (포트 8020) ────────────────────
+  backend:
+    build: ./backend
+    ports:
+      - "8020:8020"
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgres:5432/consume_pattern"
+      REDIS_URL: "redis://redis:6379/1"
+      FRAUD_SERVICE_URL: "http://fraud-service:8010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      fraud-service:
+        condition: service_started
+
+  # ── Frontend (포트 3020) ───────────────────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_BACKEND_URL: "http://backend:8020"
+    ports:
+      - "3020:3020"
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: "http://backend:8020"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

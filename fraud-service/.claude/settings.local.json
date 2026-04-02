@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /c/Users/alstj/Downloads/4_1_capstone/outputs/fds/*.json)",
+      "Bash(pip install:*)",
+      "Bash(python -:*)",
+      "Bash(.venv/Scripts/python.exe -c \"from app.main import app; print\\(''OK'', [r.path for r in app.routes]\\)\")",
+      "Bash(.venv/Scripts/python.exe scripts/export_openapi.py --out docs/openapi.json)",
+      "Bash(.venv/Scripts/python.exe -c \"from app.main import app; print\\(''routes OK:'', len\\(app.routes\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/ -q)",
+      "Bash(.venv/Scripts/python.exe -c \"import slowapi\")",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/ -q --tb=short)"
+    ]
+  }
+}
