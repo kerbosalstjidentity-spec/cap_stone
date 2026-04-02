@@ -22,6 +22,8 @@ function ChallengeContent() {
   const [badges, setBadges] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/v1/education/challenges").then((r) => r.json()).then((d) => setChallenges(d.challenges || []));
@@ -46,8 +48,23 @@ function ChallengeContent() {
   }, [userId]);
 
   const enrollChallenge = async (challengeId: string) => {
-    await fetch(`/api/v1/education/challenge/${challengeId}/enroll?user_id=${userId}`, { method: "POST" });
-    await fetchUserData();
+    if (!userId || enrolling) return;
+    setEnrolling(challengeId);
+    setEnrollError(null);
+    try {
+      const res = await fetch(`/api/v1/education/challenge/${challengeId}/enroll?user_id=${userId}`, { method: "POST" });
+      if (!res.ok) {
+        let msg = "챌린지 참여에 실패했습니다.";
+        try { const d = await res.json(); msg = d.detail || msg; } catch {}
+        setEnrollError(msg);
+      } else {
+        await fetchUserData();
+      }
+    } catch {
+      setEnrollError("서버에 연결할 수 없습니다. 백엔드 서버(포트 8020)가 실행 중인지 확인하세요.");
+    } finally {
+      setEnrolling(null);
+    }
   };
 
   const isEnrolled = (challengeId: string) => userChallenges.some((c) => c.challenge_id === challengeId);
@@ -113,6 +130,12 @@ function ChallengeContent() {
         </div>
 
         <h2 style={{ marginTop: 32, marginBottom: 16 }}>챌린지 도전하기</h2>
+        {enrollError && (
+          <div style={{ padding: "12px 16px", marginBottom: 16, borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: 14 }}>
+            {enrollError}
+            <button onClick={() => setEnrollError(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontWeight: 700 }}>✕</button>
+          </div>
+        )}
         <div className="grid grid-3">
           {challenges.map((ch: any) => {
             const enrolled = isEnrolled(ch.challenge_id);
@@ -122,11 +145,18 @@ function ChallengeContent() {
                 <h3 style={{ marginBottom: 4 }}>{ch.name}</h3>
                 <p className="text-secondary" style={{ fontSize: 14, marginBottom: 8 }}>{ch.description}</p>
                 <div className="text-secondary" style={{ fontSize: 13, marginBottom: 12 }}>{ch.duration_days}일 | 보상: {ch.badge_name}</div>
-                <button onClick={() => !enrolled && enrollChallenge(ch.challenge_id)} disabled={enrolled} style={{
-                  width: "100%", padding: "10px", borderRadius: 8, cursor: enrolled ? "default" : "pointer",
-                  border: "none", color: "#fff", fontSize: 14, background: enrolled ? "var(--success)" : "var(--primary)",
-                }}>
-                  {enrolled ? "참여 중" : "도전하기"}
+                <button
+                  onClick={() => !enrolled && enrollChallenge(ch.challenge_id)}
+                  disabled={enrolled || enrolling === ch.challenge_id}
+                  style={{
+                    width: "100%", padding: "10px", borderRadius: 8,
+                    cursor: enrolled || enrolling === ch.challenge_id ? "default" : "pointer",
+                    border: "none", color: "#fff", fontSize: 14,
+                    background: enrolled ? "var(--success)" : enrolling === ch.challenge_id ? "#93c5fd" : "var(--primary)",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  {enrolled ? "참여 중" : enrolling === ch.challenge_id ? "처리 중..." : "도전하기"}
                 </button>
               </div>
             );

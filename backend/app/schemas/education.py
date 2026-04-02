@@ -92,6 +92,7 @@ class Challenge(BaseModel):
     duration_days: int
     target_metric: str       # e.g., "food_spending", "zero_spend_days"
     target_description: str
+    target_value: float = 100.0
     badge_name: str
     badge_icon: str
 

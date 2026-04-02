@@ -16,6 +16,7 @@ from app.models.tables import (
     CourseProgress as DBCourseProgress,
     LeaderboardPoints,
     QuizScore,
+    User,
     UserBadge,
 )
 # 정적 콘텐츠는 기존 store에서 재사용
@@ -128,6 +129,12 @@ async def enroll_challenge(user_id: str, challenge_id: str, session: AsyncSessio
     challenge = CHALLENGES.get(challenge_id)
     if not challenge:
         raise ValueError(f"Unknown challenge: {challenge_id}")
+
+    # users 테이블에 row가 없으면 FK 위반 → 없으면 먼저 생성
+    existing_user = await session.execute(select(User).where(User.user_id == user_id))
+    if existing_user.scalar_one_or_none() is None:
+        session.add(User(user_id=user_id))
+        await session.flush()
 
     # 이미 참여 중이면 반환
     result = await session.execute(
