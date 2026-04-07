@@ -190,7 +190,7 @@ async def verify_challenge(
 
 @router.get(
     "/history",
-    summary="Step-up 인증 내역 조회",
+    summary="보안 이벤트 내역 조회 (로그인, TOTP, Step-up 포함)",
 )
 async def stepup_history(
     current_user: User = Depends(get_current_user),
@@ -200,14 +200,25 @@ async def stepup_history(
         select(StepUpSession)
         .where(StepUpSession.user_id == current_user.user_id)
         .order_by(StepUpSession.created_at.desc())
-        .limit(20)
+        .limit(30)
     )
     sessions = result.scalars().all()
+
+    _method_label = {
+        "login": "비밀번호 로그인",
+        "login_fail": "로그인 실패",
+        "login_totp": "TOTP 로그인",
+        "totp_fail": "TOTP 실패",
+        "totp": "TOTP Step-up",
+        "fido": "FIDO2 Step-up",
+    }
+
     return {
         "user_id": current_user.user_id,
         "history": [
             {
                 "method": s.method,
+                "method_label": _method_label.get(s.method, s.method),
                 "verified": s.verified,
                 "risk_score": s.risk_score,
                 "created_at": s.created_at.isoformat(),

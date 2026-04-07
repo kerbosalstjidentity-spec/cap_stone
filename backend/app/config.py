@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # WebAuthn / FIDO2
     WEBAUTHN_RP_ID: str = "localhost"
     WEBAUTHN_RP_NAME: str = "Consume Pattern"
-    WEBAUTHN_ORIGIN: str = "http://localhost:3000"
+    WEBAUTHN_ORIGIN: str = "http://localhost:3020"
 
     # Step-up Auth (fraud-service 리스크 임계값)
     STEPUP_RISK_THRESHOLD: float = 0.6   # 이 이상이면 추가 인증 요구

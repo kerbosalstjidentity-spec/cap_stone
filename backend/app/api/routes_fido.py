@@ -18,7 +18,12 @@ try:
     import webauthn
     from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
     from webauthn.helpers.structs import (
+        AuthenticatorAttestationResponse,
+        AuthenticatorAssertionResponse,
         AuthenticatorSelectionCriteria,
+        AuthenticationCredential,
+        PublicKeyCredentialDescriptor,
+        RegistrationCredential,
         ResidentKeyRequirement,
         UserVerificationRequirement,
     )
@@ -140,10 +145,10 @@ async def registration_verify(
 
     try:
         verification = webauthn.verify_registration_response(
-            credential=webauthn.RegistrationCredential(
+            credential=RegistrationCredential(
                 id=body.credential_id,
                 raw_id=base64url_to_bytes(body.credential_id),
-                response=webauthn.AuthenticatorAttestationResponse(
+                response=AuthenticatorAttestationResponse(
                     client_data_json=base64url_to_bytes(body.client_data_json),
                     attestation_object=base64url_to_bytes(body.attestation_object),
                 ),
@@ -202,7 +207,7 @@ async def authentication_options(
     options = webauthn.generate_authentication_options(
         rp_id=settings.WEBAUTHN_RP_ID,
         allow_credentials=[
-            webauthn.PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id))
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id))
             for c in creds
         ],
         user_verification=UserVerificationRequirement.PREFERRED,
@@ -243,10 +248,10 @@ async def authentication_verify(
 
     try:
         verification = webauthn.verify_authentication_response(
-            credential=webauthn.AuthenticationCredential(
+            credential=AuthenticationCredential(
                 id=body.credential_id,
                 raw_id=base64url_to_bytes(body.credential_id),
-                response=webauthn.AuthenticatorAssertionResponse(
+                response=AuthenticatorAssertionResponse(
                     client_data_json=base64url_to_bytes(body.client_data_json),
                     authenticator_data=base64url_to_bytes(body.authenticator_data),
                     signature=base64url_to_bytes(body.signature),
@@ -324,3 +329,168 @@ async def delete_credential(
     await session.delete(cred)
     await session.commit()
     return {"status": "deleted"}
+
+
+# ──────────────────────────────────────────────
+#  로그인용 FIDO2 인증 (pre_auth_token 기반)
+# ──────────────────────────────────────────────
+
+class FidoLoginOptionsRequest(BaseModel):
+    pre_auth_token: str
+
+
+class FidoLoginOptionsResponse(BaseModel):
+    challenge: str
+    rp_id: str
+    timeout: int = 60000
+    allow_credentials: list[dict]
+
+
+class FidoLoginVerifyRequest(BaseModel):
+    pre_auth_token: str
+    credential_id: str
+    client_data_json: str
+    authenticator_data: str
+    signature: str
+
+
+# 로그인용 챌린지 임시 저장 (pre_auth_token → challenge)
+_login_challenges: dict[str, bytes] = {}
+
+
+@router.post(
+    "/login/options",
+    response_model=FidoLoginOptionsResponse,
+    summary="로그인용 FIDO2 챌린지 발급 (비밀번호 인증 후 호출)",
+)
+async def fido_login_options(
+    body: FidoLoginOptionsRequest,
+    session: AsyncSession = Depends(get_session),
+) -> FidoLoginOptionsResponse:
+    _check_webauthn()
+
+    # pre_auth_token 검증
+    from app.auth.jwt import decode_token
+    try:
+        payload = decode_token(body.pre_auth_token)
+        if payload.get("type") != "pre_auth":
+            raise ValueError("invalid token type")
+        user_id = payload["sub"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="유효하지 않은 인증 토큰입니다.")
+
+    result = await session.execute(
+        select(FidoCredential).where(FidoCredential.user_id == user_id)
+    )
+    creds = result.scalars().all()
+    if not creds:
+        raise HTTPException(status_code=404, detail="등록된 FIDO2 장치가 없습니다.")
+
+    options = webauthn.generate_authentication_options(
+        rp_id=settings.WEBAUTHN_RP_ID,
+        allow_credentials=[
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id))
+            for c in creds
+        ],
+        user_verification=UserVerificationRequirement.PREFERRED,
+    )
+    # pre_auth_token을 키로 챌린지 저장
+    _login_challenges[body.pre_auth_token] = options.challenge
+
+    return FidoLoginOptionsResponse(
+        challenge=bytes_to_base64url(options.challenge),
+        rp_id=settings.WEBAUTHN_RP_ID,
+        allow_credentials=[{"id": c.credential_id, "name": c.name} for c in creds],
+    )
+
+
+@router.post(
+    "/login/verify",
+    summary="로그인용 FIDO2 assertion 검증 → 액세스 토큰 발급",
+)
+async def fido_login_verify(
+    body: FidoLoginVerifyRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    _check_webauthn()
+
+    # pre_auth_token 검증
+    from app.auth.jwt import decode_token, create_access_token, create_refresh_token
+    try:
+        payload = decode_token(body.pre_auth_token)
+        if payload.get("type") != "pre_auth":
+            raise ValueError("invalid token type")
+        user_id = payload["sub"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="유효하지 않은 인증 토큰입니다.")
+
+    expected_challenge = _login_challenges.pop(body.pre_auth_token, None)
+    if not expected_challenge:
+        raise HTTPException(status_code=400, detail="챌린지가 없거나 만료되었습니다. 다시 시도하세요.")
+
+    # credential 조회
+    result = await session.execute(
+        select(FidoCredential).where(
+            FidoCredential.user_id == user_id,
+            FidoCredential.credential_id == body.credential_id,
+        )
+    )
+    cred = result.scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=404, detail="인증 장치를 찾을 수 없습니다.")
+
+    try:
+        verification = webauthn.verify_authentication_response(
+            credential=AuthenticationCredential(
+                id=body.credential_id,
+                raw_id=base64url_to_bytes(body.credential_id),
+                response=AuthenticatorAssertionResponse(
+                    client_data_json=base64url_to_bytes(body.client_data_json),
+                    authenticator_data=base64url_to_bytes(body.authenticator_data),
+                    signature=base64url_to_bytes(body.signature),
+                ),
+            ),
+            expected_challenge=expected_challenge,
+            expected_rp_id=settings.WEBAUTHN_RP_ID,
+            expected_origin=settings.WEBAUTHN_ORIGIN,
+            credential_public_key=base64.b64decode(cred.public_key),
+            credential_current_sign_count=cred.sign_count,
+            require_user_verification=False,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"FIDO2 인증 실패: {e}")
+
+    cred.sign_count = verification.new_sign_count
+    cred.last_used_at = datetime.now(UTC)
+
+    # 사용자 last_login_at 갱신
+    from app.models.tables import User
+    user_result = await session.execute(select(User).where(User.user_id == user_id))
+    user = user_result.scalar_one_or_none()
+    if user:
+        user.last_login_at = datetime.now(UTC)
+
+    await session.commit()
+
+    # 보안 이벤트 기록
+    import secrets as _secrets
+    from datetime import timedelta
+    from app.models.tables import StepUpSession
+    event = StepUpSession(
+        user_id=user_id,
+        session_token=f"evt_{_secrets.token_hex(16)}",
+        method="login_fido",
+        verified=True,
+        risk_score=0.0,
+        expires_at=datetime.now(UTC) + timedelta(seconds=1),
+    )
+    session.add(event)
+    await session.commit()
+
+    return {
+        "verified": True,
+        "access_token": create_access_token(user_id),
+        "refresh_token": create_refresh_token(user_id),
+        "user_id": user_id,
+        "nickname": user.nickname if user else "",
+    }

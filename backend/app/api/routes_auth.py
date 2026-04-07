@@ -1,10 +1,13 @@
 """인증 API — 회원가입, 로그인, 프로필, TOTP 2FA."""
 
+import base64
+import io
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pyotp
+import qrcode
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
 from sqlalchemy import select
@@ -13,23 +16,46 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import get_current_user
 from app.auth.jwt import (
     create_access_token,
+    create_pre_auth_token,
     create_refresh_token,
     decode_token,
     hash_password,
     verify_password,
 )
 from app.db.session import get_session
-from app.models.tables import User
+from app.models.tables import StepUpSession, User
 from app.schemas.auth import (
     LoginRequest,
+    LoginResponse,
     PasswordChangeRequest,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    TotpLoginRequest,
     TotpSetupResponse,
     TotpVerifyRequest,
     UserProfile,
 )
+
+
+async def _log_security_event(
+    session: AsyncSession,
+    user_id: str,
+    method: str,
+    verified: bool,
+    risk_score: float = 0.0,
+) -> None:
+    """보안 이벤트를 StepUpSession 테이블에 기록."""
+    event = StepUpSession(
+        user_id=user_id,
+        session_token=f"evt_{secrets.token_hex(16)}",
+        method=method,
+        verified=verified,
+        risk_score=risk_score,
+        expires_at=datetime.now(UTC) + timedelta(seconds=1),  # 이미 만료된 이벤트 기록용
+    )
+    session.add(event)
+    await session.commit()
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -74,22 +100,87 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_se
 
 @router.post(
     "/login",
-    response_model=TokenResponse,
-    summary="로그인",
+    response_model=LoginResponse,
+    summary="로그인 (TOTP 활성화 시 2단계 반환)",
 )
-async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)) -> TokenResponse:
+async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)) -> LoginResponse:
     result = await session.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
     if not user or not user.hashed_password or not verify_password(body.password, user.hashed_password):
+        # 로그인 실패 이벤트 기록 (user가 있을 때만)
+        if user:
+            await _log_security_event(session, user.user_id, "login_fail", False)
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 잘못되었습니다.")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="비활성화된 계정입니다.")
 
+    # FIDO2 장치 등록 여부 확인
+    from app.models.tables import FidoCredential
+    fido_result = await session.execute(
+        select(FidoCredential).where(FidoCredential.user_id == user.user_id).limit(1)
+    )
+    has_fido = fido_result.scalar_one_or_none() is not None
+
+    # 2FA 필요한 경우 (TOTP 또는 FIDO2)
+    if user.totp_enabled or has_fido:
+        pre_auth_token = create_pre_auth_token(user.user_id)
+        return LoginResponse(
+            totp_required=user.totp_enabled,
+            fido_available=has_fido,
+            pre_auth_token=pre_auth_token,
+            user_id=user.user_id,
+            nickname=user.nickname,
+        )
+
+    # 2FA 없음 — 즉시 토큰 발급
     user.last_login_at = datetime.now(UTC)
     await session.commit()
+    await _log_security_event(session, user.user_id, "login", True)
 
-    return TokenResponse(
+    return LoginResponse(
+        totp_required=False,
+        fido_available=False,
+        access_token=create_access_token(user.user_id),
+        refresh_token=create_refresh_token(user.user_id),
+        user_id=user.user_id,
+        nickname=user.nickname,
+    )
+
+
+@router.post(
+    "/login/totp",
+    response_model=LoginResponse,
+    summary="로그인 2단계 — TOTP 코드 검증",
+)
+async def login_totp(body: TotpLoginRequest, session: AsyncSession = Depends(get_session)) -> LoginResponse:
+    """비밀번호 인증 후 TOTP 코드를 검증하고 최종 토큰을 발급합니다."""
+    try:
+        payload = decode_token(body.pre_auth_token)
+        if payload.get("type") != "pre_auth":
+            raise ValueError("invalid token type")
+        user_id = payload["sub"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="유효하지 않은 인증 토큰입니다.")
+
+    result = await session.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
+    if not user.totp_enabled or not user.totp_secret:
+        raise HTTPException(status_code=400, detail="TOTP가 활성화되어 있지 않습니다.")
+
+    totp = pyotp.TOTP(user.totp_secret)
+    if not totp.verify(body.code, valid_window=1):
+        await _log_security_event(session, user.user_id, "totp_fail", False)
+        raise HTTPException(status_code=401, detail="OTP 코드가 올바르지 않습니다.")
+
+    user.last_login_at = datetime.now(UTC)
+    await session.commit()
+    await _log_security_event(session, user.user_id, "login_totp", True)
+
+    return LoginResponse(
+        totp_required=False,
         access_token=create_access_token(user.user_id),
         refresh_token=create_refresh_token(user.user_id),
         user_id=user.user_id,
@@ -195,7 +286,14 @@ async def totp_setup(
         name=current_user.email or current_user.user_id,
         issuer_name="Consume Pattern",
     )
-    return TotpSetupResponse(secret=secret, qr_uri=qr_uri)
+
+    # QR 코드 이미지 생성 (PNG → base64 data URL)
+    img = qrcode.make(qr_uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+    return TotpSetupResponse(secret=secret, qr_uri=qr_uri, qr_image=qr_b64)
 
 
 @router.post(

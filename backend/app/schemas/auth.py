@@ -32,6 +32,24 @@ class TokenResponse(BaseModel):
     nickname: str
 
 
+class LoginResponse(BaseModel):
+    """로그인 응답 — 2FA 없으면 즉시 토큰, 있으면 2단계 대기."""
+    totp_required: bool = False
+    fido_available: bool = False        # FIDO2 장치 등록된 경우 True
+    pre_auth_token: str | None = None   # 2단계 인증 필요할 때만 반환
+    # 2FA 없거나 완료 시 아래 필드 채워짐
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+    user_id: str = ""
+    nickname: str = ""
+
+
+class TotpLoginRequest(BaseModel):
+    pre_auth_token: str   # 1단계에서 받은 토큰
+    code: str             # Google Authenticator 6자리
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -67,7 +85,8 @@ class PasswordChangeRequest(BaseModel):
 
 class TotpSetupResponse(BaseModel):
     secret: str
-    qr_uri: str   # otpauth:// URI (QR 코드용)
+    qr_uri: str        # otpauth:// URI
+    qr_image: str      # base64 PNG data URL (data:image/png;base64,...)
 
 
 class TotpVerifyRequest(BaseModel):

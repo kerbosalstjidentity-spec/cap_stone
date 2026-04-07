@@ -6,9 +6,9 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-$FraudDir   = "C:\Users\alstj\Downloads\fraud-service"
-$BackendDir = "C:\Users\alstj\Downloads\4_1_cosume_pattern\backend"
-$FrontDir   = "C:\Users\alstj\Downloads\4_1_cosume_pattern\frontend"
+$FraudDir   = "C:\Users\alstj\Downloads\캡스톤_프로젝트\fraud-service"
+$BackendDir = "C:\Users\alstj\Downloads\캡스톤_프로젝트\4_1_cosume_pattern\backend"
+$FrontDir   = "C:\Users\alstj\Downloads\캡스톤_프로젝트\4_1_cosume_pattern\frontend"
 $PgDataDir  = "C:\Program Files\PostgreSQL\17\data"
 $PgService  = "postgresql-x64-17"
 

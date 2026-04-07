@@ -28,6 +28,7 @@ passlib[bcrypt]>=1.7
 python-multipart>=0.0.12
 webauthn>=2.2
 pyotp>=2.9
+qrcode[pil]>=8.0
 
 # === Testing ===
 pytest>=8.0

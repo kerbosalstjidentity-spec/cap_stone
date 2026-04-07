@@ -49,3 +49,10 @@ def create_stepup_token(user_id: str, method: str, ttl_minutes: int = 10) -> str
     expire = datetime.now(UTC) + timedelta(minutes=ttl_minutes)
     payload = {"sub": user_id, "exp": expire, "type": "stepup", "method": method}
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_pre_auth_token(user_id: str) -> str:
+    """로그인 1단계 완료 후 TOTP 인증 대기용 단기 토큰 (5분)."""
+    expire = datetime.now(UTC) + timedelta(minutes=5)
+    payload = {"sub": user_id, "exp": expire, "type": "pre_auth"}
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
