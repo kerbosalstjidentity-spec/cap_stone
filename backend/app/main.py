@@ -15,6 +15,7 @@ from app.api import (
     routes_notifications,
     routes_profile,
     routes_seed,
+    routes_security_dashboard,
     routes_stepup,
     routes_strategy,
     routes_train,
@@ -110,3 +111,4 @@ app.include_router(routes_train.router)
 app.include_router(routes_notifications.router)
 app.include_router(routes_xai.router)
 app.include_router(routes_emotion.router)
+app.include_router(routes_security_dashboard.router)

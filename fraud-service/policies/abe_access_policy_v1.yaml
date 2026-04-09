@@ -1,0 +1,66 @@
+# CP-ABE 기반 Fine-grained Access Control 정책
+# SRS 2 (AACE), SRS 3 (FGAC/ABAC), SRS 5 (CP-ABE)
+#
+# access_structure 문법:
+#   AND, OR, 괄호, 속성(key:value), 와일드카드(key:*)
+#   예: "(role:analyst OR role:admin) AND dept:fraud_team"
+#
+# encrypted_fields: 속성 미충족 시 마스킹될 필드 목록
+
+policies:
+  # ── FDS 스코어링 (핵심 판정) ──────────────────────────────
+  - resource: "POST /v1/score"
+    access_structure: "(role:analyst OR role:admin OR role:system) AND dept:fraud_team"
+    encrypted_fields: ["score", "rule_ids", "reason_code"]
+    description: "FDS 스코어링 요청 — 사기탐지팀 분석가/관리자만"
+
+  # ── 감사 로그 조회 ─────────────────────────────────────────
+  - resource: "GET /v1/audit/*"
+    access_structure: "role:admin OR role:auditor OR (role:analyst AND clearance:high)"
+    encrypted_fields: ["user_id", "amount", "score"]
+    description: "블록체인 감사 로그 — 관리자/감사자 또는 고등급 분석가"
+
+  # ── 프로파일 조회 ──────────────────────────────────────────
+  - resource: "GET /v1/profile/*"
+    access_structure: "role:analyst OR role:admin"
+    encrypted_fields: ["avg_amount", "velocity"]
+    description: "사용자 프로파일 — 분석가 이상"
+
+  # ── 위협 인텔리전스 ────────────────────────────────────────
+  - resource: "GET /v1/intelligence/*"
+    access_structure: "(role:analyst AND clearance:high) OR role:admin"
+    encrypted_fields: ["threat_details", "ioc_list"]
+    description: "위협 인텔리전스 — 고등급 분석가/관리자"
+
+  - resource: "POST /v1/intelligence/*"
+    access_structure: "role:admin"
+    encrypted_fields: []
+    description: "위협 인텔리전스 등록 — 관리자만"
+
+  # ── 관리자 전용 ────────────────────────────────────────────
+  - resource: "POST /admin/*"
+    access_structure: "role:admin AND dept:fraud_team"
+    encrypted_fields: []
+    description: "관리 기능 — 사기탐지팀 관리자만"
+
+  - resource: "GET /admin/*"
+    access_structure: "role:admin"
+    encrypted_fields: []
+    description: "관리 현황 조회 — 관리자만"
+
+  # ── 시뮬레이션 ─────────────────────────────────────────────
+  - resource: "POST /v1/simulate/*"
+    access_structure: "role:analyst OR role:admin OR role:tester"
+    encrypted_fields: []
+    description: "시뮬레이션 — 분석가/관리자/테스터"
+
+  # ── 사기 이벤트 조회 ───────────────────────────────────────
+  - resource: "GET /v1/fraud/*"
+    access_structure: "role:analyst OR role:admin OR role:auditor"
+    encrypted_fields: ["user_id", "amount"]
+    description: "사기 이벤트 — 분석가/관리자/감사자"
+
+  - resource: "POST /v1/fraud/*"
+    access_structure: "(role:analyst OR role:admin) AND dept:fraud_team"
+    encrypted_fields: []
+    description: "사기 이벤트 등록 — 사기탐지팀만"
