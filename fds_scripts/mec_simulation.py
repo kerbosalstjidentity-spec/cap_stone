@@ -132,10 +132,23 @@ class MECTransactionProcessor:
         self.mec_nodes = mec_nodes or self._default_mec_nodes()
         self.cloud = cloud or CloudNode()
         self.policies = policies or DEFAULT_UAC_POLICIES
+        # 일일 누적 지출 추적: user_id → 누적 금액
+        self._daily_spent: dict[str, float] = {}
 
     def process_transaction(self, tx: SimTransaction) -> ApprovalResult:
         """거래를 처리하고 승인 결과를 반환."""
         policy = self.policies.get(tx.user_tier, self.policies["basic"])
+
+        # 일일 한도 검사
+        spent = self._daily_spent.get(tx.user_id, 0.0)
+        if spent + tx.amount > policy.daily_limit:
+            edge = self._select_edge_node(tx.region)
+            return ApprovalResult(
+                tx_id=tx.tx_id, decision="DENIED",
+                processing_node=edge.node_id if edge else "cloud",
+                latency_ms=edge.effective_latency_ms if edge else self.cloud.base_latency_ms,
+                reason=f"일일 한도 초과: 누적 {spent + tx.amount:,.0f} > {policy.daily_limit:,.0f}",
+            )
 
         # 1) 에지 노드 선택
         edge = self._select_edge_node(tx.region)
@@ -152,12 +165,14 @@ class MECTransactionProcessor:
         # 3) 자동 승인 (소액)
         if tx.amount <= policy.auto_approve_below and tx.risk_score < 0.3:
             latency = edge.effective_latency_ms if edge else self.cloud.base_latency_ms
-            return ApprovalResult(
+            result = ApprovalResult(
                 tx_id=tx.tx_id, decision="APPROVED",
                 processing_node=edge.node_id if edge else "cloud",
                 latency_ms=latency + random.gauss(0, 2),
                 reason="소액 자동 승인",
             )
+            self._update_state(tx, edge)
+            return result
 
         # 4) MFA 필요 여부
         if tx.amount >= policy.require_mfa_above:
@@ -188,12 +203,21 @@ class MECTransactionProcessor:
 
         # 6) 에지 승인
         latency = (edge.effective_latency_ms if edge else self.cloud.base_latency_ms) + random.gauss(0, 3)
-        return ApprovalResult(
+        result = ApprovalResult(
             tx_id=tx.tx_id, decision="APPROVED",
             processing_node=edge.node_id if edge else "cloud",
             latency_ms=max(1.0, latency),
             reason="에지 노드 승인",
         )
+        self._update_state(tx, edge)
+        return result
+
+    def _update_state(self, tx: SimTransaction, edge: "MECNode | None") -> None:
+        """승인된 거래에 대해 일일 누적 + 에지 부하를 갱신한다."""
+        self._daily_spent[tx.user_id] = self._daily_spent.get(tx.user_id, 0.0) + tx.amount
+        if edge:
+            # 부하 증가 — 처리 건수 / 용량 기준 선형 증가
+            edge.current_load = min(1.0, edge.current_load + 1.0 / edge.capacity_tps)
 
     def _select_edge_node(self, region: str) -> MECNode | None:
         """지역에 가장 적합한 에지 노드 선택."""
@@ -288,8 +312,8 @@ def run_simulation(
         "mec": {
             "avg_latency_ms": round(statistics.mean(mec_latencies), 2),
             "p50_latency_ms": round(statistics.median(mec_latencies), 2),
-            "p95_latency_ms": round(sorted(mec_latencies)[int(0.95 * len(mec_latencies))], 2),
-            "p99_latency_ms": round(sorted(mec_latencies)[int(0.99 * len(mec_latencies))], 2),
+            "p95_latency_ms": round(sorted(mec_latencies)[min(int(0.95 * (len(mec_latencies) - 1)), len(mec_latencies) - 1)], 2),
+            "p99_latency_ms": round(sorted(mec_latencies)[min(int(0.99 * (len(mec_latencies) - 1)), len(mec_latencies) - 1)], 2),
             "decision_distribution": _decision_dist(mec_results),
             "escalation_rate": round(
                 sum(1 for r in mec_results if r.escalated) / len(mec_results), 4
@@ -298,8 +322,8 @@ def run_simulation(
         "cloud": {
             "avg_latency_ms": round(statistics.mean(cloud_latencies), 2),
             "p50_latency_ms": round(statistics.median(cloud_latencies), 2),
-            "p95_latency_ms": round(sorted(cloud_latencies)[int(0.95 * len(cloud_latencies))], 2),
-            "p99_latency_ms": round(sorted(cloud_latencies)[int(0.99 * len(cloud_latencies))], 2),
+            "p95_latency_ms": round(sorted(cloud_latencies)[min(int(0.95 * (len(cloud_latencies) - 1)), len(cloud_latencies) - 1)], 2),
+            "p99_latency_ms": round(sorted(cloud_latencies)[min(int(0.99 * (len(cloud_latencies) - 1)), len(cloud_latencies) - 1)], 2),
             "decision_distribution": _decision_dist(cloud_results),
         },
         "comparison": {

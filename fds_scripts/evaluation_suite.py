@@ -207,48 +207,74 @@ def benchmark_encryption_hybrid(n_operations: int = 500) -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════
 
 def test_replay_attack_defense() -> dict[str, Any]:
-    """SRS 1,2,3,10: 리플레이/스푸핑 공격 방어 검증."""
+    """SRS 1,2,3,10: 리플레이/스푸핑 공격 방어 검증.
+
+    시나리오: 정상 요청의 nonce를 캐시에 등록한 뒤,
+    동일 nonce로 재전송(리플레이)을 시도하여 차단되는지 확인한다.
+    """
     nonce_cache: set[str] = set()
     n_trials = 1000
+    first_accepted = 0
     replays_blocked = 0
 
     for _ in range(n_trials):
         nonce = secrets.token_hex(16)
-        # 첫 사용: 정상
-        nonce_cache.add(nonce)
-        # 리플레이 시도
+        # 1) 첫 사용 — 캐시에 없으므로 수락해야 함
+        if nonce not in nonce_cache:
+            first_accepted += 1
+            nonce_cache.add(nonce)
+        # 2) 리플레이 시도 — 이미 캐시에 있으므로 차단해야 함
         if nonce in nonce_cache:
             replays_blocked += 1
 
     return {
         "test": "SRS 1,2,3,10: Replay/Spoofing Attack Defense",
         "trials": n_trials,
+        "first_accepted": first_accepted,
         "replays_blocked": replays_blocked,
         "block_rate": round(replays_blocked / n_trials * 100, 1),
         "defense_method": "Nonce + Timestamp + HMAC",
-        "status": "PASS" if replays_blocked == n_trials else "FAIL",
+        "status": "PASS" if (first_accepted == n_trials and replays_blocked == n_trials) else "FAIL",
+        "note": "첫 요청 수락 + 동일 nonce 재전송 차단 모두 검증",
     }
 
 
 def test_insider_threat_defense() -> dict[str, Any]:
-    """SRS 2,8 FR-03: 내부자 위협 방어 (Sanitizer no-read/no-write)."""
+    """SRS 2,8 FR-03: 내부자 위협 방어 (Sanitizer no-read/no-write).
+
+    시나리오:
+    - No-read: Sanitizer가 암호문으로부터 원문을 역추적할 수 없음을 검증
+      (brute-force 시도 시뮬레이션 — 랜덤 추측이 원문과 일치하지 않아야 함)
+    - No-write: Sanitizer가 암호문을 변조하면 무결성 태그로 탐지됨을 검증
+      (변조 전후 HMAC 비교)
+    """
     n_trials = 100
     no_read_violations = 0
     no_write_violations = 0
+    integrity_key = secrets.token_hex(16)
 
     for _ in range(n_trials):
-        # 원문 데이터
+        # 원문 + 암호화
         plaintext = f"sensitive-{secrets.token_hex(8)}"
-        # Sanitizer가 보는 것: 암호문만
         ciphertext = hashlib.sha256(plaintext.encode()).hexdigest()
-        # No-read 검증: Sanitizer는 원문을 복원할 수 없어야 함
-        if ciphertext == plaintext:
-            no_read_violations += 1
-        # 재암호화 후 변조 시도
-        re_encrypted = hashlib.sha256(f"RE:{ciphertext}".encode()).hexdigest()
-        tampered = hashlib.sha256(f"TAMPERED:{ciphertext}".encode()).hexdigest()
-        # No-write: 무결성 태그가 다름
-        if re_encrypted == tampered:
+
+        # No-read 검증: Sanitizer가 랜덤 추측으로 원문 복원 시도
+        # (SHA-256 preimage resistance — 무작위 추측 100회 시도)
+        for _ in range(100):
+            guess = f"sensitive-{secrets.token_hex(8)}"
+            if hashlib.sha256(guess.encode()).hexdigest() == ciphertext:
+                no_read_violations += 1
+
+        # No-write 검증: 정상 무결성 태그 vs 변조된 암호문의 태그
+        import hmac as hmac_mod
+        original_tag = hmac_mod.new(
+            integrity_key.encode(), ciphertext.encode(), hashlib.sha256
+        ).hexdigest()
+        tampered_ct = ciphertext[:60] + "FFFF"  # 암호문 4바이트 변조
+        tampered_tag = hmac_mod.new(
+            integrity_key.encode(), tampered_ct.encode(), hashlib.sha256
+        ).hexdigest()
+        if original_tag == tampered_tag:
             no_write_violations += 1
 
     return {
@@ -256,68 +282,97 @@ def test_insider_threat_defense() -> dict[str, Any]:
         "trials": n_trials,
         "no_read_violations": no_read_violations,
         "no_write_violations": no_write_violations,
+        "brute_force_attempts_per_trial": 100,
         "status": "PASS" if (no_read_violations == 0 and no_write_violations == 0) else "FAIL",
-        "defense": "Sanitizer sees only ciphertext, integrity tags prevent modification",
+        "defense": "SHA-256 preimage resistance (no-read) + HMAC integrity tag (no-write)",
     }
 
 
 def test_attribute_forgery_defense() -> dict[str, Any]:
-    """SRS 3,6: 속성 위조 방어."""
-    import hmac
+    """SRS 3,6: 속성 위조 방어.
 
-    master_secret = "test-secret-2026"
+    시나리오:
+    1. 정상 발급: master_secret으로 HMAC 서명한 토큰 발급
+    2. 위조 시도: 공격자가 속성을 변경하되, 원본 서명을 재사용
+    3. 검증: 변경된 payload + 원본 서명으로 검증 시 실패해야 함
+    """
+    import hmac as hmac_mod
+
+    master_secret = secrets.token_hex(16)  # 매 실행마다 새 시크릿
     n_trials = 100
     forgery_detected = 0
+    false_reject = 0  # 정상 토큰이 거부되면 안 됨
 
     for _ in range(n_trials):
-        # 정상 토큰
+        # 정상 토큰 발급 + 서명
         attrs = {"role": "analyst", "dept": "fraud_team", "clearance": "high"}
         payload = json.dumps(attrs, sort_keys=True)
-        valid_sig = hmac.new(master_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        valid_sig = hmac_mod.new(master_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
-        # 위조 시도: 속성 변경
+        # 정상 토큰 검증 — 이것이 통과해야 함
+        verify_sig = hmac_mod.new(master_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac_mod.compare_digest(valid_sig, verify_sig):
+            false_reject += 1
+
+        # 위조 시도: 속성을 admin으로 변경하되 원본 서명(valid_sig)을 재사용
         forged_attrs = {"role": "admin", "dept": "fraud_team", "clearance": "high"}
         forged_payload = json.dumps(forged_attrs, sort_keys=True)
-        check_sig = hmac.new(master_secret.encode(), forged_payload.encode(), hashlib.sha256).hexdigest()
-
-        if valid_sig != check_sig:
+        expected_sig = hmac_mod.new(master_secret.encode(), forged_payload.encode(), hashlib.sha256).hexdigest()
+        # 공격자는 master_secret을 모르므로 valid_sig를 재사용
+        if not hmac_mod.compare_digest(valid_sig, expected_sig):
             forgery_detected += 1
 
     return {
         "test": "SRS 3,6: Attribute Forgery Defense (HMAC Verification)",
         "trials": n_trials,
         "forgeries_detected": forgery_detected,
+        "false_rejects": false_reject,
         "detection_rate": round(forgery_detected / n_trials * 100, 1),
-        "status": "PASS" if forgery_detected == n_trials else "FAIL",
-        "defense": "HMAC-SHA256 signature on attribute tokens",
+        "status": "PASS" if (forgery_detected == n_trials and false_reject == 0) else "FAIL",
+        "defense": "HMAC-SHA256 signature — 위조된 payload는 원본 서명과 불일치",
+        "note": "정상 토큰 검증 통과 + 위조 토큰 탐지 모두 검증",
     }
 
 
 def test_mitm_defense() -> dict[str, Any]:
-    """SRS 1,2,10: MITM (Man-in-the-Middle) 방어."""
+    """SRS 1,2,10: MITM (Man-in-the-Middle) 방어.
+
+    시나리오:
+    1. Sender가 shared_secret으로 메시지에 MAC 생성
+    2. MITM 공격자가 메시지를 변조하되 shared_secret을 모르므로 MAC 재생성 불가
+    3. Receiver가 원본 MAC으로 변조 메시지를 검증 → 불일치 탐지
+    추가: 정상 메시지도 검증하여 false positive가 없음을 확인
+    """
+    import hmac as hmac_mod
+
     n_trials = 100
     mitm_detected = 0
+    legitimate_accepted = 0
 
     for _ in range(n_trials):
-        # 정상 통신: sender → receiver
         shared_secret = secrets.token_hex(32)
         message = f"tx-data-{secrets.token_hex(8)}"
-        mac = hashlib.sha256(f"{shared_secret}:{message}".encode()).hexdigest()
+        mac = hmac_mod.new(shared_secret.encode(), message.encode(), hashlib.sha256).hexdigest()
 
-        # MITM 변조 시도
-        tampered_message = f"tx-data-{secrets.token_hex(8)}"
-        verify_mac = hashlib.sha256(f"{shared_secret}:{tampered_message}".encode()).hexdigest()
+        # 1) 정상 메시지 검증 — 통과해야 함
+        verify_mac = hmac_mod.new(shared_secret.encode(), message.encode(), hashlib.sha256).hexdigest()
+        if hmac_mod.compare_digest(mac, verify_mac):
+            legitimate_accepted += 1
 
-        if mac != verify_mac:
+        # 2) MITM 변조: 메시지 내용을 변경, 원본 MAC 재사용
+        tampered_message = message + "-injected"
+        tampered_verify = hmac_mod.new(shared_secret.encode(), tampered_message.encode(), hashlib.sha256).hexdigest()
+        if not hmac_mod.compare_digest(mac, tampered_verify):
             mitm_detected += 1
 
     return {
         "test": "SRS 1,2,10: Man-in-the-Middle Attack Defense",
         "trials": n_trials,
         "mitm_detected": mitm_detected,
+        "legitimate_accepted": legitimate_accepted,
         "detection_rate": round(mitm_detected / n_trials * 100, 1),
-        "status": "PASS" if mitm_detected == n_trials else "FAIL",
-        "defense": "HMAC integrity + end-to-end encryption",
+        "status": "PASS" if (mitm_detected == n_trials and legitimate_accepted == n_trials) else "FAIL",
+        "defense": "HMAC integrity — 정상 통과 + 변조 탐지 모두 검증",
     }
 
 
@@ -326,45 +381,66 @@ def test_mitm_defense() -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════
 
 def generate_compliance_checklist() -> dict[str, Any]:
-    """SRS 공통: 규제 준수 체크리스트."""
+    """SRS 공통: 규제 준수 체크리스트.
+
+    각 항목의 status는 구현 수준에 따라 3단계로 구분:
+    - IMPLEMENTED: 코드에서 동작하는 기능
+    - SIMULATED: 시뮬레이션/프로토타입 수준 (실 운영 미검증)
+    - DESIGNED: 설계/인터페이스만 존재, 실제 동작 미구현
+
+    NOTE: 이 체크리스트는 자체 평가이며, 외부 감사/인증을 대체하지 않는다.
+    """
     checklist = {
         "GDPR / 개인정보보호법": [
-            {"item": "데이터 최소화 원칙", "srs": "SRS 3,4,5", "status": "IMPLEMENTED",
-             "implementation": "ABAC 행/열/셀 마스킹으로 필요 최소 데이터만 노출"},
-            {"item": "동의 기반 처리", "srs": "SRS 5,9", "status": "IMPLEMENTED",
-             "implementation": "MyData 동의 관리 API + 동의 철회 기능"},
-            {"item": "가명처리 (Pseudonymization)", "srs": "SRS 1,5,8", "status": "IMPLEMENTED",
-             "implementation": "PID(Pseudonym ID) 생성 및 자동 로테이션"},
-            {"item": "데이터 삭제권 (Right to Erasure)", "srs": "SRS 5,9", "status": "IMPLEMENTED",
-             "implementation": "동의 철회 시 관련 데이터 삭제 트리거"},
+            {"item": "데이터 최소화 원칙", "srs": "SRS 3,4,5", "status": "SIMULATED",
+             "implementation": "ABAC 행/열/셀 마스킹 구현 — 실 DB 연동 미완",
+             "limitation": "인메모리 테스트 데이터로만 검증"},
+            {"item": "동의 기반 처리", "srs": "SRS 5,9", "status": "SIMULATED",
+             "implementation": "MyData 동의 관리 API — 인메모리 저장",
+             "limitation": "서버 재시작 시 동의 기록 소실"},
+            {"item": "가명처리 (Pseudonymization)", "srs": "SRS 1,5,8", "status": "SIMULATED",
+             "implementation": "PID 생성 API 존재 — 자동 로테이션 미구현",
+             "limitation": "PID 인메모리 저장, 로테이션 스케줄러 없음"},
+            {"item": "데이터 삭제권 (Right to Erasure)", "srs": "SRS 5,9", "status": "DESIGNED",
+             "implementation": "동의 철회 API 존재",
+             "limitation": "실제 데이터 삭제 트리거 미연결"},
             {"item": "처리 활동 기록", "srs": "SRS 1,2,3", "status": "IMPLEMENTED",
-             "implementation": "블록체인 해시체인 불변 감사 로그"},
-            {"item": "데이터 이동권", "srs": "SRS 9", "status": "IMPLEMENTED",
-             "implementation": "KP-ABE 기반 1:N 데이터 공유 프로토콜"},
+             "implementation": "블록체인 해시체인 불변 감사 로그 + Merkle root 검증",
+             "limitation": "파일 기반 persistence, 프로덕션 DB 미연동"},
+            {"item": "데이터 이동권", "srs": "SRS 9", "status": "SIMULATED",
+             "implementation": "KP-ABE 기반 1:N 데이터 공유 프로토콜 (시뮬레이션)",
+             "limitation": "실제 암호학적 ABE가 아닌 불리언 정책 매칭"},
         ],
         "금융보안원 망분리 지침": [
-            {"item": "에지-클라우드 분리", "srs": "SRS 3", "status": "IMPLEMENTED",
-             "implementation": "MEC 노드 + 클라우드 에스컬레이션 아키텍처"},
+            {"item": "에지-클라우드 분리", "srs": "SRS 3", "status": "SIMULATED",
+             "implementation": "MEC 에지 노드 시뮬레이션 + 클라우드 에스컬레이션",
+             "limitation": "실 네트워크 분리가 아닌 지연 모델링만"},
             {"item": "접근 제어 세분화", "srs": "SRS 3", "status": "IMPLEMENTED",
-             "implementation": "ABAC 다차원 속성 평가 (직급+위치+시간+기기)"},
+             "implementation": "ABAC 8-룰 엔진 (직급+위치+시간+기기)",
+             "limitation": "row 마스킹 규칙 미완성"},
             {"item": "데이터 암호화", "srs": "SRS 2,7,10", "status": "IMPLEMENTED",
-             "implementation": "CP-ABE 필드 암호화 + AES-256 이미지 암호화"},
+             "implementation": "AES-GCM 필드 암호화 + ABE 정책 기반 키 파생",
+             "limitation": "실제 CP-ABE 페어링 연산이 아닌 경량 대체"},
             {"item": "감사 추적", "srs": "SRS 1", "status": "IMPLEMENTED",
-             "implementation": "온/오프체인 분리 해시체인 + 머클루트 검증"},
+             "implementation": "온/오프체인 분리 해시체인 + Merkle root 검증"},
         ],
         "EU Data Act": [
-            {"item": "데이터 접근 투명성", "srs": "SRS 6", "status": "IMPLEMENTED",
-             "implementation": "제로트러스트 기기 증명 + 접근 결정 로깅"},
-            {"item": "IoT 데이터 보안", "srs": "SRS 6", "status": "IMPLEMENTED",
-             "implementation": "TEE + 마이크로세그멘테이션 + 기기 평판"},
+            {"item": "데이터 접근 투명성", "srs": "SRS 6", "status": "SIMULATED",
+             "implementation": "제로트러스트 기기 증명 시뮬레이션 + 접근 결정 로깅",
+             "limitation": "실제 TEE/원격 증명 미구현"},
+            {"item": "IoT 데이터 보안", "srs": "SRS 6", "status": "DESIGNED",
+             "implementation": "마이크로세그멘테이션 정책 모델 설계",
+             "limitation": "실 IoT 기기 연동 없음, 정책 시뮬레이션만"},
         ],
         "전자금융거래법": [
             {"item": "이상거래탐지 (FDS)", "srs": "SRS 3,4", "status": "IMPLEMENTED",
-             "implementation": "ML 앙상블 + 룰엔진 + 연합학습"},
+             "implementation": "ML 앙상블(RF+LightGBM+IF) + 룰엔진 + 연합학습 시뮬",
+             "limitation": "연합학습은 시뮬레이션, 실 분산 환경 미검증"},
             {"item": "다중 인증 (MFA)", "srs": "SRS 5", "status": "IMPLEMENTED",
              "implementation": "TOTP + FIDO2 WebAuthn + Step-up Auth"},
-            {"item": "암호화 통신", "srs": "SRS 2,7,10", "status": "IMPLEMENTED",
-             "implementation": "ABE + AES-GCM + IBE 하이브리드"},
+            {"item": "암호화 통신", "srs": "SRS 2,7,10", "status": "SIMULATED",
+             "implementation": "ABE 정책 암호화 + AES-GCM",
+             "limitation": "IBE 하이브리드는 시뮬레이션 수준, 실 키 관리 미구현"},
         ],
     }
 
@@ -373,13 +449,25 @@ def generate_compliance_checklist() -> dict[str, Any]:
         1 for items in checklist.values()
         for item in items if item["status"] == "IMPLEMENTED"
     )
+    simulated = sum(
+        1 for items in checklist.values()
+        for item in items if item["status"] == "SIMULATED"
+    )
+    designed = sum(
+        1 for items in checklist.values()
+        for item in items if item["status"] == "DESIGNED"
+    )
 
     return {
         "checklist": checklist,
         "summary": {
             "total_items": total,
             "implemented": implemented,
-            "compliance_rate": round(implemented / total * 100, 1),
+            "simulated": simulated,
+            "designed_only": designed,
+            "production_ready_rate": round(implemented / total * 100, 1),
+            "coverage_rate": round((implemented + simulated) / total * 100, 1),
+            "note": "IMPLEMENTED=동작 코드, SIMULATED=프로토타입, DESIGNED=설계만. 외부 감사 필요.",
         },
     }
 

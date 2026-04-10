@@ -25,7 +25,7 @@ type PIDInfo = {
 };
 
 function MyDataContent() {
-  const { userId } = useAuth();
+  const { userId, accessToken } = useAuth();
   const [consents, setConsents] = useState<Consent[]>([]);
   const [pidInfo, setPidInfo] = useState<PIDInfo | null>(null);
   const [tab, setTab] = useState<"consents" | "privacy">("consents");
@@ -34,32 +34,38 @@ function MyDataContent() {
   const [formPurpose, setFormPurpose] = useState("spending_analysis");
   const [formDataTypes, setFormDataTypes] = useState<string[]>(["transactions"]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
 
   const fetchConsents = async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`/api/v1/security/mydata/consents/${userId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setConsents(data.consents || []);
-      }
-    } catch { /* ignore */ }
+      const res = await fetch(`/api/v1/security/mydata/consents/${userId}`, { headers });
+      if (!res.ok) { setError(`Failed to fetch consents: ${res.status}`); return; }
+      const data = await res.json();
+      setConsents(data.consents || []);
+    } catch { setError("Network error: unable to fetch consents"); }
   };
 
   const fetchPID = async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`/api/v1/security/privacy/pid/${userId}`);
+      const res = await fetch(`/api/v1/security/privacy/pid/${userId}`, { headers });
       if (res.ok) setPidInfo(await res.json());
-    } catch { /* ignore */ }
+    } catch { /* PID fetch is optional */ }
   };
 
   const grantConsent = async () => {
     if (!userId || !formProvider) return;
+    setError("");
     try {
-      await fetch("/api/v1/security/mydata/consent", {
+      const res = await fetch("/api/v1/security/mydata/consent", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           user_id: userId,
           provider: formProvider,
@@ -68,34 +74,40 @@ function MyDataContent() {
           duration_days: 365,
         }),
       });
+      if (!res.ok) { setError(`Consent grant failed: ${res.status}`); return; }
       setShowForm(false);
       setFormProvider("");
       fetchConsents();
-    } catch { /* ignore */ }
+    } catch { setError("Network error: unable to grant consent"); }
   };
 
   const revokeConsent = async (consentId: string) => {
+    setError("");
     try {
-      await fetch(`/api/v1/security/mydata/revoke/${consentId}?user_id=${userId}`, {
+      const res = await fetch(`/api/v1/security/mydata/revoke/${consentId}`, {
         method: "POST",
+        headers,
       });
+      if (!res.ok) { setError(`Revoke failed: ${res.status}`); return; }
       fetchConsents();
-    } catch { /* ignore */ }
+    } catch { setError("Network error: unable to revoke consent"); }
   };
 
   const generatePID = async () => {
     if (!userId) return;
     try {
-      await fetch("/api/v1/security/privacy/pid/generate", {
+      const res = await fetch("/api/v1/security/privacy/pid/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ user_id: userId, rotation_days: 90 }),
       });
+      if (!res.ok) { setError(`PID generation failed: ${res.status}`); return; }
       fetchPID();
-    } catch { /* ignore */ }
+    } catch { setError("Network error: unable to generate PID"); }
   };
 
   useEffect(() => {
+    if (!userId) return;
     Promise.all([fetchConsents(), fetchPID()]).finally(() => setLoading(false));
   }, [userId]);
 
@@ -121,6 +133,14 @@ function MyDataContent() {
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
         MyData & Privacy Management
       </h1>
+      {error && (
+        <div style={{
+          background: "#fef2f2", color: "#dc2626", padding: 12,
+          borderRadius: 8, marginBottom: 16, fontSize: 14,
+        }}>
+          {error}
+        </div>
+      )}
       <p style={{ color: "#6b7280", marginBottom: 24 }}>
         SRS 5,9 - Open Banking Data Consent / SRS 1,5,8 - PID Management
       </p>

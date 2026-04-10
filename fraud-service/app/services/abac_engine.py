@@ -118,6 +118,7 @@ class ABACEngine:
                     masking_level = "column"
                 elif result["action"] == "MASK_ROW":
                     masking_level = "row"
+                    masked_fields.extend(result.get("fields", []))
                 elif result["action"] == "MASK_CELL":
                     if masking_level != "row":
                         masking_level = "cell"
@@ -156,8 +157,18 @@ class ABACEngine:
         fields_to_mask = decision.masked_fields or sensitive_columns or []
 
         for i, row in enumerate(data):
-            if decision.masking_level == "row" and i in decision.masked_rows:
-                masked.append({k: "***" for k in row})
+            if decision.masking_level == "row":
+                if decision.masked_rows and i in decision.masked_rows:
+                    # 특정 행만 전체 마스킹
+                    masked.append({k: "***" for k in row})
+                elif not decision.masked_rows:
+                    # masked_rows 미지정 시 모든 행에 필드 마스킹
+                    new_row = {}
+                    for k, v in row.items():
+                        new_row[k] = _mask_value(v) if k in fields_to_mask else v
+                    masked.append(new_row)
+                else:
+                    masked.append(dict(row))
             else:
                 new_row = {}
                 for k, v in row.items():
@@ -210,13 +221,22 @@ class ClearanceLevelRule(ABACRule):
 
 
 class BusinessHoursRule(ABACRule):
-    """업무 시간 외 + 기밀 리소스 접근 시 열 마스킹."""
+    """업무 시간 외 + 기밀 리소스 접근 시 등급별 차등 제어.
+
+    CRITICAL 민감도 → DENY (admin 제외)
+    HIGH 민감도 → MASK_COLUMN
+    """
     rule_id = "BUSINESS_HOURS"
 
     def evaluate(self, subject, resource, env):
         if not env.is_business_hours and resource.sensitivity.value >= ClearanceLevel.HIGH.value:
             if subject.role == "admin":
                 return None  # 관리자는 예외
+            if resource.sensitivity.value >= ClearanceLevel.CRITICAL.value:
+                return {
+                    "action": "DENY",
+                    "reason": "업무 시간 외 CRITICAL 데이터 접근 거부",
+                }
             return {
                 "action": "MASK_COLUMN",
                 "reason": "업무 시간 외 기밀 데이터 접근 — 민감 필드 마스킹",

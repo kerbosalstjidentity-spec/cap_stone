@@ -1,12 +1,18 @@
 """
-FDS 컨소시엄 정보 공유 시뮬레이션.
+FDS 컨소시엄 정보 공유 **시뮬레이션**.
+
+⚠️ DISCLAIMER: 이 모듈의 KP-ABE, ABF 구현은 실제 암호학적 프로토콜이
+아닌 **논리적 흐름 시뮬레이션**입니다:
+- KP-ABE: 실제 페어링/다항식 비밀 분산이 아닌 불리언 정책 매칭
+- ABF: Bloom filter 자체는 정확하나, 속성 매칭은 문자열 비교 수준
+- 벤치마크: 실제 ABE 연산 비용이 아닌 해시/문자열 처리 시간 비교
 
 SRS 9 FR-06 (KP-ABE 일대다 이상거래 패턴 공유):
-- KP-ABE 기반 1:N 금융 데이터 공유 프로토콜
+- KP-ABE 기반 1:N 금융 데이터 공유 프로토콜 (정책 매칭 시뮬레이션)
 - 속성 블룸필터(ABF) 기반 클라우드 매칭
 
 SRS 11 FR-07 (HA-KP-ABE vs ABF 비교):
-- Match Test vs ABF+KGroup 성능 비교
+- Match Test vs ABF+KGroup 처리량 비교 (시뮬레이션)
 - 마이데이터/UBI/FDS 시나리오별 적합성 평가
 
 교수님 연구 연계:
@@ -78,19 +84,49 @@ class KPABEProtocol:
         return self._policy_match(key.access_policy, ct.attributes)
 
     def _policy_match(self, policy: str, attributes: dict[str, str]) -> bool:
-        """정책 문자열이 속성을 만족하는지 평가."""
-        # 간단한 AND/OR 파서
+        """정책 문자열이 속성을 만족하는지 평가 (eval-free 안전 파서)."""
+        import re
+        # 속성 토큰을 True/False로 치환
         expr = policy
         for key, value in attributes.items():
             expr = expr.replace(f"{key}:{value}", "True")
-        # 남은 key:value 토큰은 False
-        import re
         expr = re.sub(r"\w+:\w+", "False", expr)
         expr = expr.replace("AND", "and").replace("OR", "or")
+        expr = expr.replace("(", " ( ").replace(")", " ) ").split()
         try:
-            return bool(eval(expr))  # noqa: S307
+            result, _ = self._parse_or(expr, 0)
+            return result
         except Exception:
             return False
+
+    @staticmethod
+    def _parse_or(tokens: list[str], pos: int) -> tuple[bool, int]:
+        """OR 연산 파싱."""
+        left, pos = KPABEProtocol._parse_and(tokens, pos)
+        while pos < len(tokens) and tokens[pos] == "or":
+            right, pos = KPABEProtocol._parse_and(tokens, pos + 1)
+            left = left or right
+        return left, pos
+
+    @staticmethod
+    def _parse_and(tokens: list[str], pos: int) -> tuple[bool, int]:
+        """AND 연산 파싱."""
+        left, pos = KPABEProtocol._parse_atom(tokens, pos)
+        while pos < len(tokens) and tokens[pos] == "and":
+            right, pos = KPABEProtocol._parse_atom(tokens, pos + 1)
+            left = left and right
+        return left, pos
+
+    @staticmethod
+    def _parse_atom(tokens: list[str], pos: int) -> tuple[bool, int]:
+        """원자 표현식 (True/False/괄호) 파싱."""
+        if tokens[pos] == "(":
+            result, pos = KPABEProtocol._parse_or(tokens, pos + 1)
+            if pos < len(tokens) and tokens[pos] == ")":
+                pos += 1
+            return result, pos
+        val = tokens[pos] == "True"
+        return val, pos + 1
 
 
 # ── Attribute Bloom Filter (ABF) ──────────────────────────────
@@ -220,17 +256,22 @@ def run_comparison(
                     kpabe_matches += 1
         kpabe_time = (time.perf_counter() - t0) * 1000
 
-        # ABF+KGroup 성능
+        # ABF+KGroup 성능 (초기화를 루프 밖에서 수행하여 공정 비교)
+        # 사전 준비: 각 owner별 ABF를 미리 구축
+        owner_abfs = []
+        for owner_attrs in owners_data[:min(50, len(owners_data))]:
+            abf = AttributeBloomFilter(size=512, num_hashes=3)
+            abf.add_attributes(owner_attrs)
+            owner_abfs.append(abf)
+
         t0 = time.perf_counter()
         abf_matches = 0
         abf_false_positives = 0
         for _ in range(n_trials):
-            for owner_attrs in owners_data[:min(50, len(owners_data))]:
-                abf = AttributeBloomFilter(size=512, num_hashes=3)
-                abf.add_attributes(owner_attrs)
-                # 요청자 속성으로 매칭
+            for idx, owner_attrs in enumerate(owners_data[:min(50, len(owners_data))]):
+                # 요청자 속성으로 매칭 (사전 구축된 ABF 사용)
                 required = {k: v for k, v in list(owner_attrs.items())[:scenario.avg_policy_complexity]}
-                if abf.match_attributes(required):
+                if owner_abfs[idx].match_attributes(required):
                     abf_matches += 1
         abf_time = (time.perf_counter() - t0) * 1000
 

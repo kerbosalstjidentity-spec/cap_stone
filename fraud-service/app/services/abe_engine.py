@@ -172,8 +172,11 @@ def evaluate_access_structure(structure: str, user_attrs: set[str]) -> bool:
     try:
         tree = build_access_tree(structure)
         return tree.evaluate(user_attrs)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(
+            "AccessTree 빌드 실패, fallback 평가 사용: %s (structure=%s)", e, structure[:80]
+        )
 
     # fallback: 기존 방식
     expr = structure
@@ -395,8 +398,12 @@ def encrypt_field(value: Any, access_structure: str) -> str:
     return "ABE:" + b64encode(blob).decode("ascii")
 
 
-def decrypt_field(encrypted: str, user_attrs: set[str]) -> Any:
-    """암호화된 필드를 복호화한다. 속성이 만족하지 않으면 None 반환."""
+def decrypt_field(encrypted: str, user_attrs: set[str], access_structure: str = "") -> Any:
+    """암호화된 필드를 복호화한다.
+
+    access_structure가 주어지면 해당 정책으로 키 파생 + AAD 검증.
+    속성이 정책을 만족하지 않으면 None 반환.
+    """
     if encrypted.startswith("ABE_ENCRYPTED:"):
         structure = encrypted[len("ABE_ENCRYPTED:"):]
         if evaluate_access_structure(structure, user_attrs):
@@ -405,6 +412,10 @@ def decrypt_field(encrypted: str, user_attrs: set[str]) -> Any:
 
     if not encrypted.startswith("ABE:"):
         return encrypted
+
+    # 속성이 접근 구조를 만족하는지 먼저 확인
+    if access_structure and not evaluate_access_structure(access_structure, user_attrs):
+        return None
 
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -415,10 +426,12 @@ def decrypt_field(encrypted: str, user_attrs: set[str]) -> Any:
     nonce = blob[:12]
     ct = blob[12:]
 
-    key = _derive_field_key(",".join(sorted(user_attrs)), "field")
+    # encrypt_field과 동일하게 access_structure로 키 파생 + AAD 전달
+    key = _derive_field_key(access_structure, "field")
+    aad = access_structure.encode("utf-8") if access_structure else None
     aesgcm = AESGCM(key)
     try:
-        plaintext = aesgcm.decrypt(nonce, ct, None)
+        plaintext = aesgcm.decrypt(nonce, ct, aad)
         return json.loads(plaintext)
     except Exception:
         return None
@@ -431,17 +444,19 @@ def filter_response(
     encrypted_fields: list[str],
     user_attrs: set[str],
     access_structure: str,
+    user_id: str = "",
 ) -> dict[str, Any]:
     """응답에서 encrypted_fields에 해당하는 필드를 처리한다.
 
-    - 속성 만족 → 원본 유지
-    - 속성 불만족 → "[ENCRYPTED: 접근 권한 부족]" 마커로 대체
+    - 속성 만족 + 취소 없음 → 원본 유지
+    - 속성 불만족 or 취소됨 → "[ENCRYPTED: 접근 권한 부족]" 마커로 대체
     """
     if not encrypted_fields:
         return response_data
 
-    # 취소된 속성 필터링
-    has_access = evaluate_access_structure(access_structure, user_attrs)
+    # 취소된 속성 제거 후 평가
+    effective_attrs = revocation_manager.filter_attrs(user_id, user_attrs) if user_id else user_attrs
+    has_access = evaluate_access_structure(access_structure, effective_attrs)
     if has_access:
         return response_data
 

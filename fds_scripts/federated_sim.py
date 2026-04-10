@@ -1,11 +1,17 @@
 """
 Layer 5 — Federated Learning 시뮬레이션 (고도화).
 
-SRS 4 요구사항 전체 반영:
+⚠️ DISCLAIMER: 이 모듈은 연합학습 개념의 **단일 머신 시뮬레이션**입니다:
+- SecAgg: 실제 Shamir 비밀 분산이 아닌, 랜덤 마스크 상쇄로 흐름만 시뮬레이션
+- DP: gradient가 아닌 prediction에 노이즈 적용 (RF 모델 특성상)
+- CCI Shapley: 근사치이며, 기준값(0.5) 하드코딩 — 정밀도 제한적
+- 모든 클라이언트가 동일 프로세스에서 실행 (네트워크/통신 비용 미반영)
+
+SRS 4 요구사항 반영:
 1. FedAvg 집계 (기존)
-2. Differential Privacy — 다중 ε 스윕 (ε=0.1~10.0)
-3. Secure Aggregation (SecAgg) — 비밀 분산 기반 안전 집계 시뮬레이션
-4. CCI (Cross-Client Contribution) — 기여도 평가 (Shapley 근사)
+2. Differential Privacy — 다중 ε 스윕 (ε=0.1~10.0, prediction-level)
+3. Secure Aggregation (SecAgg) — 랜덤 마스크 기반 안전 집계 흐름 시뮬레이션
+4. CCI (Cross-Client Contribution) — 기여도 평가 (Shapley 근사, 20 permutations)
 5. Non-IID 시나리오 — Dirichlet α 파라미터 스윕
 
 교수님 연구 연계:
@@ -141,16 +147,20 @@ def fedavg_predict_proba(
 def add_dp_noise(
     probas: np.ndarray, epsilon: float = 1.0, seed: int = RANDOM_STATE
 ) -> np.ndarray:
-    """예측 확률에 라플라스 노이즈를 추가 (ε-DP).
+    """예측 확률에 라플라스 노이즈를 추가 (output perturbation DP).
 
-    실제 FL���서는 그래디언트에 노이즈를 추가하지만,
-    RF 기반 시뮬레이션에서는 확률 출력에 적용.
+    제한사항:
+    - 실제 FL에서는 gradient에 노이즈를 추가해야 하지만,
+      RF 기반 시뮬레이션에서는 prediction output에 적용.
+    - np.clip 후 엄밀한 DP 보장이 깨지므로 근사적 DP로 해석.
+    - sensitivity=1.0은 확률 출력 범위 [0,1] 기준.
     """
     rng = np.random.RandomState(seed)
-    sensitivity = 1.0  # 확률 범위 [0, 1]
+    sensitivity = 1.0  # 확률 출력 범위 [0, 1] 기준
     scale = sensitivity / epsilon
     noise = rng.laplace(0, scale, size=len(probas))
     noisy = probas + noise
+    # NOTE: clip은 post-processing이므로 엄밀한 ε-DP를 보장하지 않음
     return np.clip(noisy, 0, 1)
 
 
@@ -311,6 +321,9 @@ def compute_cci_scores(
 
     SRS 4 요구사항: 각 기관의 FL 기여도를 Shapley value 근사로 측정.
     기여도가 높은 기관에 더 높은 인센티브를 부여하는 근거.
+
+    NOTE: n_permutations=20은 빠른 실행을 위한 최소값.
+    정밀한 Shapley 추정에는 n_permutations >= 100 권장.
     """
     rng = np.random.RandomState(seed)
     n = len(models)
@@ -319,9 +332,16 @@ def compute_cci_scores(
 
     shapley_values = np.zeros(n)
 
+    # Baseline: 빈 연합(empty coalition)의 성능
+    # 클래스 비율 기반 예측 (majority class always) 의 AUC
+    positive_rate = y_test.mean()
+    # 모든 샘플에 동일 확률을 부여하면 AUC = 0.5 (이론적 최저)
+    # 단, 극단적 클래스 불균형에서도 0.5가 적절한 baseline
+    empty_coalition_score = 0.5
+
     for _ in range(n_permutations):
         perm = rng.permutation(n)
-        prev_score = 0.5  # 기본 baseline (랜덤 추측)
+        prev_score = empty_coalition_score
 
         for pos, client_idx in enumerate(perm):
             # 현재까지의 연합 (perm[:pos+1])

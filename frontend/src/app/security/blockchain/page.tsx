@@ -33,17 +33,23 @@ function BlockchainAuditContent() {
   const [searchAction, setSearchAction] = useState("");
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState("");
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
 
   const fetchChain = async () => {
+    setError("");
     try {
-      const res = await fetch("/api/v1/security/audit/chain?limit=50");
-      if (res.ok) {
-        const data = await res.json();
-        setBlocks(data.blocks || []);
-        setChainLength(data.chain_length || 0);
-      }
-    } catch {
-      /* ignore */
+      const res = await fetch("/api/v1/security/audit/chain?limit=50", { headers });
+      if (!res.ok) { setError(`Chain fetch failed: ${res.status}`); return; }
+      const data = await res.json();
+      setBlocks(data.blocks || []);
+      setChainLength(data.chain_length || 0);
+    } catch (e) {
+      setError("Network error: unable to fetch chain");
     } finally {
       setLoading(false);
     }
@@ -51,11 +57,13 @@ function BlockchainAuditContent() {
 
   const verifyChain = async () => {
     setVerifying(true);
+    setError("");
     try {
-      const res = await fetch("/api/v1/security/audit/verify");
-      if (res.ok) setVerification(await res.json());
-    } catch {
-      /* ignore */
+      const res = await fetch("/api/v1/security/audit/verify", { headers });
+      if (!res.ok) { setError(`Verify failed: ${res.status}`); return; }
+      setVerification(await res.json());
+    } catch (e) {
+      setError("Network error: unable to verify chain");
     } finally {
       setVerifying(false);
     }
@@ -63,25 +71,25 @@ function BlockchainAuditContent() {
 
   const searchBlocks = async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams();
       if (searchUserId) params.set("user_id", searchUserId);
       if (searchAction) params.set("action", searchAction);
-      const res = await fetch(`/api/v1/security/audit/search?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBlocks(data.blocks || []);
-      }
-    } catch {
-      /* ignore */
+      const res = await fetch(`/api/v1/security/audit/search?${params}`, { headers });
+      if (!res.ok) { setError(`Search failed: ${res.status}`); return; }
+      const data = await res.json();
+      setBlocks(data.blocks || []);
+    } catch (e) {
+      setError("Network error: unable to search blocks");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchChain();
-  }, []);
+    if (accessToken) fetchChain();
+  }, [accessToken]);
 
   const actionColor = (action: string) => {
     switch (action) {
@@ -191,6 +199,16 @@ function BlockchainAuditContent() {
           Reset
         </button>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{
+          background: "#fef2f2", color: "#dc2626", padding: 12,
+          borderRadius: 8, marginBottom: 16, fontSize: 14,
+        }}>
+          {error}
+        </div>
+      )}
 
       {/* Block List */}
       {loading ? (

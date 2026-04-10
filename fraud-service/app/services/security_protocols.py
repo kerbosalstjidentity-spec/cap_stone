@@ -1,14 +1,24 @@
 """
-보안 프로토콜 시뮬레이션 통합 모듈.
+보안 프로토콜 **시뮬레이션** 통합 모듈.
 
-SRS 2: AACE 양방향 접근제어 (Sanitizer 재암호화)
-SRS 5: CP-ABE 4단계 + BLE 비콘 로그인
-SRS 6: 제로트러스트 + IoT 보안
-SRS 7: OEEP-ABE 연산 위탁
-SRS 8: EABEHP 에지 오프로딩 (셔플링+타임키)
-SRS 10: AES+IBE Encra 이미지 암호화
+⚠️ DISCLAIMER: 이 모듈은 논문에서 제안된 보안 프로토콜의 **동작 흐름을
+시뮬레이션**하는 교육/연구용 코드입니다. 실제 암호학적 프로토콜 구현이
+아니며, 프로덕션 보안 시스템으로 사용해서는 안 됩니다.
 
-각 프로토콜의 핵심 흐름을 시뮬레이션하고 성능/보안 메트릭을 출력.
+주요 제한사항:
+- 실제 CP-ABE/KP-ABE 페어링 연산 대신 SHA-256 해시를 사용
+- BLE 비콘은 nonce 기반 인증 흐름만 모델링 (실 BLE 통신 없음)
+- TEE 원격 증명은 해시 기반 시뮬레이션 (실 SGX/TrustZone 아님)
+- OEEP-ABE SA1/SA2 비공모 모델은 가정만 적용 (실 검증 불가)
+- Encra AES+IBE 하이브리드는 AES-GCM만 실제, IBE는 해시 시뮬레이션
+
+각 SRS 대응:
+- SRS 2: AACE 양방향 접근제어 (Sanitizer 재암호화 흐름)
+- SRS 5: CP-ABE 4단계 + BLE 비콘 로그인 흐름
+- SRS 6: 제로트러스트 + IoT 보안 정책 모델
+- SRS 7: OEEP-ABE 연산 위탁 흐름
+- SRS 8: EABEHP 에지 오프로딩 (셔플링+타임키 흐름)
+- SRS 10: AES+IBE Encra 이미지 암호화 (AES 실제 + IBE 시뮬레이션)
 """
 from __future__ import annotations
 

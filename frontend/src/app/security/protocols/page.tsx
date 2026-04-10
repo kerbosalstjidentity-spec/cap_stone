@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
+import { useAuth } from "@/hooks/useAuth";
 
 type Protocol = {
   id: string;
@@ -19,11 +20,13 @@ type BenchmarkResult = {
 };
 
 function ProtocolsContent() {
+  const { accessToken } = useAuth();
   const [protocols, setProtocols] = useState<Protocol[]>([]);
   const [benchmarks, setBenchmarks] = useState<Record<string, BenchmarkResult>>({});
   const [loading, setLoading] = useState(true);
   const [benchmarking, setBenchmarking] = useState(false);
   const [abacResult, setAbacResult] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
   const [abacForm, setAbacForm] = useState({
     user_role: "analyst",
     clearance: "MEDIUM",
@@ -33,38 +36,45 @@ function ProtocolsContent() {
     resource_sensitivity: "HIGH",
   });
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
+
   const fetchProtocols = async () => {
+    setError("");
     try {
-      const res = await fetch("/api/v1/security/protocols/overview");
-      if (res.ok) {
-        const data = await res.json();
-        setProtocols(data.protocols || []);
-      }
-    } catch { /* ignore */ }
+      const res = await fetch("/api/v1/security/protocols/overview", { headers });
+      if (!res.ok) { setError(`Failed to load protocols: ${res.status}`); return; }
+      const data = await res.json();
+      setProtocols(data.protocols || []);
+    } catch { setError("Network error: unable to load protocols"); }
     setLoading(false);
   };
 
   const runBenchmark = async () => {
     setBenchmarking(true);
+    setError("");
     try {
-      const res = await fetch("/api/v1/security/protocols/benchmark");
-      if (res.ok) {
-        const data = await res.json();
-        setBenchmarks(data.protocols || {});
-      }
-    } catch { /* ignore */ }
+      const res = await fetch("/api/v1/security/protocols/benchmark", { headers });
+      if (!res.ok) { setError(`Benchmark failed: ${res.status}`); return; }
+      const data = await res.json();
+      setBenchmarks(data.protocols || {});
+    } catch { setError("Network error: unable to run benchmark"); }
     setBenchmarking(false);
   };
 
   const testABAC = async () => {
+    setError("");
     try {
       const res = await fetch("/api/v1/security/abac/evaluate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(abacForm),
       });
-      if (res.ok) setAbacResult(await res.json());
-    } catch { /* ignore */ }
+      if (!res.ok) { setError(`ABAC test failed: ${res.status}`); return; }
+      setAbacResult(await res.json());
+    } catch { setError("Network error: unable to test ABAC"); }
   };
 
   useEffect(() => { fetchProtocols(); }, []);
@@ -85,6 +95,15 @@ function ProtocolsContent() {
       <p style={{ color: "#6b7280", marginBottom: 24 }}>
         SRS 2,3,5,6,7,8,10 - Protocol Simulation & Fine-Grained Access Control
       </p>
+
+      {error && (
+        <div style={{
+          background: "#fef2f2", color: "#dc2626", padding: 12,
+          borderRadius: 8, marginBottom: 16, fontSize: 14,
+        }}>
+          {error}
+        </div>
+      )}
 
       {/* Protocol Cards */}
       <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Security Protocols</h2>

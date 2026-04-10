@@ -88,7 +88,8 @@ async def search_audit(
         results = [b for b in results if b.get("user_id") == user_id]
     if action:
         results = [b for b in results if b.get("action") == action]
-    return {"count": len(results[-limit:]), "blocks": list(reversed(results[-limit:]))}
+    recent = results[-limit:]  # 최근 limit개 (최신이 마지막)
+    return {"count": len(recent), "blocks": list(reversed(recent))}
 
 
 # ── ABAC 접근 결정 테스트 ─────────────────────────────────────
@@ -177,13 +178,15 @@ async def protocol_benchmark() -> dict[str, Any]:
         ("EABEHP (SRS 8)", 3),
         ("Encra AES+IBE (SRS 10)", 2),
     ]:
+        n_iters = 1000
         t0 = time.perf_counter()
-        for _ in range(1000):
-            _h.sha256(f"{name}:{_}".encode()).hexdigest()
-        elapsed = (time.perf_counter() - t0) * 1000
+        for i in range(n_iters):
+            _h.sha256(f"{name}:{i}".encode()).hexdigest()
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        avg_ms = elapsed_ms / n_iters
         protocols[name] = {
-            "avg_latency_ms": round(elapsed / 1000, 3),
-            "ops_per_sec": round(1000 / (elapsed / 1000), 0),
+            "avg_latency_ms": round(avg_ms, 4),
+            "ops_per_sec": round(n_iters / (elapsed_ms / 1000), 0),
             "phases": ops,
         }
 
@@ -282,13 +285,18 @@ async def list_mydata_consents(user_id: str) -> dict[str, Any]:
 
 
 @router.post("/mydata/revoke/{consent_id}")
-async def revoke_mydata_consent(consent_id: str, user_id: str = Query(...)) -> dict[str, Any]:
-    """마이데이터 동의 철회."""
-    consents = _MYDATA_CONSENTS.get(user_id, [])
-    for c in consents:
-        if c["consent_id"] == consent_id:
-            c["status"] = "revoked"
-            return {"status": "revoked", "consent_id": consent_id}
+async def revoke_mydata_consent(consent_id: str) -> dict[str, Any]:
+    """마이데이터 동의 철회.
+
+    NOTE: user_id는 인증 컨텍스트에서 가져와야 하지만,
+    현재 인메모리 구현에서는 전체 레지스트리를 검색한다.
+    프로덕션에서는 request.state.user_id 사용 필요.
+    """
+    for user_id, consents in _MYDATA_CONSENTS.items():
+        for c in consents:
+            if c["consent_id"] == consent_id:
+                c["status"] = "revoked"
+                return {"status": "revoked", "consent_id": consent_id, "user_id": user_id}
     raise HTTPException(status_code=404, detail="Consent not found")
 
 
