@@ -68,12 +68,19 @@ async def _train_models_on_startup() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
     from app.services.notification_service import notification_manager
 
     print(f"[{settings.APP_NAME}] Starting v{settings.APP_VERSION} on :{settings.PORT}")
     await _run_alembic_upgrade()
-    await init_db()
-    await _train_models_on_startup()
+    try:
+        await asyncio.wait_for(init_db(), timeout=20.0)
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"[DB] init_db skipped (will retry on first request): {e}")
+    try:
+        await asyncio.wait_for(_train_models_on_startup(), timeout=20.0)
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"[ML] Startup training skipped: {e}")
     await notification_manager.start_redis_subscriber()
     yield
     await notification_manager.stop()

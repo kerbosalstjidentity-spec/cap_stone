@@ -47,6 +47,8 @@ async def run_async_migrations():
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Python 3.14 + asyncpg 0.31 호환: SSL 건너뛰기
+        connect_args={"ssl": False, "timeout": None},
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

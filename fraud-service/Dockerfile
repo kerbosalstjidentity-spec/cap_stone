@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY models ./models
+COPY policies ./policies
 
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8010

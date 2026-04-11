@@ -10,6 +10,8 @@ engine = create_async_engine(
     pool_size=10,
     max_overflow=20,
     pool_pre_ping=True,
+    # Python 3.14 + asyncpg 0.31 호환: SSL 협상 건너뛰기, 타임아웃 없음
+    connect_args={"ssl": False, "timeout": None},
 )
 
 async_session_factory = async_sessionmaker(

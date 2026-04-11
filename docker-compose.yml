@@ -36,6 +36,10 @@ services:
       - "8010:8010"
     environment:
       PYTHONUNBUFFERED: "1"
+      MODEL_PATH: "/capstone/model_bundle_open_full.joblib"
+      CAPSTONE_OUTPUTS_DIR: "/capstone"
+    volumes:
+      - ./4_1_capstone/outputs/fds:/capstone:ro
 
   # ── Backend (포트 8020) ────────────────────
   backend:
