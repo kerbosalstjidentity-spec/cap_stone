@@ -288,9 +288,8 @@ async def list_mydata_consents(user_id: str) -> dict[str, Any]:
 async def revoke_mydata_consent(consent_id: str) -> dict[str, Any]:
     """마이데이터 동의 철회.
 
-    NOTE: user_id는 인증 컨텍스트에서 가져와야 하지만,
-    현재 인메모리 구현에서는 전체 레지스트리를 검색한다.
-    프로덕션에서는 request.state.user_id 사용 필요.
+    consent_id로 레지스트리를 검색하므로 user_id를 외부에서 받지 않는다.
+    프로덕션: JWT에서 user_id를 추출해 소유권 검증 후 철회해야 한다.
     """
     for user_id, consents in _MYDATA_CONSENTS.items():
         for c in consents:
@@ -316,19 +315,20 @@ async def generate_pid(req: PIDRequest) -> dict[str, Any]:
     pid = hashlib.sha256(
         f"PID:{req.user_id}:{time.time()}:{secrets.token_hex(8)}".encode()
     ).hexdigest()[:16]
+    # 이전 PID 히스토리 복사 (참조 공유 방지)
+    prev = _PID_REGISTRY.get(req.user_id, {})
+    history = list(prev.get("history", []))  # 깊은 복사
+    if prev.get("pid"):
+        history.append({"pid": prev["pid"], "retired_at": time.time()})
     entry = {
         "pid": f"PID-{pid}",
         "real_user_id": req.user_id,
         "created_at": time.time(),
         "rotation_at": time.time() + req.rotation_days * 86400,
         "rotation_days": req.rotation_days,
-        "version": len(_PID_REGISTRY.get(req.user_id, {}).get("history", [])) + 1,
-        "history": _PID_REGISTRY.get(req.user_id, {}).get("history", []),
+        "version": len(history) + 1,
+        "history": history,
     }
-    # 이전 PID 기록
-    if req.user_id in _PID_REGISTRY:
-        old = _PID_REGISTRY[req.user_id]
-        entry["history"].append({"pid": old["pid"], "retired_at": time.time()})
     _PID_REGISTRY[req.user_id] = entry
     return {"status": "generated", "pid": entry["pid"], "rotation_at": entry["rotation_at"]}
 

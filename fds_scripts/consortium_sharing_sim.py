@@ -275,20 +275,24 @@ def run_comparison(
                     abf_matches += 1
         abf_time = (time.perf_counter() - t0) * 1000
 
+        # 실제 populated ABF의 이론적 FPR (빈 필터가 아닌 실제 사용 ABF 기준)
+        sample_abf = owner_abfs[0] if owner_abfs else AttributeBloomFilter(512, 3)
+        actual_fpr = round(sample_abf.false_positive_rate, 6)
+
+        total_ops = n_trials * min(50, len(owners_data))
         scenario_result = {
             "scenario": scenario.name,
             "kpabe": {
                 "time_ms": round(kpabe_time, 2),
                 "matches": kpabe_matches,
-                "avg_time_per_match_us": round(kpabe_time * 1000 / max(1, n_trials * min(50, len(owners_data))), 2),
+                "avg_time_per_op_us": round(kpabe_time * 1000 / max(1, total_ops), 2),
             },
             "abf_kgroup": {
                 "time_ms": round(abf_time, 2),
                 "matches": abf_matches,
-                "avg_time_per_match_us": round(abf_time * 1000 / max(1, n_trials * min(50, len(owners_data))), 2),
-                "theoretical_fpr": round(
-                    AttributeBloomFilter(512, 3).false_positive_rate, 6
-                ),
+                "avg_time_per_op_us": round(abf_time * 1000 / max(1, total_ops), 2),
+                "theoretical_fpr": actual_fpr,
+                "note": "FPR은 실제 populated ABF 기준 (items_count 반영)",
             },
             "comparison": {
                 "speed_ratio": round(kpabe_time / max(0.001, abf_time), 2),
