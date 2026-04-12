@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5433/consume_pattern"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/consume_pattern"
     REDIS_URL: str = "redis://localhost:6379/1"
 
     # fraud-service 연계

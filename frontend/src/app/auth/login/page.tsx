@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 function base64urlToBuffer(base64url: string): ArrayBuffer {
   const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -25,6 +26,7 @@ type Step = "password" | "choose" | "totp" | "fido";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { isLoggedIn, isLoading: authLoading } = useAuth();
   const [step, setStep] = useState<Step>("password");
   const [form, setForm] = useState({ email: "", password: "" });
   const [totpCode, setTotpCode] = useState("");
@@ -36,9 +38,8 @@ export default function LoginPage() {
   const totpInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) router.replace("/dashboard");
-  }, [router]);
+    if (!authLoading && isLoggedIn) router.replace("/dashboard");
+  }, [authLoading, isLoggedIn, router]);
 
   useEffect(() => {
     if (step === "totp") setTimeout(() => totpInputRef.current?.focus(), 100);

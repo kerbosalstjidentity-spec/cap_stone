@@ -93,6 +93,10 @@ export function useAuth() {
       if (isTokenExpired(token)) {
         const newToken = await refresh();
         if (!newToken) {
+          // 만료된 토큰 정리 — 로그인 페이지와의 리다이렉트 루프 방지
+          ["access_token", "refresh_token", "user_id", "nickname"].forEach((k) =>
+            localStorage.removeItem(k)
+          );
           setState((s) => ({ ...s, isLoggedIn: false, isLoading: false }));
         }
         // refresh() 내부에서 setState 처리

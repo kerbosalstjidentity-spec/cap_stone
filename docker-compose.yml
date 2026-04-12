@@ -4,6 +4,7 @@ services:
   # ── PostgreSQL ─────────────────────────────
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -21,6 +22,7 @@ services:
   # ── Redis ──────────────────────────────────
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:
@@ -32,6 +34,7 @@ services:
   # ── Fraud Service (포트 8010) ──────────────
   fraud-service:
     build: ./fraud-service
+    restart: unless-stopped
     ports:
       - "8010:8010"
     environment:
@@ -40,13 +43,21 @@ services:
       CAPSTONE_OUTPUTS_DIR: "/capstone"
     volumes:
       - ./4_1_capstone/outputs/fds:/capstone:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # ── Backend (포트 8020) ────────────────────
   backend:
     build: ./backend
+    restart: unless-stopped
     ports:
       - "8020:8020"
     environment:
+      PYTHONUNBUFFERED: "1"
       DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgres:5432/consume_pattern"
       REDIS_URL: "redis://redis:6379/1"
       FRAUD_SERVICE_URL: "http://fraud-service:8010"
@@ -56,7 +67,13 @@ services:
       redis:
         condition: service_healthy
       fraud-service:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8020/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # ── Frontend (포트 3020) ───────────────────
   frontend:
@@ -64,12 +81,14 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_BACKEND_URL: "http://backend:8020"
+    restart: unless-stopped
     ports:
       - "3020:3020"
     environment:
       NEXT_PUBLIC_BACKEND_URL: "http://backend:8020"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:
