@@ -1,0 +1,4 @@
+# 한 줄에 하나의 transaction_id (open 데이터 ID 형식 예시)
+# 실제 운영에서는 해시·별도 보관 권장
+AAAA0x1
+AAA0x11

@@ -1,0 +1,19 @@
+{
+  "rows": 590540,
+  "train_rows": 442905,
+  "val_rows": 147635,
+  "use_identity": true,
+  "extended_priors": true,
+  "freq_encode_cols": [
+    "ProductCD",
+    "P_emaildomain",
+    "R_emaildomain"
+  ],
+  "target_encode_cols": [],
+  "scale_pos_weight": false,
+  "spw_value": null,
+  "calibrate": "isotonic",
+  "roc_auc": 0.8882750208583101,
+  "pr_auc": 0.4738771031851763,
+  "test_fraction": 0.25
+}

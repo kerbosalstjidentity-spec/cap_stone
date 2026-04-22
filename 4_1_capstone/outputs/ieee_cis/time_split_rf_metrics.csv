@@ -1,0 +1,2 @@
+﻿rows,test_fraction,use_identity,train_dt_min,train_dt_max,val_dt_min,val_dt_max,roc_auc,pr_auc
+590540,0.25,True,86400.0,11246605.0,11246665.0,15811131.0,0.8952671053618066,0.5133789913960672

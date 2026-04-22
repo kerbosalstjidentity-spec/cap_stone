@@ -1,0 +1,9 @@
+평가 정책 (이 프로젝트 기본안)
+- 사기처럼 극단적 불균형에서는 순위 품질을 PR-AUC(평균)로 1순위로 둔다.
+- 동률이면 ROC-AUC(평균)로 가른다.
+- 단일 홀드아웃(hybrid_if_rf.py)은 빠른 참고용; 최종 비교는 이 CV 표를 우선한다.
+
+Stratified 5-fold, random_state=42
+권장 모델: rf_baseline
+  pr_auc_mean=0.853780 (std=0.025549)
+  roc_auc_mean=0.957277 (std=0.005805)

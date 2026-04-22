@@ -1,0 +1,62 @@
+# FDS 입력 스키마 v1 — data/open (ID + V1–V30 + Class)
+version: "1"
+name: open_v1
+
+id:
+  canonical: transaction_id
+  aliases: [transaction_id, ID]
+
+# open 대회 CSV에는 Time/Amount 없음; 시간·금액 특성은 미사용
+event_ts:
+  canonical: event_ts
+  aliases: [event_ts, Time, TransactionDT]
+  required: false
+
+amount:
+  canonical: amount
+  aliases: [amount, Amount]
+  required: false
+
+features:
+  - V1
+  - V2
+  - V3
+  - V4
+  - V5
+  - V6
+  - V7
+  - V8
+  - V9
+  - V10
+  - V11
+  - V12
+  - V13
+  - V14
+  - V15
+  - V16
+  - V17
+  - V18
+  - V19
+  - V20
+  - V21
+  - V22
+  - V23
+  - V24
+  - V25
+  - V26
+  - V27
+  - V28
+  - V29
+  - V30
+
+label:
+  canonical: Class
+  aliases: [Class, is_fraud]
+
+label:
+  canonical: is_fraud
+  aliases: [Class, is_fraud, isFraud]
+  required_for_training: true
+
+missing:
+  imputer_strategy: median

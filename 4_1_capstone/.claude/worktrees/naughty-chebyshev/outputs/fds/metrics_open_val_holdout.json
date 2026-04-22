@@ -1,0 +1,22 @@
+{
+  "split": "stratified_holdout",
+  "holdout_fraction": 0.2,
+  "random_state": 42,
+  "n_train": 22769,
+  "n_holdout": 5693,
+  "holdout_fraud_rate": 0.0010539258738802037,
+  "roc_auc_holdout": 0.9999706933942911,
+  "pr_auc_holdout": 0.976190476190476,
+  "warning": "홀드아웃 사기 건수 ≈ 6건 — 극소 샘플로 인해 ROC-AUC/PR-AUC 신뢰도 낮음. 신뢰 가능한 지표는 metrics_open_cv5.json (5-fold CV) 참고.",
+  "thresholds_file": "C:\\Users\\alstj\\Downloads\\4_1_capstone\\policies\\fds\\thresholds_v1.yaml",
+  "block_min": 0.95,
+  "review_min": 0.35,
+  "holdout_queue_size_review_or_block": 4,
+  "holdout_recall_in_queue": 0.6666666666666666,
+  "holdout_fpr_in_queue_among_normal": 0.0,
+  "holdout_confusion_queue": {
+    "tp": 4,
+    "fp": 0,
+    "fn_outside_queue": 2
+  }
+}

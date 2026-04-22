@@ -1,0 +1,3 @@
+﻿model,roc_auc,pr_auc,scale_pos_weight
+lgbm_class_weight_balanced,0.9027171324277422,0.5091440409814249,
+lgbm_scale_pos_weight,0.9012282102022413,0.5056255894144294,27.458844695752745

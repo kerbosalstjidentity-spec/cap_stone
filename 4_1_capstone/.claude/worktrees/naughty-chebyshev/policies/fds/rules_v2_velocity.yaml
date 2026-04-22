@@ -1,0 +1,39 @@
+version: "2"
+name: rules_v2_velocity
+
+rules:
+  - id: R_VELOCITY_1H_BLOCK
+    action: BLOCK
+    velocity_above:
+      column: tx_count_1h
+      threshold: 8   # 1시간에 8건 초과 → 차단
+
+  - id: R_VELOCITY_1H_REVIEW
+    action: REVIEW
+    velocity_above:
+      column: tx_count_1h
+      threshold: 3   # 1시간에 3건 초과 → 검토
+
+  - id: R_AMOUNT_SPIKE_REVIEW
+    action: REVIEW
+    velocity_above:
+      column: tx_velocity_ratio
+      threshold: 0.7   # 1시간 비율 급증 → 검토
+
+  - id: R_COUNTRY_CHANGE
+    action: REVIEW
+    flag_equals:
+      column: country_change_flag
+      value: 1   # 국가 변경 → 검토
+
+  - id: R_AMOUNT_24H_HIGH
+    action: REVIEW
+    velocity_above:
+      column: amount_sum_24h
+      threshold: 50000   # 24시간 누적 50,000 초과
+
+  - id: R_MULTI_COUNTRY_7D
+    action: REVIEW
+    velocity_above:
+      column: unique_countries_7d
+      threshold: 3   # 7일간 4개국 이상 → 검토

@@ -29,6 +29,9 @@ webauthn>=2.2
 pyotp>=2.9
 qrcode[pil]>=8.0
 
+# === Monitoring ===
+sentry-sdk[fastapi]>=2.0
+
 # === Utilities ===
 python-dotenv>=1.0
 aioredis>=2.0

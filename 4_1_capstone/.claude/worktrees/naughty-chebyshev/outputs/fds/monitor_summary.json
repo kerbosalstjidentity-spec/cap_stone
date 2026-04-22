@@ -1,0 +1,16 @@
+{
+  "rows": 4000,
+  "score_quantiles": {
+    "p50": 0.0,
+    "p90": 0.0,
+    "p99": 0.015
+  },
+  "score_mean": 0.00360875,
+  "score_std": 0.05027967455580336,
+  "action_rate": {
+    "PASS": 0.99525,
+    "REVIEW": 0.00425,
+    "BLOCK": 0.0005
+  },
+  "approval_proxy_pass_rate": 0.99525
+}

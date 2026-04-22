@@ -1,0 +1,2 @@
+﻿rows,train_rows,val_rows,use_identity,extended_priors,test_fraction,roc_auc_rf_only,pr_auc_rf_only,roc_auc_lgbm_only,pr_auc_lgbm_only,best_pr_auc_w_lgbm,best_pr_auc,best_roc_auc_w_lgbm,best_roc_auc
+590540,442905,147635,True,False,0.25,0.8952671053618066,0.5133789913960672,0.9029877904085478,0.5125224545769282,0.2,0.5371651352401086,0.2,0.9149946150137187

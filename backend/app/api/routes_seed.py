@@ -146,30 +146,27 @@ def _generate_transactions(user_id: str, months: int = 3, tx_per_month: int = 40
     return sorted(txs, key=lambda t: t.timestamp)
 
 
-@router.post("/demo/{user_id}")
-async def seed_demo_data(
+async def seed_user_data(
     user_id: str,
+    session: AsyncSession,
     months: int = 3,
     tx_per_month: int = 40,
-    session: AsyncSession = Depends(get_session),
+    include_security: bool = True,
 ) -> dict:
-    """데모 거래 데이터를 자동 생성하여 DB + 인메모리 스토어에 저장."""
-    # 기존 데이터 초기화
-    profile_store.delete_user(user_id)
-    await session.execute(delete(EmotionTag).where(EmotionTag.user_id == user_id))
-    await session.execute(delete(Transaction).where(Transaction.user_id == user_id))
-    await session.commit()
+    """사용자 데모 데이터 생성 헬퍼 — 거래 + 감정 + 보안 데이터.
 
+    routes_auth.py 회원가입 후 자동 호출, routes_seed.py API 양쪽에서 사용.
+    """
     txs = _generate_transactions(user_id, months, tx_per_month)
 
-    # 인메모리 스토어 (기존 분석용)
+    # 인메모리 스토어
     for tx in txs:
         profile_store.ingest(tx)
 
-    # DB 저장 (ML 학습 및 새 분석용)
+    # DB 저장
     await ingest_batch(txs, session)
 
-    # 감정 태그 자동 생성 (약 60%의 거래에 태그 부여)
+    # 감정 태그 (약 60%)
     emotion_count = 0
     for tx in txs:
         if random.random() < 0.6:
@@ -186,6 +183,11 @@ async def seed_demo_data(
             emotion_count += 1
     await session.commit()
 
+    # 보안 데이터 시딩 (MyData 동의, PID, 감사 로그)
+    security_seeded = {}
+    if include_security:
+        security_seeded = await _seed_security_data(user_id, txs)
+
     profile = profile_store.get_profile(user_id)
     return {
         "status": "seeded",
@@ -195,7 +197,106 @@ async def seed_demo_data(
         "months": months,
         "total_amount": profile.total_amount if profile else 0,
         "categories": len(profile.category_breakdown) if profile else 0,
+        **security_seeded,
     }
+
+
+async def _seed_security_data(user_id: str, txs: list) -> dict:
+    """보안 대시보드용 샘플 데이터 시딩 (인메모리 stores)."""
+    import hashlib
+    import json
+    import secrets
+    import time
+
+    from app.api.routes_security_dashboard import (
+        _AUDIT_CHAIN,
+        _MYDATA_CONSENTS,
+        _PID_REGISTRY,
+    )
+
+    # 1) 감사 로그 — 최근 거래 중 10건을 감사 체인에 기록
+    audit_count = 0
+    sample_txs = txs[-10:] if len(txs) >= 10 else txs
+    for tx in sample_txs:
+        ts = time.time() - random.uniform(0, 86400 * 7)
+        actions = ["PASS", "PASS", "PASS", "SOFT_REVIEW", "REVIEW"]
+        action = random.choice(actions)
+        score = round(random.uniform(0.01, 0.3), 3) if action == "PASS" else round(random.uniform(0.5, 0.95), 3)
+        prev_hash = _AUDIT_CHAIN[-1]["block_hash"] if _AUDIT_CHAIN else "0" * 64
+        block = {
+            "index": len(_AUDIT_CHAIN),
+            "timestamp": ts,
+            "transaction_id": tx.transaction_id,
+            "user_id": user_id,
+            "action": action,
+            "score": score,
+            "reason": f"FDS {action.lower()} — score {score}",
+            "amount": tx.amount,
+            "prev_hash": prev_hash,
+            "block_hash": hashlib.sha256(
+                json.dumps({"ts": ts, "tx": tx.transaction_id, "prev": prev_hash},
+                           sort_keys=True).encode()
+            ).hexdigest(),
+        }
+        _AUDIT_CHAIN.append(block)
+        audit_count += 1
+
+    # 2) MyData 동의 3건
+    providers = [
+        {"provider": "KB국민은행", "data_types": ["transactions", "balance"], "purpose": "spending_analysis"},
+        {"provider": "신한카드", "data_types": ["transactions", "loan"], "purpose": "credit_score"},
+        {"provider": "NH농협", "data_types": ["balance", "investment"], "purpose": "fds"},
+    ]
+    consents = []
+    for p in providers:
+        consent = {
+            "consent_id": secrets.token_hex(8),
+            "provider": p["provider"],
+            "data_types": p["data_types"],
+            "purpose": p["purpose"],
+            "granted_at": time.time() - random.randint(86400, 86400 * 30),
+            "expires_at": time.time() + 365 * 86400,
+            "status": "active",
+        }
+        consents.append(consent)
+    _MYDATA_CONSENTS[user_id] = consents
+
+    # 3) PID 생성
+    pid = hashlib.sha256(
+        f"PID:{user_id}:{time.time()}:{secrets.token_hex(8)}".encode()
+    ).hexdigest()[:16]
+    _PID_REGISTRY[user_id] = {
+        "pid": f"PID-{pid}",
+        "real_user_id": user_id,
+        "created_at": time.time(),
+        "rotation_at": time.time() + 90 * 86400,
+        "rotation_days": 90,
+        "version": 1,
+        "history": [],
+    }
+
+    return {
+        "audit_logs_created": audit_count,
+        "mydata_consents_created": len(consents),
+        "pid_generated": True,
+    }
+
+
+@router.post("/demo/{user_id}")
+async def seed_demo_data(
+    user_id: str,
+    months: int = 3,
+    tx_per_month: int = 40,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """데모 거래 데이터를 자동 생성하여 DB + 인메모리 스토어에 저장."""
+    # 기존 데이터 초기화
+    profile_store.delete_user(user_id)
+    await session.execute(delete(EmotionTag).where(EmotionTag.user_id == user_id))
+    await session.execute(delete(Transaction).where(Transaction.user_id == user_id))
+    await session.commit()
+
+    return await seed_user_data(user_id, session, months, tx_per_month)
 
 
 @router.delete("/reset/{user_id}")

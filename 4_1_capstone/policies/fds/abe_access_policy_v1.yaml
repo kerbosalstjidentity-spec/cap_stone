@@ -1,0 +1,45 @@
+# CP-ABE ���반 접근 정책 (Layer 2)
+#
+# 속성 체계:
+#   role: analyst | admin | auditor | viewer
+#   dept: fraud_team | compliance | risk | ops
+#   institution: bank_a | bank_b | fintech_c | * (any)
+#   clearance: low | medium | high
+#
+# access_structure: 불리언 식 (AND, OR 지원)
+# encrypted_fields: CP-ABE로 암호화되는 필드 (속성 불만족 시 복호화 불가)
+
+attributes:
+  roles: [analyst, admin, auditor, viewer]
+  departments: [fraud_team, compliance, risk, ops]
+  institutions: [bank_a, bank_b, fintech_c]
+  clearance_levels: [low, medium, high]
+
+policies:
+  - resource: "POST /v1/score"
+    access_structure: "(role:analyst OR role:admin) AND dept:fraud_team"
+    encrypted_fields: [reason_code, feature_contributions]
+
+  - resource: "POST /v1/score/batch"
+    access_structure: "(role:analyst OR role:admin) AND dept:fraud_team"
+    encrypted_fields: [reason_code, feature_contributions]
+
+  - resource: "POST /v1/fraud/evaluate"
+    access_structure: "role:admin AND clearance:high"
+    encrypted_fields: [score, reason_code, rule_details]
+
+  - resource: "GET /v1/audit/*"
+    access_structure: "role:auditor OR role:admin"
+    encrypted_fields: []
+
+  - resource: "GET /admin/*"
+    access_structure: "role:admin"
+    encrypted_fields: []
+
+  - resource: "POST /v1/simulate"
+    access_structure: "(role:analyst OR role:admin) AND clearance:medium"
+    encrypted_fields: []
+
+  - resource: "POST /v1/intelligence/*"
+    access_structure: "role:analyst AND clearance:medium"
+    encrypted_fields: [pattern_details]

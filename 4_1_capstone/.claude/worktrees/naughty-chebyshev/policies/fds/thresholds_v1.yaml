@@ -1,0 +1,14 @@
+# 스코어 구간 → 조치 (프로토타입). score는 사기 확률 등 [0,1] 가정.
+version: "1"
+name: advanced_bands
+
+# 기본 임계
+block_min: 0.5
+review_min: 0.35
+
+# 추가 조정 (변수 기반)
+adjustments:
+  - condition: "V2 > 5.0"  # FP 패턴 예외
+    score_adjust: -0.1     # score 감소로 BLOCK 방지
+  - condition: "V1 < -4.0 and V3 < -2.0"  # FN 패턴 강화
+    score_adjust: 0.1      # score 증가로 REVIEW/BLOCK 유도

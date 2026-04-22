@@ -90,6 +90,22 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_se
     await session.commit()
     await session.refresh(user)
 
+    # 회원가입 즉시 데모 데이터 시딩 → 대시보드가 바로 보임
+    try:
+        from app.api.routes_seed import seed_user_data
+        await seed_user_data(user_id, session, months=3, tx_per_month=40)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Auto-seed after register failed: %s", e)
+
+    # 백그라운드 ML 모델 학습
+    try:
+        from app.ml.trainer import train_all
+        await train_all(session)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Auto-train after register failed: %s", e)
+
     return TokenResponse(
         access_token=create_access_token(user_id),
         refresh_token=create_refresh_token(user_id),

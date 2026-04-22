@@ -1,0 +1,44 @@
+{
+  "eval_method": "stratified_kfold_cv",
+  "n_splits": 5,
+  "n_total": 100000,
+  "n_fraud_total": 2561,
+  "n_fraud_per_fold": [
+    512,
+    512,
+    512,
+    512,
+    513
+  ],
+  "random_state": 42,
+  "roc_auc_mean": 0.8931270942627292,
+  "roc_auc_std": 0.004441459387131596,
+  "roc_auc_per_fold": [
+    0.8968751904216696,
+    0.8979576373922413,
+    0.8869879962188271,
+    0.8886990351434215,
+    0.8951156121374865
+  ],
+  "pr_auc_mean": 0.6152986336519068,
+  "pr_auc_std": 0.009645965617358428,
+  "pr_auc_per_fold": [
+    0.6098591411133027,
+    0.6218839990478504,
+    0.5987544727045562,
+    0.6230490001400113,
+    0.6229465552538134
+  ],
+  "note": "SMOTE는 각 fold 훈련 분할에만 적용. 최종 모델은 전체 데이터 재학습. 큐 지표는 out-of-fold 예측 기준.",
+  "oof_queue_size": 1795,
+  "oof_recall_in_queue": 0.5228426395939086,
+  "oof_fpr_in_queue": 0.004679850983692361,
+  "oof_confusion_queue": {
+    "tp": 1339,
+    "fp": 456,
+    "fn_outside_queue": 1222
+  },
+  "thresholds_file": "C:\\Users\\alstj\\Downloads\\4_1_capstone\\.claude\\worktrees\\naughty-chebyshev\\policies\\fds\\thresholds_v1.yaml",
+  "block_min": 0.5,
+  "review_min": 0.35
+}
