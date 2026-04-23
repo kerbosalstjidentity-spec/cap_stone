@@ -34,3 +34,9 @@ desktop.ini
 # Logs
 logs/
 *.log
+
+# Claude Code local state
+.claude/settings.local.json
+**/.claude/settings.local.json
+.claude/worktrees/
+**/.claude/worktrees/

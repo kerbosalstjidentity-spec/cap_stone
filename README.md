@@ -73,14 +73,23 @@ curl -X POST http://localhost:8000/v1/seed/demo/demo_user_001
 
 ```
 cap_stone/
-├── backend/          # FastAPI 백엔드 (포트 8000)
-├── frontend/         # Next.js 프론트엔드 (포트 3000)
-├── fraud-service/    # 사기 탐지 추론 API (포트 8010)
-├── 4_1_capstone/     # ML 연구/실험 스크립트
-├── docker-compose.yml
-├── PayWise_중간발표.pptx
-└── PayWise_발표대본_9분.md
+├── backend/            # FastAPI 백엔드 (포트 8000)
+├── frontend/           # Next.js 프론트엔드 (포트 3000)
+├── fraud-service/      # 사기 탐지 추론 API (포트 8010) — 배포 대상
+├── fds-research/       # FDS 연구용 실험 스크립트·결과물 (배포 X)
+│                       #   · IF/RF/하이브리드 실험, IEEE-CIS·Kaggle 벤치마크
+│                       #   · 산출물은 fraud-service/의 학습 모델로 반영됨
+├── fds_scripts/        # 운영용 FDS 유틸 스크립트
+├── docs/
+│   ├── presentations/  # 중간/최종 발표자료
+│   ├── reports_weekly/ # 주차별 진행 보고서
+│   └── specs_requirements/  # 요구사항 명세서 (SRS)
+└── docker-compose.yml
 ```
+
+> **fds-research vs fraud-service**: `fds-research/`는 모델 탐색·실험 저장소(논문용),
+> `fraud-service/`는 실제 배포되는 추론 API입니다. 연구 결과 중 채택된 모델만
+> `fraud-service/`로 반영됩니다.
 
 ## 📅 발표 일정
 
