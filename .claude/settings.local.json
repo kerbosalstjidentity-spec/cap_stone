@@ -273,7 +273,12 @@
       "Bash(C:/Users/alstj/AppData/Local/Python/bin/python3.exe \"C:/Users/alstj/Downloads/캡스톤_프로젝트/주차_보고서/gen_3rd_report.py\")",
       "Bash(npm list:*)",
       "Bash(node \"C:/Users/alstj/Downloads/캡스톤_프로젝트/주차_보고서/gen_3rd.js\")",
-      "Bash(NODE_PATH=\"C:/Users/alstj/AppData/Roaming/npm/node_modules\" node \"C:/Users/alstj/Downloads/캡스톤_프로젝트/주차_보고서/gen_3rd.js\")"
+      "Bash(NODE_PATH=\"C:/Users/alstj/AppData/Roaming/npm/node_modules\" node \"C:/Users/alstj/Downloads/캡스톤_프로젝트/주차_보고서/gen_3rd.js\")",
+      "Bash(C:/Users/alstj/AppData/Local/Python/bin/python3.exe -m pip install python-pptx -q)",
+      "Bash(C:/Users/alstj/AppData/Local/Python/bin/python3.exe -c ' *)",
+      "Bash(C:/Users/alstj/AppData/Local/Python/bin/python3.exe -m pip install python-pptx)",
+      "Bash(C:/Users/alstj/AppData/Local/Python/bin/python3.exe \"C:/Users/alstj/Downloads/캡스톤_프로젝트/주차_보고서/_update_slide8.py\")",
+      "Bash(NODE_PATH=\"C:/Users/alstj/AppData/Roaming/npm/node_modules\" node \"C:/Users/alstj/Downloads/캡스톤_프로젝트/주차_보고서/gen_4th.js\")"
     ]
   }
 }
