@@ -1,7 +1,0 @@
-{
-  "roc_auc": 1.0,
-  "pr_auc": 0.9999999999999999,
-  "rows": 28462,
-  "fraud_rate": 0.0010540369615627855,
-  "warning": "ROC-AUC 1.0은 신뢰할 수 없습니다. model_bundle_open_eval.joblib이 val.csv의 80%로 훈련되었고, 이 파일은 val.csv 전체(훈련 데이터 포함)를 평가했습니다. 훈련 데이터 오염(train-test contamination). 신뢰 가능한 지표는 metrics_open_cv5.json 참고."
-}

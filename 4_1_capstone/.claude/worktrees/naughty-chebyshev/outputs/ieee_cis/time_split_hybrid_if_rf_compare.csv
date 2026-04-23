@@ -1,5 +1,0 @@
-﻿model,roc_auc,pr_auc,time_split,test_fraction,use_identity,card1_prior_features,rows,train_dt_max,val_dt_min
-rf_baseline,0.8952671053618066,0.5133789913960672,True,0.25,True,False,590540,11246605.0,11246665.0
-rf_hybrid_if_feature,0.8948242186129722,0.5123913482346485,True,0.25,True,False,590540,11246605.0,11246665.0
-lgbm_baseline,0.9062635169758787,0.5125293793984453,True,0.25,True,False,590540,11246605.0,11246665.0
-lgbm_hybrid_if_feature,0.9068983428218869,0.5118985519503871,True,0.25,True,False,590540,11246605.0,11246665.0

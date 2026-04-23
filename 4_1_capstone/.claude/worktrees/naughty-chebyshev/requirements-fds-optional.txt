@@ -1,5 +1,0 @@
-# FDS 확장: API·SHAP (기본 requirements.txt 외 별도 설치)
-#   pip install -r requirements-fds-optional.txt
-fastapi>=0.109
-uvicorn[standard]>=0.27
-shap>=0.44
