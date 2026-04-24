@@ -22,6 +22,9 @@ data/ieee-cis/*.csv
 outputs/fds/*.joblib
 outputs/fds/*.csv
 
+# fraud-service 런타임에 필요한 모델 번들은 예외로 트래킹
+!outputs/fds/model_bundle_open_full.joblib
+
 # 환경·비밀
 .env
 .env.*

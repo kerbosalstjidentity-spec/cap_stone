@@ -1,4 +1,4 @@
-version: "3.9"
+name: consume-pattern
 
 services:
   # ── PostgreSQL ─────────────────────────────
@@ -42,7 +42,7 @@ services:
       MODEL_PATH: "/capstone/model_bundle_open_full.joblib"
       CAPSTONE_OUTPUTS_DIR: "/capstone"
     volumes:
-      - ./4_1_capstone/outputs/fds:/capstone:ro
+      - ./fds-research/outputs/fds:/capstone:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
       interval: 10s
