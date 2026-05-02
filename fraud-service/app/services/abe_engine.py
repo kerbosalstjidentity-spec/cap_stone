@@ -367,7 +367,35 @@ def find_policy(policies: list[AccessPolicy], method: str, path: str) -> AccessP
 # ── 필드 레벨 암호화 (AES-GCM 경량 구현) ──────────────────────
 # 실제 CP-ABE 도입 시 이 부분만 교체하면 됨
 
-_ABE_SECRET = os.getenv("ABE_MASTER_SECRET", "default-dev-secret-change-in-prod")
+# W1-#4: 시크릿 fail-fast.
+# - ENV=production 이면 ABE_MASTER_SECRET 미설정/기본값 시 즉시 RuntimeError
+# - dev/test에서는 기본값 허용 + 경고 로그
+_ABE_DEFAULT_SECRET = "default-dev-secret-change-in-prod"
+_ABE_SECRET = os.getenv("ABE_MASTER_SECRET", _ABE_DEFAULT_SECRET)
+
+
+def _validate_abe_secret() -> None:
+    env = (os.getenv("ENV") or os.getenv("APP_ENV") or "development").lower()
+    is_prod = env in ("production", "prod")
+    if not _ABE_SECRET or _ABE_SECRET == _ABE_DEFAULT_SECRET:
+        if is_prod:
+            raise RuntimeError(
+                "[ABE] ABE_MASTER_SECRET 미설정 또는 기본값 — production 기동 차단. "
+                "32바이트 이상의 무작위 시크릿을 환경변수로 주입하라."
+            )
+        import logging
+        logging.getLogger(__name__).warning(
+            "[ABE] ABE_MASTER_SECRET가 기본값입니다. 운영 배포 전 반드시 교체하세요."
+        )
+    elif len(_ABE_SECRET) < 32:
+        if is_prod:
+            raise RuntimeError(
+                f"[ABE] ABE_MASTER_SECRET 길이가 {len(_ABE_SECRET)}자로 너무 짧음 — production 기동 차단."
+            )
+
+
+# 모듈 로드 시점에 즉시 검증 — production 부팅 차단
+_validate_abe_secret()
 
 
 def _derive_field_key(attr_set_str: str, field_name: str) -> bytes:

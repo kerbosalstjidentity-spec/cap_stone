@@ -28,10 +28,19 @@ class Settings(BaseSettings):
     PORT: int = 8020
 
     # JWT Auth
+    # HS256 (대칭) — 기본값, 단일 백엔드 환경
     JWT_SECRET_KEY: str = "consume-pattern-super-secret-key-change-in-production"
-    JWT_ALGORITHM: str = "HS256"
+    JWT_ALGORITHM: str = "HS256"  # "HS256" 또는 "RS256"
     JWT_ACCESS_EXPIRE_MINUTES: int = 60
     JWT_REFRESH_EXPIRE_DAYS: int = 30
+
+    # RS256 (비대칭, 다중 서비스 검증용) — 활성화 시 JWT_ALGORITHM="RS256"
+    # JWT_RSA_PRIVATE_KEY_PEM: 발급 서명용 (서비스 1대만 보관)
+    # JWT_RSA_PUBLIC_KEYS_JSON: {"<kid>": "<PEM>"} — 검증 측에서 kid로 키 선택
+    # JWT_ACTIVE_KID: 현재 서명에 사용할 kid (회전 시 새 kid로 변경, 이전 kid는 검증용으로 유지)
+    JWT_RSA_PRIVATE_KEY_PEM: str = ""
+    JWT_RSA_PUBLIC_KEYS_JSON: str = "{}"
+    JWT_ACTIVE_KID: str = ""
 
     # WebAuthn / FIDO2
     WEBAUTHN_RP_ID: str = "localhost"

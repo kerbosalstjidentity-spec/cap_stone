@@ -514,7 +514,7 @@ def filter_response(
 
 - **`evaluate_access_structure` 의 fallback `eval()` 위험**: AccessTree 빌드가 실패하면 정규식으로 토큰을 추출한 뒤 `eval()` 로 평가한다. YAML 정책 파일이 신뢰할 수 있는 출처에서만 로드된다는 가정이 깔려 있지만, **누군가 `access_structure` 에 임의 파이썬 표현식을 넣을 수 있다면 RCE**다. AccessTree 가 모든 합법적 표현을 처리하도록 보장하고 fallback 자체를 제거하는 것이 안전하다.
 
-- **마스터 시크릿이 환경변수 기본값에 노출**: [abe_engine.py:370](fraud-service/app/services/abe_engine.py:370) 에서 `_ABE_SECRET = os.getenv("ABE_MASTER_SECRET", "default-dev-secret-change-in-prod")`. 환경변수가 누락되면 하드코딩된 기본값이 사용되는데, 이 값은 모든 사용자가 코드 검색만으로 알 수 있다. fail-fast 로 환경변수 미설정 시 기동을 중단하는 것이 안전하다.
+- **마스터 시크릿이 환경변수 기본값에 노출**: [abe_engine.py:370](fraud-service/app/services/abe_engine.py:370) 에서 `_ABE_SECRET = os.getenv("ABE_MASTER_SECRET", "default-dev-secret-change-in-prod")`. 환경변수가 누락되면 하드코딩된 기본값이 사용되는데, 이 값은 모든 사용자가 코드 검색만으로 알 수 있다. fail-fast 로 환경변수 미설정 시 기동을 중단하는 것이 안전하다. (✅ ROADMAP W1-#4 — `ENV=production` 시 기본값/32자 미만 시크릿이면 모듈 로드 즉시 RuntimeError)
 
 - **`encrypt_field` 와 `decrypt_field` 의 키 파생이 access_structure 문자열에 의존**: 정책 문자열이 한 글자라도 다르면(공백·괄호 추가/제거) 키가 달라지고 복호화가 실패한다. 예를 들어 정책을 `"role:analyst OR role:admin"` 로 암호화한 뒤, 의미가 동등한 `"role:admin OR role:analyst"` 로 복호화 시도하면 실패한다. 정규화된(canonicalized) 정책 표현으로 키 파생을 하는 것이 안전하다.
 

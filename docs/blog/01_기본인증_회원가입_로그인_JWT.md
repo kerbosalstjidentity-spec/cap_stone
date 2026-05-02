@@ -211,7 +211,7 @@ except Exception as e:
 > bcrypt 기본값(12 라운드, ~250ms). 더 높이면 보안 강화지만 로그인 응답 지연. 향후 Argon2id 마이그레이션 검토 예정.
 
 **Q3. JWT secret이 유출되면?**
-> 모든 토큰 무효화 + 로테이션 필요. 현재는 `JWT_SECRET_KEY` 환경변수 단일 키 — 키 로테이션 메커니즘(`kid` 헤더 기반 다중 키)은 후속 작업.
+> 모든 토큰 무효화 + 로테이션 필요. 현재는 `JWT_SECRET_KEY` 환경변수 단일 키 — 키 로테이션 메커니즘(`kid` 헤더 기반 다중 키)은 후속 작업. (✅ ROADMAP W1-#3 — `JWT_ALGORITHM=RS256` + `JWT_RSA_PUBLIC_KEYS_JSON` `{kid: PEM}` 다중 검증 키 + production 시 시크릿 fail-fast (W1-#4))
 
 **Q4. 회원가입 시 ML 학습을 같이 돌리는데 응답 지연이 안 생기나요?**
 > ⑤절에서 지적한 약점입니다. 현재 `await`로 동기 호출되어 응답 지연 가능. BackgroundTasks 또는 Celery 큐로 분리하는 게 후속 작업.

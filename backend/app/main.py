@@ -141,6 +141,11 @@ async def lifespan(app: FastAPI):
     from app.services.notification_service import notification_manager
 
     print(f"[{settings.APP_NAME}] Starting v{settings.APP_VERSION} on :{settings.PORT}")
+
+    # W1-#3/#4 fail-fast — production에서 시크릿/JWT 설정 누락 시 즉시 RuntimeError
+    from app.auth.jwt import validate_jwt_config
+    validate_jwt_config()
+
     await _run_alembic_upgrade()
     try:
         await asyncio.wait_for(init_db(), timeout=20.0)
