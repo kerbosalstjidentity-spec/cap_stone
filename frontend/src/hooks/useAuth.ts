@@ -62,8 +62,27 @@ export function useAuth() {
     }
   }, []);
 
-  /** 로그아웃: localStorage 초기화 후 로그인 페이지로 이동. */
-  const logout = useCallback(() => {
+  /** 로그아웃: 서버에 jti 블랙리스트 등록 후 localStorage 초기화. */
+  const logout = useCallback(async () => {
+    const accessToken = localStorage.getItem("access_token");
+    const refreshToken = localStorage.getItem("refresh_token");
+
+    // 서버 블랙리스트 등록 (실패해도 로컬 정리는 진행)
+    if (accessToken) {
+      try {
+        await fetch("/api/v1/auth/logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch {
+        // 네트워크 오류 시에도 클라이언트 측 로그아웃은 진행
+      }
+    }
+
     ["access_token", "refresh_token", "user_id", "nickname"].forEach((k) =>
       localStorage.removeItem(k)
     );

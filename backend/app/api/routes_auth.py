@@ -13,13 +13,17 @@ from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from app.auth.deps import get_current_user
 from app.auth.jwt import (
+    blacklist_jti,
     create_access_token,
     create_pre_auth_token,
     create_refresh_token,
     decode_token,
     hash_password,
+    remaining_ttl_seconds,
     verify_password,
 )
 from app.db.session import get_session
@@ -27,6 +31,7 @@ from app.models.tables import StepUpSession, User
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
+    LogoutRequest,
     PasswordChangeRequest,
     RefreshRequest,
     RegisterRequest,
@@ -36,6 +41,8 @@ from app.schemas.auth import (
     TotpVerifyRequest,
     UserProfile,
 )
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def _log_security_event(
@@ -210,18 +217,29 @@ async def login_totp(body: TotpLoginRequest, session: AsyncSession = Depends(get
     summary="액세스 토큰 갱신",
 )
 async def refresh_token(body: RefreshRequest, session: AsyncSession = Depends(get_session)) -> TokenResponse:
+    from app.auth.jwt import is_jti_blacklisted
+
     try:
         payload = decode_token(body.refresh_token)
         if payload.get("type") != "refresh":
             raise ValueError("invalid token type")
         user_id = payload["sub"]
+        old_jti = payload.get("jti")
+        old_ttl = remaining_ttl_seconds(payload)
     except (JWTError, KeyError, ValueError):
         raise HTTPException(status_code=401, detail="유효하지 않은 리프레시 토큰입니다.")
+
+    if old_jti and await is_jti_blacklisted(old_jti):
+        raise HTTPException(status_code=401, detail="만료되었거나 폐기된 리프레시 토큰입니다.")
 
     result = await session.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
+
+    # refresh 토큰 회전 — 사용된 jti는 블랙리스트로
+    if old_jti and old_ttl > 0:
+        await blacklist_jti(old_jti, old_ttl)
 
     return TokenResponse(
         access_token=create_access_token(user_id),
@@ -229,6 +247,45 @@ async def refresh_token(body: RefreshRequest, session: AsyncSession = Depends(ge
         user_id=user_id,
         nickname=user.nickname,
     )
+
+
+@router.post(
+    "/logout",
+    summary="로그아웃 — access/refresh jti 블랙리스트 등록",
+)
+async def logout(
+    body: LogoutRequest | None = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> dict:
+    """access 토큰의 jti와 (옵션) refresh 토큰의 jti를 블랙리스트에 등록.
+
+    - access: Authorization 헤더의 Bearer 토큰
+    - refresh: 요청 body의 refresh_token (옵션)
+    - 잘못된 토큰이라도 200 반환 (정보 누출 차단)
+    """
+    blacklisted = []
+
+    if credentials and credentials.credentials:
+        try:
+            payload = decode_token(credentials.credentials)
+            jti = payload.get("jti")
+            ttl = remaining_ttl_seconds(payload)
+            if jti and ttl > 0 and await blacklist_jti(jti, ttl):
+                blacklisted.append("access")
+        except Exception:
+            pass
+
+    if body and body.refresh_token:
+        try:
+            payload = decode_token(body.refresh_token)
+            jti = payload.get("jti")
+            ttl = remaining_ttl_seconds(payload)
+            if jti and ttl > 0 and await blacklist_jti(jti, ttl):
+                blacklisted.append("refresh")
+        except Exception:
+            pass
+
+    return {"status": "ok", "blacklisted": blacklisted}
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

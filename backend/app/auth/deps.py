@@ -6,7 +6,7 @@ from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.jwt import decode_token
+from app.auth.jwt import decode_token, is_jti_blacklisted
 from app.db.session import get_session
 from app.models.tables import User
 
@@ -25,8 +25,12 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise ValueError("invalid token type")
         user_id: str = payload["sub"]
+        jti: str | None = payload.get("jti")
     except (JWTError, KeyError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="유효하지 않은 토큰입니다.")
+
+    if jti and await is_jti_blacklisted(jti):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="만료되었거나 폐기된 토큰입니다.")
 
     result = await session.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
@@ -45,6 +49,9 @@ async def get_current_user_optional(
     try:
         payload = decode_token(credentials.credentials)
         if payload.get("type") != "access":
+            return None
+        jti = payload.get("jti")
+        if jti and await is_jti_blacklisted(jti):
             return None
         user_id: str = payload["sub"]
         result = await session.execute(select(User).where(User.user_id == user_id))

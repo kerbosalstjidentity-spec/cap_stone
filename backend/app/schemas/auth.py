@@ -54,6 +54,11 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    """로그아웃 시 refresh_token도 함께 무효화하기 위해 받는다."""
+    refresh_token: str | None = None
+
+
 class UserProfile(BaseModel):
     user_id: str
     email: str | None
