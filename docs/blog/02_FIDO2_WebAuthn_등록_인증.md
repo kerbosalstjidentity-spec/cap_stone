@@ -357,11 +357,11 @@ const credential = await navigator.credentials.create({
 
 ## ⑤ 설계 포인트
 
-- **인메모리 챌린지 저장의 한계**: `_registration_challenges`, `_authentication_challenges`, `_login_challenges` 세 dict가 프로세스 메모리에만 존재한다. 멀티 프로세스(uvicorn workers > 1) 환경이나 서버 재시작 시 챌린지가 사라져 검증이 실패한다. 프로덕션에서는 `redis.setex(f"fido:{user_id}", 300, challenge)` 형태로 TTL이 있는 외부 스토어에 위임해야 한다.
+- **인메모리 챌린지 저장의 한계**: `_registration_challenges`, `_authentication_challenges`, `_login_challenges` 세 dict가 프로세스 메모리에만 존재한다. 멀티 프로세스(uvicorn workers > 1) 환경이나 서버 재시작 시 챌린지가 사라져 검증이 실패한다. 프로덕션에서는 `redis.setex(f"fido:{user_id}", 300, challenge)` 형태로 TTL이 있는 외부 스토어에 위임해야 한다. (✅ ROADMAP W2-#1 — `app.services.fido_challenge_store` Redis-backed 단일 인터페이스 (scope: register/auth/login, 5분 TTL, Redis 미가용 시 in-memory 폴백))
 
 - **sign_count=0 예외 처리 미구현**: FIDO2 사양은 sign_count가 0이면 "카운터를 지원하지 않는 authenticator"로 간주해 검증을 통과시키도록 권장한다. 현재 구현이 `verify_authentication_response()` 라이브러리 기본 동작에 위임하고 있어 실제 클론 탐지가 어떻게 동작하는지는 py_webauthn 버전에 따라 달라진다.
 
-- **세 개의 챌린지 맵 → 단일 테이블 통합 여지**: 등록·인증·로그인 챌린지가 각자 별도 dict에 저장된다. 키 설계(`user_id` vs `pre_auth_token`)가 달라 통합이 쉽지 않지만, Redis를 도입한다면 prefix로 구분하는 단일 인터페이스로 추상화할 수 있다.
+- **세 개의 챌린지 맵 → 단일 테이블 통합 여지**: 등록·인증·로그인 챌린지가 각자 별도 dict에 저장된다. 키 설계(`user_id` vs `pre_auth_token`)가 달라 통합이 쉽지 않지만, Redis를 도입한다면 prefix로 구분하는 단일 인터페이스로 추상화할 수 있다. (✅ ROADMAP W2-#1 — `fido:ch:{scope}:{key}` 키 네임스페이스로 통합)
 
 - **`credential_backed_up` → device_type 판단**: `verification.credential_backed_up`이 True면 "platform"(iCloud Keychain 등에 동기화되는 패스키), False면 "cross-platform"(물리 보안키)으로 분류한다. 이 값은 attestation에서 추출되는 단일 비트이므로 다소 단순화된 분류지만, UI에서 장치 유형을 구분해 보여주는 용도로는 충분하다.
 

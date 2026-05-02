@@ -13,6 +13,7 @@ from app.auth.deps import get_current_user
 from app.config import settings
 from app.db.session import get_session
 from app.models.tables import FidoCredential, User
+from app.services.fido_challenge_store import pop_challenge, set_challenge
 
 try:
     import webauthn
@@ -33,9 +34,8 @@ except ImportError:
 
 router = APIRouter(prefix="/v1/auth/fido", tags=["fido2"])
 
-# 인메모리 챌린지 임시 저장 (프로덕션에서는 Redis 사용)
-_registration_challenges: dict[str, bytes] = {}
-_authentication_challenges: dict[str, bytes] = {}
+# W2-#1: 3개로 분산돼 있던 인메모리 챌린지 dict → app.services.fido_challenge_store
+# (Redis-backed, 5분 TTL, scope: register/auth/login)
 
 
 def _check_webauthn():
@@ -116,7 +116,7 @@ async def registration_options(
             user_verification=UserVerificationRequirement.PREFERRED,
         ),
     )
-    _registration_challenges[current_user.user_id] = options.challenge
+    await set_challenge("register", current_user.user_id, options.challenge)
 
     return RegistrationOptionsResponse(
         challenge=bytes_to_base64url(options.challenge),
@@ -139,7 +139,7 @@ async def registration_verify(
 ) -> dict:
     _check_webauthn()
 
-    expected_challenge = _registration_challenges.pop(current_user.user_id, None)
+    expected_challenge = await pop_challenge("register", current_user.user_id)
     if not expected_challenge:
         raise HTTPException(status_code=400, detail="등록 챌린지가 없거나 만료되었습니다.")
 
@@ -212,7 +212,7 @@ async def authentication_options(
         ],
         user_verification=UserVerificationRequirement.PREFERRED,
     )
-    _authentication_challenges[current_user.user_id] = options.challenge
+    await set_challenge("auth", current_user.user_id, options.challenge)
 
     return AuthenticationOptionsResponse(
         challenge=bytes_to_base64url(options.challenge),
@@ -232,7 +232,7 @@ async def authentication_verify(
 ) -> dict:
     _check_webauthn()
 
-    expected_challenge = _authentication_challenges.pop(current_user.user_id, None)
+    expected_challenge = await pop_challenge("auth", current_user.user_id)
     if not expected_challenge:
         raise HTTPException(status_code=400, detail="인증 챌린지가 없거나 만료되었습니다.")
 
@@ -354,10 +354,6 @@ class FidoLoginVerifyRequest(BaseModel):
     signature: str
 
 
-# 로그인용 챌린지 임시 저장 (pre_auth_token → challenge)
-_login_challenges: dict[str, bytes] = {}
-
-
 @router.post(
     "/login/options",
     response_model=FidoLoginOptionsResponse,
@@ -394,8 +390,8 @@ async def fido_login_options(
         ],
         user_verification=UserVerificationRequirement.PREFERRED,
     )
-    # pre_auth_token을 키로 챌린지 저장
-    _login_challenges[body.pre_auth_token] = options.challenge
+    # pre_auth_token을 키로 챌린지 저장 (W2-#1: Redis 통합)
+    await set_challenge("login", body.pre_auth_token, options.challenge)
 
     return FidoLoginOptionsResponse(
         challenge=bytes_to_base64url(options.challenge),
@@ -424,7 +420,7 @@ async def fido_login_verify(
     except Exception:
         raise HTTPException(status_code=401, detail="유효하지 않은 인증 토큰입니다.")
 
-    expected_challenge = _login_challenges.pop(body.pre_auth_token, None)
+    expected_challenge = await pop_challenge("login", body.pre_auth_token)
     if not expected_challenge:
         raise HTTPException(status_code=400, detail="챌린지가 없거나 만료되었습니다. 다시 시도하세요.")
 
