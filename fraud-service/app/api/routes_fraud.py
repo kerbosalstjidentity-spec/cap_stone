@@ -32,6 +32,8 @@ class FraudEvaluateRequest(BaseModel):
     device_id: str = Field(default="")
     fcm_token: str = Field(default="", description="FCM 디바이스 토큰 (Step-up 푸시용)")
     signals: dict | None = Field(default=None, description="Layer 1 행동 시그널 (브라우저/앱 SDK)")
+    signal_signature: str = Field(default="", description="signals HMAC-SHA256 서명 (hex, W1-#6)")
+    signal_timestamp: int = Field(default=0, description="signals 서명 타임스탬프 (epoch s, ±300s 허용)")
 
 
 class StepUpResultRequest(BaseModel):
@@ -41,8 +43,17 @@ class StepUpResultRequest(BaseModel):
 
 def _evaluate_one(tx_data: dict) -> dict[str, Any]:
     """단건 평가 공통 로직 — evaluate / batch 둘 다 재사용."""
-    # Layer 1: 행동 시그널 리스크 분석
-    signal_result = analyze_signals(tx_data.get("signals"))
+    # Layer 1: 행동 시그널 리스크 분석 (W1-#6 HMAC 서명 검증 + 서버 IP 보강)
+    server_ctx = {
+        "ip": tx_data.get("ip", ""),
+        "is_tor": False,  # TODO: IP 평판 DB 조회 (W8-#2 외부 위협 인텔)
+    } if tx_data.get("ip") else None
+    signal_result = analyze_signals(
+        tx_data.get("signals"),
+        signature=tx_data.get("signal_signature") or None,
+        timestamp=tx_data.get("signal_timestamp") or None,
+        server_context=server_ctx,
+    )
     manager = FraudServiceManager(tx_data)
     model_action = manager.get_model_action()
     rule_action, rule_id = manager.get_rule_action()
