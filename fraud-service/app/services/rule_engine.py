@@ -4,18 +4,52 @@
 각 Rule은 tx dict + UserProfile(optional)을 받아 (action, rule_id) 반환.
 RuleEngine이 모든 규칙을 평가하고 가장 강한 action을 선택.
 기존 policy_merge.merge_actions 재활용.
+
+W2-#4: 룰 토글 상태(enabled)를 Redis 해시에 영속화.
+- 키: rule:toggles → Hash {rule_id: "1"|"0"}
+- toggle_rule() 호출 시 즉시 Redis 갱신 + 메모리 반영
+- 엔진 init 시 Redis에서 토글 상태 로드 (재시작 후에도 유지)
+- evaluate_all() 에서 enabled=False 룰을 실제로 스킵하도록 fix
 """
 
 from __future__ import annotations
 
+import logging
+import os
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+try:
+    import redis as redis_lib
+    _HAS_REDIS = True
+except ImportError:
+    _HAS_REDIS = False
+
 from app.services.policy_merge import ACTION_RANK, RANK_TO_ACTION, merge_actions
 from app.services.profile_store import UserProfile
+
+logger = logging.getLogger(__name__)
+_REDIS_URL = os.getenv("REDIS_URL", "")
+_TOGGLE_KEY = "rule:toggles"
+_redis_client = None
+
+
+def _get_redis():
+    global _redis_client
+    if not _HAS_REDIS or not _REDIS_URL:
+        return None
+    if _redis_client is not None:
+        return _redis_client
+    try:
+        _redis_client = redis_lib.from_url(_REDIS_URL, decode_responses=True, socket_connect_timeout=2)
+        _redis_client.ping()
+    except Exception as e:
+        logger.warning("[rule-toggle] Redis 연결 실패: %s", e)
+        _redis_client = None
+    return _redis_client
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +294,35 @@ class RuleEngine:
             NewMerchantRule(),
         ]
 
+        # W2-#4: Redis에서 토글 상태 로드 (있으면 적용)
+        self._load_toggles_from_redis()
+
+    # ── W2-#4: Redis 토글 영속화 헬퍼 ────────────────────
+    def _load_toggles_from_redis(self) -> None:
+        r = _get_redis()
+        if r is None:
+            return
+        try:
+            toggles = r.hgetall(_TOGGLE_KEY) or {}
+            if not toggles:
+                return
+            for rule in self._rules:
+                v = toggles.get(rule.rule_id)
+                if v is not None:
+                    rule.enabled = v == "1"
+            logger.info("[rule-toggle] Redis에서 %d건 토글 상태 로드", len(toggles))
+        except Exception as e:
+            logger.warning("[rule-toggle] Redis 로드 실패: %s", e)
+
+    def _persist_toggle(self, rule_id: str, enabled: bool) -> None:
+        r = _get_redis()
+        if r is None:
+            return
+        try:
+            r.hset(_TOGGLE_KEY, rule_id, "1" if enabled else "0")
+        except Exception as e:
+            logger.warning("[rule-toggle] Redis 저장 실패: %s", e)
+
     # 외부 조회용
     def list_rules(self) -> list[dict]:
         with self._lock:
@@ -269,13 +332,21 @@ class RuleEngine:
             ]
 
     def toggle_rule(self, rule_id: str) -> bool | None:
-        """토글 성공 시 새 enabled 값 반환, 없으면 None."""
+        """토글 성공 시 새 enabled 값 반환, 없으면 None.
+
+        W2-#4: Redis hash에 즉시 영속화.
+        """
         with self._lock:
             for r in self._rules:
                 if r.rule_id == rule_id:
                     r.enabled = not r.enabled
-                    return r.enabled
-        return None
+                    new_enabled = r.enabled
+                    break
+            else:
+                return None
+        # 락 밖에서 Redis I/O (블로킹 최소화)
+        self._persist_toggle(rule_id, new_enabled)
+        return new_enabled
 
     def evaluate_all(
         self, tx: dict[str, Any], profile: UserProfile | None
@@ -284,6 +355,9 @@ class RuleEngine:
             rules = list(self._rules)
         results = []
         for rule in rules:
+            # W2-#4 부수 효과 fix: 토글 OFF 룰 스킵 (이전엔 enabled 무시되고 평가됨)
+            if not getattr(rule, "enabled", True):
+                continue
             res = rule.evaluate(tx, profile)
             if res is not None:
                 results.append(res)
