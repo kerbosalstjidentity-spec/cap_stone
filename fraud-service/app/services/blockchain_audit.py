@@ -8,17 +8,27 @@ Layer 4 — Blockchain 불변 감사 추적 (Hash-chain Audit Trail)
 - "Blockchain-Token Based Lightweight Handover Authentication"
 - Cryptographic hash chain을 활용한 무결성 보장
 - SRS 1,2,3,5,6 공통 요구: 온체인 해시 + 오프체인 원문 분리 저장
+
+W3-#3: Genesis 블록 결정성 — 환경변수 `AUDIT_GENESIS_TIMESTAMP` 로 고정.
+W3-#4: 전체 직렬화 → JSONL append-only. _save 가 O(1) (LF 라인 1개 추가).
+       기존 JSON 파일은 자동 감지해 JSONL로 마이그레이션.
+W3-#6: 디스크 I/O 를 백그라운드 워커 스레드로 분리 — append() 는 큐에 enqueue 후 즉시 반환.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
+import queue
 import threading
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -139,14 +149,17 @@ def _compute_merkle_root(leaves: list[str]) -> str:
     return nodes[0]
 
 
-# ── Genesis block ──────────────────────────────────────────────
+# ── Genesis block (W3-#3: 결정성 확보) ─────────────────────────
 _GENESIS_PREV = "0" * 64
+_GENESIS_TIMESTAMP = os.getenv(
+    "AUDIT_GENESIS_TIMESTAMP", "2025-01-01T00:00:00+00:00"
+)
 
 
 def _make_genesis() -> AuditBlock:
     blk = AuditBlock(
         index=0,
-        timestamp=datetime.now(tz=timezone.utc).isoformat(),
+        timestamp=_GENESIS_TIMESTAMP,  # ← 고정 타임스탬프, 인스턴스 간 동일 hash
         transaction_id="GENESIS",
         user_id="SYSTEM",
         action="INIT",
@@ -163,23 +176,127 @@ def _make_genesis() -> AuditBlock:
 
 # ── BlockchainAuditChain ──────────────────────────────────────
 class BlockchainAuditChain:
-    """In-memory hash chain with optional JSON persistence.
+    """In-memory hash chain with JSONL append-only persistence.
 
     온체인/오프체인 분리 저장:
     - 온체인: index, block_hash, prev_hash, merkle_leaf, timestamp
     - 오프체인: 원문 트랜잭션 데이터
+
+    W3-#4: 디스크 영속화는 JSONL append-only — 새 블록 1개당 LF 라인 1개 추가.
+            전체 chain 재직렬화 비용 제거.
+    W3-#6: append() 호출은 메모리 갱신만 동기로 처리하고, 디스크 flush 는
+            백그라운드 워커 스레드가 큐에서 빼서 fsync 까지 처리.
     """
 
-    def __init__(self, persist_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        persist_path: str | Path | None = None,
+        async_persist: bool = True,
+    ) -> None:
         self._lock = threading.Lock()
         self._persist_path = Path(persist_path) if persist_path else None
         self._chain: list[AuditBlock] = []
+        self._async_persist = async_persist and self._persist_path is not None
+        self._write_queue: queue.Queue[AuditBlock | None] | None = None
+        self._writer_thread: threading.Thread | None = None
 
-        if self._persist_path and self._persist_path.exists():
-            self._load()
+        # 기존 데이터 로드 (JSONL 우선, 레거시 JSON 도 지원)
+        if self._persist_path:
+            self._init_from_disk()
         else:
             self._chain.append(_make_genesis())
-            self._save()
+
+        if self._async_persist:
+            self._start_writer()
+
+    # ── 디스크 초기화 ─────────────────────────────────────────
+    def _jsonl_path(self) -> Path:
+        """영속화 파일 경로 — JSONL 확장자 강제."""
+        if self._persist_path is None:
+            raise RuntimeError("persist_path is None")
+        if self._persist_path.suffix == ".jsonl":
+            return self._persist_path
+        return self._persist_path.with_suffix(".jsonl")
+
+    def _init_from_disk(self) -> None:
+        jsonl = self._jsonl_path()
+        legacy_json = self._persist_path  # type: ignore[assignment]
+
+        if jsonl.exists() and jsonl.stat().st_size > 0:
+            self._load_jsonl(jsonl)
+        elif legacy_json and legacy_json.exists() and legacy_json.suffix == ".json":
+            # 레거시 JSON → JSONL 마이그레이션
+            self._migrate_json_to_jsonl(legacy_json, jsonl)
+        else:
+            # 신규 체인 — Genesis 추가 + JSONL 첫 라인 기록
+            jsonl.parent.mkdir(parents=True, exist_ok=True)
+            genesis = _make_genesis()
+            self._chain.append(genesis)
+            self._append_line_sync(genesis, jsonl)
+
+    def _migrate_json_to_jsonl(self, legacy: Path, target: Path) -> None:
+        try:
+            raw = json.loads(legacy.read_text(encoding="utf-8"))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("w", encoding="utf-8") as f:
+                for item in raw:
+                    blk = AuditBlock(**item)
+                    self._chain.append(blk)
+                    f.write(json.dumps(asdict(blk), ensure_ascii=False) + "\n")
+            logger.info("[audit] JSON → JSONL 마이그레이션 완료 (%d blocks)", len(self._chain))
+        except Exception as e:
+            raise RuntimeError(f"audit chain 마이그레이션 실패: {e}") from e
+
+    def _load_jsonl(self, path: Path) -> None:
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    item = json.loads(line)
+                    self._chain.append(AuditBlock(**item))
+                except Exception as e:
+                    logger.warning("[audit] JSONL 파싱 실패 (skip): %s", e)
+        result = self._verify_unlocked()
+        if not result.get("valid"):
+            raise RuntimeError(f"Chain integrity check failed on load: {result.get('error')}")
+
+    # ── 백그라운드 writer (W3-#6) ────────────────────────────
+    def _start_writer(self) -> None:
+        if self._writer_thread is not None:
+            return
+        self._write_queue = queue.Queue()
+        t = threading.Thread(target=self._writer_loop, name="audit-writer", daemon=True)
+        t.start()
+        self._writer_thread = t
+
+    def _writer_loop(self) -> None:
+        if self._persist_path is None or self._write_queue is None:
+            return
+        path = self._jsonl_path()
+        while True:
+            blk = self._write_queue.get()
+            if blk is None:  # shutdown sentinel
+                break
+            try:
+                self._append_line_sync(blk, path)
+            except Exception as e:
+                logger.error("[audit] 디스크 append 실패 (block %d): %s", blk.index, e)
+
+    @staticmethod
+    def _append_line_sync(blk: AuditBlock, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(asdict(blk), ensure_ascii=False) + "\n")
+
+    def shutdown(self) -> None:
+        """flush all pending writes and stop writer thread (테스트/종료용)."""
+        if self._write_queue is not None:
+            self._write_queue.put(None)
+        if self._writer_thread is not None:
+            self._writer_thread.join(timeout=5)
+            self._writer_thread = None
 
     # ── Public API ─────────────────────────────────────────────
 
@@ -211,8 +328,17 @@ class BlockchainAuditChain:
             blk.merkle_leaf = blk.compute_merkle_leaf()
             blk.block_hash = blk.compute_hash()
             self._chain.append(blk)
-            self._save()
+            # W3-#4 + W3-#6: 백그라운드 큐에 enqueue (비동기) 또는 즉시 append (동기)
+            self._enqueue_persist(blk)
             return blk
+
+    def _enqueue_persist(self, blk: AuditBlock) -> None:
+        if self._persist_path is None:
+            return
+        if self._async_persist and self._write_queue is not None:
+            self._write_queue.put(blk)
+        else:
+            self._append_line_sync(blk, self._jsonl_path())
 
     def _verify_unlocked(self) -> dict[str, Any]:
         """체인 무결성 검증 (lock 없이, 내부 호출용)."""
@@ -221,18 +347,9 @@ class BlockchainAuditChain:
 
         for i, blk in enumerate(self._chain):
             if blk.compute_hash() != blk.block_hash:
-                return {
-                    "valid": False,
-                    "error": f"Block {i}: hash mismatch",
-                    "block_index": i,
-                }
+                return {"valid": False, "error": f"Block {i}: hash mismatch", "block_index": i}
             if i > 0 and blk.prev_hash != self._chain[i - 1].block_hash:
-                return {
-                    "valid": False,
-                    "error": f"Block {i}: prev_hash broken",
-                    "block_index": i,
-                }
-            # Merkle leaf 검증
+                return {"valid": False, "error": f"Block {i}: prev_hash broken", "block_index": i}
             if blk.merkle_leaf and blk.compute_merkle_leaf() != blk.merkle_leaf:
                 return {
                     "valid": False,
@@ -248,12 +365,10 @@ class BlockchainAuditChain:
         }
 
     def verify(self) -> dict[str, Any]:
-        """전체 체인의 무결성을 검증한다."""
         with self._lock:
             return self._verify_unlocked()
 
     def verify_range(self, start: int, end: int) -> dict[str, Any]:
-        """특정 범위의 블록 무결성 검증."""
         with self._lock:
             if start < 0 or end >= len(self._chain) or start > end:
                 return {"valid": False, "error": "Invalid range"}
@@ -266,7 +381,6 @@ class BlockchainAuditChain:
             return {"valid": True, "range": [start, end], "blocks_verified": end - start + 1}
 
     def verify_offchain_integrity(self, index: int) -> dict[str, Any]:
-        """특정 블록의 오프체인 데이터 무결성 검증."""
         with self._lock:
             if not (0 <= index < len(self._chain)):
                 return {"valid": False, "error": "Block not found"}
@@ -281,17 +395,14 @@ class BlockchainAuditChain:
             }
 
     def get_merkle_root_unlocked(self) -> str:
-        """Merkle root 계산 (lock 없이)."""
         leaves = [blk.merkle_leaf for blk in self._chain if blk.merkle_leaf]
         return _compute_merkle_root(leaves)
 
     def get_merkle_root(self) -> str:
-        """Merkle root 계산."""
         with self._lock:
             return self.get_merkle_root_unlocked()
 
     def status(self) -> dict[str, Any]:
-        """체인 상태 요약."""
         with self._lock:
             if not self._chain:
                 return {"chain_length": 0}
@@ -305,7 +416,6 @@ class BlockchainAuditChain:
             }
 
     def stats(self) -> dict[str, Any]:
-        """체인 통계: 액션별 카운트, 블록 수, 평균 점수."""
         with self._lock:
             action_counts: dict[str, int] = {}
             total_score = 0.0
@@ -321,36 +431,30 @@ class BlockchainAuditChain:
             }
 
     def get_block(self, index: int) -> dict[str, Any] | None:
-        """인덱스로 블록 조회."""
         with self._lock:
             if 0 <= index < len(self._chain):
                 return asdict(self._chain[index])
             return None
 
     def get_onchain(self, index: int) -> dict[str, Any] | None:
-        """온체인 레코드만 조회."""
         with self._lock:
             if 0 <= index < len(self._chain):
                 return asdict(self._chain[index].to_onchain())
             return None
 
     def search(self, tx_id: str) -> list[dict[str, Any]]:
-        """거래 ID로 블록 검색."""
         with self._lock:
             return [asdict(b) for b in self._chain if b.transaction_id == tx_id]
 
     def search_by_user(self, user_id: str) -> list[dict[str, Any]]:
-        """사용자 ID로 블록 검색."""
         with self._lock:
             return [asdict(b) for b in self._chain if b.user_id == user_id]
 
     def search_by_action(self, action: str) -> list[dict[str, Any]]:
-        """액션 타입으로 블록 검색."""
         with self._lock:
             return [asdict(b) for b in self._chain if b.action == action.upper()]
 
     def search_by_time_range(self, start_iso: str, end_iso: str) -> list[dict[str, Any]]:
-        """시간 범위로 블록 검색."""
         with self._lock:
             return [
                 asdict(b) for b in self._chain
@@ -358,33 +462,11 @@ class BlockchainAuditChain:
             ]
 
     def tail(self, n: int = 20) -> list[dict[str, Any]]:
-        """최근 n개 블록 반환 (최신순)."""
         with self._lock:
             return [asdict(b) for b in reversed(self._chain[-n:])]
 
-    # ── Persistence ────────────────────────────────────────────
-
-    def _save(self) -> None:
-        if self._persist_path is None:
-            return
-        self._persist_path.parent.mkdir(parents=True, exist_ok=True)
-        data = [asdict(b) for b in self._chain]
-        tmp = self._persist_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(self._persist_path)
-
-    def _load(self) -> None:
-        raw = json.loads(self._persist_path.read_text(encoding="utf-8"))
-        self._chain = []
-        for item in raw:
-            blk = AuditBlock(**item)
-            self._chain.append(blk)
-        # 로드 후 무결성 체크 (lock 이미 없는 상태이므로 _verify_unlocked 사용)
-        result = self._verify_unlocked()
-        if not result["valid"]:
-            raise RuntimeError(f"Chain integrity check failed on load: {result['error']}")
-
 
 # ── 싱글턴 인스턴스 ────────────────────────────────────────────
-_DEFAULT_PATH = Path("logs/audit_chain.json")
+# W3-#3: AUDIT_CHAIN_PATH 환경변수로 오버라이드 가능 (테스트 격리)
+_DEFAULT_PATH = Path(os.getenv("AUDIT_CHAIN_PATH", "logs/audit_chain.jsonl"))
 audit_chain = BlockchainAuditChain(persist_path=_DEFAULT_PATH)
