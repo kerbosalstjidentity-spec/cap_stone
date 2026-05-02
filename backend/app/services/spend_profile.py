@@ -1,11 +1,18 @@
-"""소비 프로필 관리 — 인메모리 저장소 (Phase 1).
+"""소비 프로필 관리 — 인메모리 저장소 (Phase 1) + DB 재수화 (W2-#6).
 
 fraud-service의 profile_store.py 패턴을 따르되,
 소비 분석에 필요한 카테고리별 집계를 추가.
+
+W2-#6: DB(`Transaction` 테이블)가 단일 정본.
+- 신규 거래는 routes_seed/ingest API 가 `spend_profile_db.ingest_batch` 로 DB 영속화
+- 메모리 store 는 분석용 캐시 — 서버 부팅 시 `rehydrate_from_db()` 가 DB에서
+  최근 N일 거래를 읽어 자동 복원 → 재시작 후에도 분석 결과 일관
+- 추후 spend_profile_db 의 async API 로 모든 read path 를 옮기면 본 모듈은 deprecated
 """
 
+import logging
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from app.schemas.spend import (
     CategorySummary,
@@ -13,6 +20,8 @@ from app.schemas.spend import (
     SpendProfile,
     TransactionIngest,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class _UserStore:
@@ -109,6 +118,49 @@ class InMemorySpendProfileStore:
             del self._users[user_id]
             return True
         return False
+
+    async def rehydrate_from_db(self, days: int = 180) -> int:
+        """W2-#6: DB의 Transaction 테이블에서 최근 N일을 읽어 메모리에 복원.
+
+        서버 재시작 후에도 분석 캐시가 빈 상태로 시작하지 않도록 보장.
+        """
+        try:
+            from sqlalchemy import select
+            from app.db.session import async_session_factory
+            from app.models.tables import Transaction
+        except Exception as e:
+            logger.warning("[spend_profile] rehydrate 의존성 로드 실패: %s", e)
+            return 0
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        replayed = 0
+        try:
+            async with async_session_factory() as session:
+                rows = await session.execute(
+                    select(Transaction).where(Transaction.timestamp >= cutoff)
+                )
+                for r in rows.scalars().all():
+                    try:
+                        cat = SpendCategory(r.category) if r.category else SpendCategory.OTHER
+                    except ValueError:
+                        cat = SpendCategory.OTHER
+                    tx = TransactionIngest(
+                        transaction_id=r.transaction_id,
+                        user_id=r.user_id,
+                        amount=float(r.amount),
+                        timestamp=r.timestamp,
+                        merchant_id=r.merchant_id or "",
+                        category=cat,
+                        channel=r.channel or "online",
+                        is_domestic=bool(r.is_domestic),
+                        memo=r.memo or "",
+                    )
+                    self.ingest(tx)
+                    replayed += 1
+            logger.info("[spend_profile] rehydrate 완료: %d txs (최근 %d일)", replayed, days)
+        except Exception as e:
+            logger.warning("[spend_profile] rehydrate 실패 (DB 미준비?): %s", e)
+        return replayed
 
 
 # 싱글턴

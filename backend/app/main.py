@@ -159,6 +159,14 @@ async def lifespan(app: FastAPI):
         await asyncio.wait_for(_train_models_on_startup(), timeout=20.0)
     except (asyncio.TimeoutError, Exception) as e:
         print(f"[ML] Startup training skipped: {e}")
+
+    # W2-#6: 메모리 spend_profile_store 를 DB로부터 복원 (재시작 후 분석 캐시 빈 상태 방지)
+    try:
+        from app.services.spend_profile import profile_store
+        replayed = await asyncio.wait_for(profile_store.rehydrate_from_db(), timeout=20.0)
+        print(f"[spend_profile] rehydrated: {replayed} txs from DB")
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"[spend_profile] rehydrate skipped: {e}")
     await notification_manager.start_redis_subscriber()
     yield
     await notification_manager.stop()
