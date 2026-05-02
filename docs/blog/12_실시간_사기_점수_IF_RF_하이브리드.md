@@ -323,7 +323,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 
 - **단건 호출 시 reason_code 의 z-score 무력화**: `top_feature_reasons` 는 입력 행렬 내부 평균/표준편차를 사용하므로 1행 입력에선 항상 z=0 이 된다. 결과적으로 reason 은 단순 importance top-3 가 되어 거래마다 동일한 reason 이 나올 위험이 있다. 학습 데이터의 통계 (mu, std) 를 번들에 저장해두고 단건 호출 시 그것을 사용해야 거래별 차별화가 생긴다.
 
-- **`_stepup_store` 가 인메모리 dict**: [routes_fraud.py:18](fraud-service/app/api/routes_fraud.py:18) 에서 `_stepup_store: dict[str, dict] = {}` + `threading.Lock` 으로 동기화한다. 단일 워커/단일 인스턴스에서는 동작하지만, FastAPI 를 Gunicorn `--workers 4` 또는 K8s replica 로 띄우면 워커마다 별도 dict 가 생겨 push 결과가 다른 워커로 라우팅되면 404 가 발생한다. Redis hash + TTL 로 옮기는 것이 표준 해법.
+- **`_stepup_store` 가 인메모리 dict**: [routes_fraud.py:18](fraud-service/app/api/routes_fraud.py:18) 에서 `_stepup_store: dict[str, dict] = {}` + `threading.Lock` 으로 동기화한다. 단일 워커/단일 인스턴스에서는 동작하지만, FastAPI 를 Gunicorn `--workers 4` 또는 K8s replica 로 띄우면 워커마다 별도 dict 가 생겨 push 결과가 다른 워커로 라우팅되면 404 가 발생한다. Redis hash + TTL 로 옮기는 것이 표준 해법. (✅ ROADMAP W2-#2 — `app.services.stepup_store` Redis hash + 30분 TTL, 미가용 시 in-memory 폴백)
 
 - **policy_merge 의 max-rank 단순함이 강점이자 약점**: 두 시스템 중 강한 쪽을 따르는 정책은 직관적이지만, 룰이 false positive 가 많은 경우 모델이 PASS 라 판단해도 룰 BLOCK 이 우선되어 사용자 경험이 손상된다. 룰별 정확도 통계 + 모델 신뢰도를 함께 보는 가중 정책으로 진화 여지가 있다.
 

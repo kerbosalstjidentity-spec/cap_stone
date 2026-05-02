@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -11,12 +10,10 @@ from app.services.stats_collector import stats_collector
 from app.services import audit_logger
 from app.services.blockchain_audit import audit_chain
 from app.services.behavioral_signals import analyze_signals
+# W2-#2: step-up 대기 상태를 외부 stepup_store(Redis hash)로 이관
+from app.services import stepup_store
 
 router = APIRouter()
-
-# Step-up Auth 대기 중인 tx 상태 저장: tx_id → {"score", "amount", "reason_code", "status"}
-_stepup_store: dict[str, dict] = {}
-_stepup_lock = threading.Lock()
 
 
 class FraudEvaluateRequest(BaseModel):
@@ -84,14 +81,13 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
     )
 
     if step_up.get("push_sent") and final_action in ("REVIEW", "SOFT_REVIEW"):
-        with _stepup_lock:
-            _stepup_store[tx_data["tx_id"]] = {
-                "score": tx_data.get("score"),
-                "amount": tx_data.get("amount"),
-                "reason_code": tx_data.get("reason_code", ""),
-                "pre_action": final_action,
-                "status": "pending",
-            }
+        stepup_store.set_pending(tx_data["tx_id"], {
+            "score": tx_data.get("score"),
+            "amount": tx_data.get("amount"),
+            "reason_code": tx_data.get("reason_code", ""),
+            "pre_action": final_action,
+            "status": "pending",
+        })
 
     return {
         "tx_id": tx_data.get("tx_id"),
@@ -134,34 +130,32 @@ def evaluate_batch(req: BatchEvaluateRequest) -> dict[str, Any]:
 
 @router.post("/auth/step-up/result")
 def step_up_result(req: StepUpResultRequest) -> dict[str, Any]:
-    with _stepup_lock:
-        entry = _stepup_store.get(req.tx_id)
+    entry = stepup_store.get(req.tx_id)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"Step-up 대기 tx 없음: {req.tx_id}")
-    if entry["status"] != "pending":
+    if entry.get("status") != "pending":
         return {"tx_id": req.tx_id, "already_resolved": True, "final_action": entry.get("resolved_action")}
 
+    amount = float(entry.get("amount", 0))
     if req.approved:
         final_action = "PASS"
         user_message = {
             "status": "Secure",
-            "message": f"{int(entry['amount']):,}원 결제가 본인 확인 후 승인되었습니다.",
+            "message": f"{int(amount):,}원 결제가 본인 확인 후 승인되었습니다.",
         }
     else:
         final_action = "BLOCK"
         user_message = {
             "status": "Blocked",
-            "message": f"{int(entry['amount']):,}원 결제가 본인 거절로 차단되었습니다.",
+            "message": f"{int(amount):,}원 결제가 본인 거절로 차단되었습니다.",
         }
 
-    with _stepup_lock:
-        entry["status"] = "resolved"
-        entry["resolved_action"] = final_action
+    stepup_store.update_status(req.tx_id, "resolved", resolved_action=final_action)
 
     return {
         "tx_id": req.tx_id,
         "approved": req.approved,
-        "pre_action": entry["pre_action"],
+        "pre_action": entry.get("pre_action"),
         "final_action": final_action,
         "user_message": user_message,
     }
@@ -169,8 +163,7 @@ def step_up_result(req: StepUpResultRequest) -> dict[str, Any]:
 
 @router.get("/auth/step-up/status/{tx_id}")
 def step_up_status(tx_id: str) -> dict[str, Any]:
-    with _stepup_lock:
-        entry = _stepup_store.get(tx_id)
+    entry = stepup_store.get(tx_id)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"Step-up 대기 tx 없음: {tx_id}")
     return {"tx_id": tx_id, **entry}
