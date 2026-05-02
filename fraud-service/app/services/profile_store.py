@@ -2,14 +2,21 @@
 사용자별 거래 히스토리 인메모리 저장소.
 
 나중에 Redis 교체 시 ProfileStore 인터페이스만 맞추면 됨.
+
+W2-#7: velocity 계산을 O(log N + W) 로 최적화.
+- 히스토리는 시간순 append-only deque → 맨 앞부터 만료 항목 pop
+- bisect 로 윈도우 시작 인덱스를 이진 탐색해 카운트 = len - idx
+- 매 요청 선형 순회 → amortized O(1) (각 record 는 최대 한 번만 만료 pop)
+- Redis 백엔드(profile_store_redis.py) 는 sorted set 사용으로 O(log N + W) 보장
 """
 
 from __future__ import annotations
 
+import bisect
 import threading
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 
@@ -100,17 +107,44 @@ class InMemoryProfileStore:
         )
         return profile
 
+    def _prune_expired(self, user_id: str, max_window_minutes: int = 60) -> None:
+        """W2-#7: 가장 큰 윈도우(60분)보다 오래된 record 만료 — amortized O(1).
+
+        velocity 윈도우는 1m/5m/15m 이지만 NewMerchantRule 등이 60m 까지 사용 가능하므로
+        여유 있게 60m 보존. 락은 호출자에서 잡고 있어야 한다.
+        """
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(minutes=max_window_minutes)
+        dq = self._history.get(user_id)
+        if dq is None:
+            return
+        while dq:
+            ts = dq[0].timestamp
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts < cutoff:
+                dq.popleft()
+            else:
+                break
+
+    @staticmethod
+    def _count_within(history: list[TxRecord], window_minutes: int) -> int:
+        """history 가 timestamp 오름차순으로 정렬돼 있다는 가정 하에 bisect 로 O(log N) 카운트."""
+        if not history:
+            return 0
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(minutes=window_minutes)
+        ts_list = [
+            (r.timestamp if r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))
+            for r in history
+        ]
+        # 정렬되어 있다고 가정 — bisect_left 가 O(log N)
+        idx = bisect.bisect_left(ts_list, cutoff)
+        return len(ts_list) - idx
+
     def get_velocity(self, user_id: str, window_minutes: int) -> int:
-        now = datetime.now(tz=timezone.utc)
         with self._lock:
+            self._prune_expired(user_id)
             history = list(self._history.get(user_id, []))
-        count = 0
-        for r in history:
-            ts = r.timestamp if r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc)
-            delta = (now - ts).total_seconds() / 60
-            if delta <= window_minutes:
-                count += 1
-        return count
+        return self._count_within(history, window_minutes)
 
     def delete(self, user_id: str) -> bool:
         with self._lock:
@@ -120,18 +154,12 @@ class InMemoryProfileStore:
         return False
 
     def _calc_velocity(self, history: list[TxRecord]) -> dict[str, int]:
-        now = datetime.now(tz=timezone.utc)
-        result = {"1m": 0, "5m": 0, "15m": 0}
-        for r in history:
-            ts = r.timestamp if r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc)
-            delta = (now - ts).total_seconds() / 60
-            if delta <= 1:
-                result["1m"] += 1
-            if delta <= 5:
-                result["5m"] += 1
-            if delta <= 15:
-                result["15m"] += 1
-        return result
+        # W2-#7: bisect 기반 카운트 — 각 윈도우 O(log N)
+        return {
+            "1m": self._count_within(history, 1),
+            "5m": self._count_within(history, 5),
+            "15m": self._count_within(history, 15),
+        }
 
 
 import os as _os
