@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchWithAuth } from "../lib/fetchWithAuth";
 import { useAuth } from "./useAuth";
 import { useWebSocket } from "./useWebSocket";
 
@@ -38,7 +39,7 @@ export function useNotifications() {
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`/api/v1/notifications/?user_id=${userId}&limit=30`);
+      const res = await fetchWithAuth(`/api/v1/notifications/?limit=30`);
       if (!res.ok) return;
       const data = await res.json();
       setNotifications(data.notifications ?? []);
@@ -68,7 +69,7 @@ export function useNotifications() {
 
   const markAsRead = useCallback(async (id: number) => {
     if (!userId) return;
-    await fetch(`/api/v1/notifications/${id}/read?user_id=${userId}`, { method: "PUT" });
+    await fetchWithAuth(`/api/v1/notifications/${id}/read`, { method: "PUT" });
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
@@ -77,7 +78,7 @@ export function useNotifications() {
 
   const markAllRead = useCallback(async () => {
     if (!userId) return;
-    await fetch(`/api/v1/notifications/read-all?user_id=${userId}`, { method: "PUT" });
+    await fetchWithAuth(`/api/v1/notifications/read-all`, { method: "PUT" });
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
   }, [userId]);

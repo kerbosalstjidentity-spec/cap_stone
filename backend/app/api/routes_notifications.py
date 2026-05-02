@@ -3,7 +3,9 @@
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.deps import get_current_user
 from app.db.session import get_session
+from app.models.tables import User
 from app.schemas.notification import NotificationList, NotificationResponse, UnreadCount
 from app.services.notification_service import (
     notification_manager,
@@ -53,13 +55,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
 
 @router.get("/", response_model=NotificationList)
 async def list_notifications(
-    user_id: str = Query(...),
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """알림 목록 조회 (최신순)."""
-    notifications, unread, total = await get_notifications(session, user_id, limit, offset)
+    """알림 목록 조회 (최신순). user_id는 JWT에서 추출 (IDOR 차단)."""
+    notifications, unread, total = await get_notifications(session, current_user.user_id, limit, offset)
     return NotificationList(
         notifications=[
             NotificationResponse(
@@ -80,30 +82,30 @@ async def list_notifications(
 
 @router.get("/unread-count", response_model=UnreadCount)
 async def unread_count(
-    user_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """안읽은 알림 수."""
-    count = await get_unread_count(session, user_id)
+    """안읽은 알림 수. user_id는 JWT에서 추출 (IDOR 차단)."""
+    count = await get_unread_count(session, current_user.user_id)
     return UnreadCount(count=count)
 
 
 @router.put("/{notification_id}/read")
 async def read_notification(
     notification_id: int,
-    user_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """알림 읽음 처리."""
-    ok = await mark_as_read(session, notification_id, user_id)
+    """알림 읽음 처리. user_id는 JWT에서 추출 (IDOR 차단)."""
+    ok = await mark_as_read(session, notification_id, current_user.user_id)
     return {"success": ok}
 
 
 @router.put("/read-all")
 async def read_all_notifications(
-    user_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """모든 알림 읽음 처리."""
-    count = await mark_all_read(session, user_id)
+    """모든 알림 읽음 처리. user_id는 JWT에서 추출 (IDOR 차단)."""
+    count = await mark_all_read(session, current_user.user_id)
     return {"marked_count": count}
