@@ -1,16 +1,15 @@
 """
 Layer 2 — CP-ABE 속성 기반 접근 제어 미들웨어.
 
-기존 API Key 미들웨어와 **공존** (API Key → 기본 인증, ABE → 세분화 접근 제어).
+W1-#5: ABAC 엔진 통합 wiring.
+- 1단계 ABE 정책 매칭 (access_structure 평가, RBAC 수준)
+- 2단계 ABACEngine 평가 — 8가지 규칙 (시간/위치/기기/MFA/위협레벨/기밀등급/부서/마스킹)
+- 마스킹 결정은 request.state.abac_decision 에 저장 → 응답 직렬화 시 활용
+- revocation_manager.filter_attrs() 적용 (W8-#8 선반영)
 
-헤더:
-  X-ABE-Token: Base64 인코딩된 JSON {"user_id": "...", "attributes": {"role": "analyst", ...}}
-
-동작:
-  1. 토큰이 없으면 → 기본 viewer 권한 부여
-  2. 토큰이 있으면 → 속성 추출 → 정책 매칭 → 접근 허용/거부
-  3. 접근 거부 시 → 403 Forbidden
-  4. 접근 허용 시 → request.state에 속성 정보 저장 (후속 필드 필터링용)
+W1-#7: 운영 모드에서 정책/속성 노출 차단.
+- ENV=production 이면 403 응답에서 `required_policy`/`your_attributes` 제거
+- dev에서는 디버깅 편의 위해 그대로 유지
 """
 from __future__ import annotations
 
@@ -23,6 +22,13 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from app.services.abac_engine import (
+    ABACEngine,
+    ClearanceLevel,
+    EnvironmentAttributes,
+    ResourceAttributes,
+    SubjectAttributes,
+)
 from app.services.abe_engine import (
     AccessPolicy,
     AttributeToken,
@@ -41,11 +47,17 @@ _POLICY_PATH = os.getenv(
 )
 
 _policies: list[AccessPolicy] = []
+_abac_engine = ABACEngine()
 
 _EXEMPT_PREFIXES = ("/health", "/docs", "/redoc", "/openapi.json", "/")
 
 # 기본 속성 (토큰 미제공 시)
 _DEFAULT_ATTRS = {"role": "viewer", "dept": "none", "clearance": "low"}
+
+
+def _is_prod() -> bool:
+    env = (os.getenv("ENV") or os.getenv("APP_ENV") or "development").lower()
+    return env in ("production", "prod")
 
 
 def _load_policies_lazy() -> list[AccessPolicy]:
@@ -55,12 +67,81 @@ def _load_policies_lazy() -> list[AccessPolicy]:
     return _policies
 
 
+def _attrs_to_subject(user_id: str, attrs: dict) -> SubjectAttributes:
+    """ABE AttributeToken → ABACEngine SubjectAttributes 변환.
+
+    누락된 속성은 기본값으로 채운다 (DENY 가 아니라 LOW 권한으로 폴백).
+    """
+    clearance_map = {
+        "low": ClearanceLevel.LOW,
+        "medium": ClearanceLevel.MEDIUM,
+        "high": ClearanceLevel.HIGH,
+        "top_secret": ClearanceLevel.TOP_SECRET,
+        "critical": ClearanceLevel.TOP_SECRET,
+    }
+    clearance_str = (attrs.get("clearance") or "low").lower()
+    return SubjectAttributes(
+        user_id=user_id,
+        role=attrs.get("role", "viewer"),
+        department=attrs.get("dept", "none"),
+        clearance=clearance_map.get(clearance_str, ClearanceLevel.LOW),
+        position=attrs.get("position", ""),
+        location=attrs.get("location", "internal"),
+        device_type=attrs.get("device_type", "desktop"),
+        mfa_verified=str(attrs.get("mfa_verified", "false")).lower() == "true",
+        ip_country=attrs.get("ip_country", "KR"),
+    )
+
+
+def _path_to_resource(path: str, sensitivity_hint: str | None = None) -> ResourceAttributes:
+    """URL 경로에서 ResourceAttributes 추론.
+
+    - /v1/audit/*  → audit_log, HIGH
+    - /v1/fraud/*  → transaction, HIGH
+    - /v1/profile/* → profile, MEDIUM
+    - 그 외       → generic, LOW
+    """
+    if path.startswith("/v1/audit"):
+        return ResourceAttributes(resource_type="audit_log", sensitivity=ClearanceLevel.HIGH, data_classification="confidential")
+    if path.startswith("/v1/fraud") or path.startswith("/v1/score"):
+        return ResourceAttributes(resource_type="transaction", sensitivity=ClearanceLevel.HIGH, data_classification="confidential")
+    if path.startswith("/v1/profile") or path.startswith("/v1/users"):
+        return ResourceAttributes(resource_type="profile", sensitivity=ClearanceLevel.MEDIUM, data_classification="internal")
+    return ResourceAttributes(resource_type="generic", sensitivity=ClearanceLevel.LOW, data_classification="public")
+
+
+def _filter_revoked_attrs(attrs: dict) -> dict:
+    """revocation_manager 가 있으면 적용, 없으면 통과 (W8-#8 선반영)."""
+    try:
+        from app.services.abe_engine import revocation_manager
+        if hasattr(revocation_manager, "filter_attrs"):
+            return revocation_manager.filter_attrs(attrs)
+    except Exception:
+        pass
+    return attrs
+
+
+def _forbidden_response(detail_dev: str, policy: str | None, user_attrs: list[str]) -> JSONResponse:
+    """403 응답 — production에서는 정책/속성 마스킹 (W1-#7)."""
+    body: dict = {
+        "error": "Forbidden",
+        "detail": "요청한 리소스에 대한 접근 권한이 없습니다." if _is_prod() else detail_dev,
+    }
+    if not _is_prod():
+        if policy:
+            body["required_policy"] = policy
+        if user_attrs:
+            body["your_attributes"] = user_attrs
+    return JSONResponse(status_code=403, content=body)
+
+
 class AbeAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         if not _ABE_ENABLED:
             # ABE 비활성 시 기본 속성 부여 후 통과
             request.state.abe_attrs = _DEFAULT_ATTRS
             request.state.abe_token = None
+            request.state.abac_decision = None
             return await call_next(request)
 
         path = request.url.path
@@ -70,16 +151,19 @@ class AbeAuthMiddleware(BaseHTTPMiddleware):
         if path == "/" or any(path.startswith(p) for p in _EXEMPT_PREFIXES if p != "/"):
             request.state.abe_attrs = _DEFAULT_ATTRS
             request.state.abe_token = None
+            request.state.abac_decision = None
             return await call_next(request)
 
-        # 토큰 파싱
+        # ── 1) 토큰 파싱 ──────────────────────────
         raw = request.headers.get(_TOKEN_HEADER, "")
         if raw:
             try:
                 decoded = json.loads(b64decode(raw).decode("utf-8"))
+                # 취소된 속성은 미들웨어 단계에서 즉시 제거
+                effective_attrs = _filter_revoked_attrs(decoded.get("attributes", {}))
                 token = AttributeToken(
                     user_id=decoded.get("user_id", "unknown"),
-                    attributes=decoded.get("attributes", {}),
+                    attributes=effective_attrs,
                 )
             except Exception:
                 return JSONResponse(
@@ -89,24 +173,34 @@ class AbeAuthMiddleware(BaseHTTPMiddleware):
         else:
             token = AttributeToken(user_id="anonymous", attributes=_DEFAULT_ATTRS)
 
-        # 정책 매칭
+        # ── 2) ABE 정책 매칭 (RBAC 수준) ─────────
         policies = _load_policies_lazy()
         policy = find_policy(policies, method, path)
+        user_attr_set = token.attr_set()
 
-        if policy:
-            user_attr_set = token.attr_set()
-            if not evaluate_access_structure(policy.access_structure, user_attr_set):
-                return JSONResponse(
-                    status_code=403,
-                    content={
-                        "error": "Forbidden",
-                        "detail": "속성 기반 접근 제어: 요청된 리소스에 대한 접근 권한이 없습니다.",
-                        "required_policy": policy.access_structure,
-                        "your_attributes": sorted(user_attr_set),
-                    },
-                )
+        if policy and not evaluate_access_structure(policy.access_structure, user_attr_set):
+            return _forbidden_response(
+                detail_dev="속성 기반 접근 제어: 정책 미충족",
+                policy=policy.access_structure,
+                user_attrs=sorted(user_attr_set),
+            )
 
-        # 속성 정보를 request.state에 저장 (응답 필터링용)
+        # ── 3) ABACEngine 평가 (W1-#5 wiring) ────
+        # 8가지 규칙 (시간/위치/기기/MFA/위협레벨/기밀등급/부서/마스킹)
+        subject = _attrs_to_subject(token.user_id, token.attributes)
+        resource = _path_to_resource(path)
+        env = EnvironmentAttributes()  # 현재 시각 자동 설정
+        decision = _abac_engine.evaluate(subject, resource, env)
+
+        if not decision.allowed:
+            return _forbidden_response(
+                detail_dev=f"ABAC: {decision.reason} (rules={decision.applied_rules})",
+                policy=None,
+                user_attrs=sorted(user_attr_set),
+            )
+
+        # 통과 — 후속 핸들러가 마스킹 결정을 활용할 수 있도록 state에 저장
         request.state.abe_attrs = token.attributes
         request.state.abe_token = token
+        request.state.abac_decision = decision
         return await call_next(request)

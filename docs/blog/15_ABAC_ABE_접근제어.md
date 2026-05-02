@@ -508,9 +508,9 @@ def filter_response(
 
 ## ⑤ 설계 포인트 / 트러블슈팅 거리
 
-- **ABAC 엔진과 ABE 미들웨어가 분리되어 있고, 통합 호출 지점이 없음**: `ABACEngine` 은 8가지 풍부한 규칙(시간/위치/기기/MFA/위협레벨)을 평가할 수 있는데, 미들웨어 흐름에서는 `evaluate_access_structure` 만 호출되고 `ABACEngine.evaluate` 는 어디에서도 호출되지 않는다. 결과적으로 BusinessHours/LocationRestriction/DeviceType/MFA 같은 규칙은 코드만 존재하고 실제 런타임에선 비활성 상태다. 미들웨어에서 토큰 → SubjectAttributes 변환 후 ABACEngine.evaluate 를 호출하고, 그 결과로 응답을 마스킹하는 통합 레이어가 필요하다.
+- **ABAC 엔진과 ABE 미들웨어가 분리되어 있고, 통합 호출 지점이 없음**: `ABACEngine` 은 8가지 풍부한 규칙(시간/위치/기기/MFA/위협레벨)을 평가할 수 있는데, 미들웨어 흐름에서는 `evaluate_access_structure` 만 호출되고 `ABACEngine.evaluate` 는 어디에서도 호출되지 않는다. 결과적으로 BusinessHours/LocationRestriction/DeviceType/MFA 같은 규칙은 코드만 존재하고 실제 런타임에선 비활성 상태다. 미들웨어에서 토큰 → SubjectAttributes 변환 후 ABACEngine.evaluate 를 호출하고, 그 결과로 응답을 마스킹하는 통합 레이어가 필요하다. (✅ ROADMAP W1-#5 — 미들웨어 2단계 평가: ABE 정책 매칭 → ABACEngine 8룰 평가 → `request.state.abac_decision`에 마스킹 결정 저장)
 
-- **403 응답에서 정책 전문 + 사용자 속성 노출**: [abe_auth.py:101-106](fraud-service/app/middleware/abe_auth.py:101) 의 응답에 `required_policy` 와 `your_attributes` 가 평문으로 포함된다. 디버깅에는 편하지만 운영 환경에서는 공격자에게 정책 구조와 권한 모델을 그대로 보여주는 셈이다. SRS 7에서 강조하는 "Hidden Policy" 원칙과도 모순된다. 운영 모드 플래그를 두고 production 에서는 generic 한 메시지만 노출해야 한다.
+- **403 응답에서 정책 전문 + 사용자 속성 노출**: [abe_auth.py:101-106](fraud-service/app/middleware/abe_auth.py:101) 의 응답에 `required_policy` 와 `your_attributes` 가 평문으로 포함된다. 디버깅에는 편하지만 운영 환경에서는 공격자에게 정책 구조와 권한 모델을 그대로 보여주는 셈이다. SRS 7에서 강조하는 "Hidden Policy" 원칙과도 모순된다. 운영 모드 플래그를 두고 production 에서는 generic 한 메시지만 노출해야 한다. (✅ ROADMAP W1-#7 — `_is_prod()` 분기로 production 시 `required_policy`/`your_attributes` 제거, generic 메시지만 노출)
 
 - **`evaluate_access_structure` 의 fallback `eval()` 위험**: AccessTree 빌드가 실패하면 정규식으로 토큰을 추출한 뒤 `eval()` 로 평가한다. YAML 정책 파일이 신뢰할 수 있는 출처에서만 로드된다는 가정이 깔려 있지만, **누군가 `access_structure` 에 임의 파이썬 표현식을 넣을 수 있다면 RCE**다. AccessTree 가 모든 합법적 표현을 처리하도록 보장하고 fallback 자체를 제거하는 것이 안전하다.
 
