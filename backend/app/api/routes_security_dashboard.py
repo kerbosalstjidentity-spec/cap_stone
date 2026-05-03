@@ -89,7 +89,15 @@ async def log_audit_entry(
     )
     session.add(row)
     await session.commit()
-    return {"status": "logged", "index": block_index, "hash": block_hash}
+
+    # W3-#2: fraud-service 감사 체인에도 미러링 (best-effort, fire-and-forget)
+    try:
+        from app.services.fraud_client import mirror_audit_to_fraud
+        mirrored = await mirror_audit_to_fraud(entry.model_dump())
+    except Exception:
+        mirrored = False
+
+    return {"status": "logged", "index": block_index, "hash": block_hash, "mirrored_to_fraud": mirrored}
 
 
 @router.get("/audit/chain")

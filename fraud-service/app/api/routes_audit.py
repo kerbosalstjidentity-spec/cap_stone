@@ -20,10 +20,40 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from app.services.blockchain_audit import audit_chain
 
 router = APIRouter()
+
+
+# W3-#2: backend 가 미러링용으로 호출할 외부 append 엔드포인트
+class AuditAppendRequest(BaseModel):
+    transaction_id: str = ""
+    user_id: str = ""
+    action: str = ""
+    score: float = 0.0
+    rule_ids: list[str] = Field(default_factory=list)
+    reason_code: str = ""
+    amount: float = 0.0
+
+
+@router.post("/append", status_code=201)
+def append_block(req: AuditAppendRequest) -> dict[str, Any]:
+    """외부(backend 등)가 감사 블록을 추가하는 통합 진입점.
+
+    W3-#2: 단일 정본 — backend·fraud-service 모두 이 엔드포인트로 기록.
+    """
+    blk = audit_chain.append(
+        transaction_id=req.transaction_id,
+        user_id=req.user_id,
+        action=req.action,
+        score=req.score,
+        rule_ids=req.rule_ids,
+        reason_code=req.reason_code,
+        amount=req.amount,
+    )
+    return {"index": blk.index, "block_hash": blk.block_hash, "merkle_leaf": blk.merkle_leaf}
 
 
 @router.get("/chain/status")
