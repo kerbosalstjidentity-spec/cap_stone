@@ -15,15 +15,18 @@ import secrets
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_session
+from app.models.tables import AuditChainEntry
 
 router = APIRouter(prefix="/v1/security", tags=["security-dashboard"])
 
 
-# ── 블록체인 감사 로그 (fraud-service 프록시) ─────────────────
-
-_AUDIT_CHAIN: list[dict] = []  # 인메모리 감사 체인 (경량 로컬 미러)
+# ── 블록체인 감사 로그 (W3-#1: PG 영속화) ──────────────────────
 
 
 class AuditEntry(BaseModel):
@@ -35,45 +38,92 @@ class AuditEntry(BaseModel):
     amount: float = 0.0
 
 
-@router.post("/audit/log")
-async def log_audit_entry(entry: AuditEntry) -> dict[str, Any]:
-    """감사 로그 기록."""
-    ts = time.time()
-    prev_hash = _AUDIT_CHAIN[-1]["block_hash"] if _AUDIT_CHAIN else "0" * 64
-    block = {
-        "index": len(_AUDIT_CHAIN),
-        "timestamp": ts,
-        **entry.model_dump(),
-        "prev_hash": prev_hash,
-        "block_hash": hashlib.sha256(
-            json.dumps({"ts": ts, "data": entry.model_dump(), "prev": prev_hash},
-                       sort_keys=True).encode()
-        ).hexdigest(),
+def _block_to_dict(row: AuditChainEntry) -> dict[str, Any]:
+    return {
+        "index": row.block_index,
+        "timestamp": row.block_ts,
+        "transaction_id": row.transaction_id,
+        "user_id": row.user_id,
+        "action": row.action,
+        "score": row.score,
+        "reason": row.reason,
+        "amount": row.amount,
+        "prev_hash": row.prev_hash,
+        "block_hash": row.block_hash,
     }
-    _AUDIT_CHAIN.append(block)
-    return {"status": "logged", "index": block["index"], "hash": block["block_hash"]}
+
+
+@router.post("/audit/log")
+async def log_audit_entry(
+    entry: AuditEntry,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """감사 로그 기록 (W3-#1: PG persist)."""
+    ts = time.time()
+    # 직전 블록 lookup — block_index DESC LIMIT 1
+    prev_row = await session.execute(
+        select(AuditChainEntry).order_by(desc(AuditChainEntry.block_index)).limit(1)
+    )
+    prev = prev_row.scalar_one_or_none()
+    prev_hash = prev.block_hash if prev else "0" * 64
+    block_index = (prev.block_index + 1) if prev else 0
+
+    block_hash = hashlib.sha256(
+        json.dumps(
+            {"ts": ts, "data": entry.model_dump(), "prev": prev_hash, "idx": block_index},
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+
+    row = AuditChainEntry(
+        block_index=block_index,
+        transaction_id=entry.transaction_id,
+        user_id=entry.user_id,
+        action=entry.action,
+        score=entry.score,
+        reason=entry.reason,
+        amount=entry.amount,
+        block_ts=ts,
+        prev_hash=prev_hash,
+        block_hash=block_hash,
+    )
+    session.add(row)
+    await session.commit()
+    return {"status": "logged", "index": block_index, "hash": block_hash}
 
 
 @router.get("/audit/chain")
 async def get_audit_chain(
     limit: int = Query(default=50, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """감사 체인 조회."""
+    """감사 체인 조회 (최신 N건, 최신순)."""
+    total = await session.scalar(select(func.count()).select_from(AuditChainEntry)) or 0
+    rows = (await session.execute(
+        select(AuditChainEntry)
+        .order_by(desc(AuditChainEntry.block_index))
+        .limit(limit)
+    )).scalars().all()
     return {
-        "chain_length": len(_AUDIT_CHAIN),
-        "blocks": list(reversed(_AUDIT_CHAIN[-limit:])),
+        "chain_length": int(total),
+        "blocks": [_block_to_dict(r) for r in rows],
     }
 
 
 @router.get("/audit/verify")
-async def verify_audit_chain() -> dict[str, Any]:
-    """감사 체인 무결성 검증."""
-    if not _AUDIT_CHAIN:
+async def verify_audit_chain(
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """감사 체인 무결성 검증 — block_index 오름차순으로 prev_hash 연결 확인."""
+    rows = (await session.execute(
+        select(AuditChainEntry).order_by(AuditChainEntry.block_index)
+    )).scalars().all()
+    if not rows:
         return {"valid": True, "chain_length": 0}
-    for i, block in enumerate(_AUDIT_CHAIN):
-        if i > 0 and block["prev_hash"] != _AUDIT_CHAIN[i - 1]["block_hash"]:
-            return {"valid": False, "error": f"Block {i}: prev_hash broken"}
-    return {"valid": True, "chain_length": len(_AUDIT_CHAIN)}
+    for i, row in enumerate(rows):
+        if i > 0 and row.prev_hash != rows[i - 1].block_hash:
+            return {"valid": False, "error": f"Block {row.block_index}: prev_hash broken"}
+    return {"valid": True, "chain_length": len(rows)}
 
 
 @router.get("/audit/search")
@@ -81,15 +131,17 @@ async def search_audit(
     user_id: str | None = Query(default=None),
     action: str | None = Query(default=None),
     limit: int = Query(default=50),
+    session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """감사 로그 검색."""
-    results = _AUDIT_CHAIN
+    """감사 로그 검색 (DB 인덱스 활용)."""
+    stmt = select(AuditChainEntry)
     if user_id:
-        results = [b for b in results if b.get("user_id") == user_id]
+        stmt = stmt.where(AuditChainEntry.user_id == user_id)
     if action:
-        results = [b for b in results if b.get("action") == action]
-    recent = results[-limit:]  # 최근 limit개 (최신이 마지막)
-    return {"count": len(recent), "blocks": list(reversed(recent))}
+        stmt = stmt.where(AuditChainEntry.action == action)
+    stmt = stmt.order_by(desc(AuditChainEntry.block_index)).limit(limit)
+    rows = (await session.execute(stmt)).scalars().all()
+    return {"count": len(rows), "blocks": [_block_to_dict(r) for r in rows]}
 
 
 # ── ABAC 접근 결정 테스트 ─────────────────────────────────────

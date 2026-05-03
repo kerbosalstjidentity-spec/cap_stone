@@ -289,6 +289,31 @@ class Notification(TimestampMixin, Base):
 #  감정 태그
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+class AuditChainEntry(TimestampMixin, Base):
+    """W3-#1: backend 감사 체인 PG 영속화.
+
+    routes_security_dashboard 의 in-memory `_AUDIT_CHAIN` 을 대체.
+    각 행은 hash chain의 단일 블록 — block_hash 가 prev_hash 와 연결되어 변조 탐지 가능.
+    """
+    __tablename__ = "audit_chain_entries"
+    __table_args__ = (
+        Index("ix_audit_index", "block_index", unique=True),
+        Index("ix_audit_user_action", "user_id", "action"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    block_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    transaction_id: Mapped[str] = mapped_column(String(128), default="")
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    action: Mapped[str] = mapped_column(String(32), default="")
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    amount: Mapped[float] = mapped_column(Float, default=0.0)
+    block_ts: Mapped[float] = mapped_column(Float, nullable=False)  # epoch seconds
+    prev_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    block_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class EmotionTag(TimestampMixin, Base):
     """거래에 연결된 감정 태그 — 감정×소비 상관 분석용."""
     __tablename__ = "emotion_tags"
