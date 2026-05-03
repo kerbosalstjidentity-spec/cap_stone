@@ -34,6 +34,19 @@ except ImportError:
 
 router = APIRouter(prefix="/v1/auth/fido", tags=["fido2"])
 
+
+# W3-#5: sign_count 클론 탐지.
+# FIDO2 spec — authenticator 가 sign_count 를 지원하지 않으면 항상 0.
+# - new=0 AND stored=0  → counter 비지원 authenticator. 통과.
+# - new <= stored        → 클론 의심 (다른 기기가 같은 키로 인증 시도). 차단.
+def _check_sign_count(stored: int, new: int) -> tuple[bool, str]:
+    """returns (ok, reason). ok=False 면 클론 의심으로 인증 거부."""
+    if new == 0 and stored == 0:
+        return True, "counter not supported by authenticator"
+    if new <= stored:
+        return False, f"sign_count regression (stored={stored}, new={new}) — possible clone"
+    return True, ""
+
 # W2-#1: 3개로 분산돼 있던 인메모리 챌린지 dict → app.services.fido_challenge_store
 # (Redis-backed, 5분 TTL, scope: register/auth/login)
 
@@ -267,6 +280,15 @@ async def authentication_verify(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"FIDO2 인증 실패: {e}")
 
+    # W3-#5: sign_count 클론 탐지 — 역행 또는 동일하면 차단
+    ok, reason = _check_sign_count(cred.sign_count, verification.new_sign_count)
+    if not ok:
+        # 보안 이벤트 기록 (직접 logger — DB 트랜잭션은 commit 전이라 위험)
+        import logging as _lg
+        _lg.getLogger(__name__).warning("[FIDO2 clone] user=%s cred=%s %s",
+                                          current_user.user_id, cred.credential_id[:12], reason)
+        raise HTTPException(status_code=401, detail=f"인증기 클론 의심: {reason}")
+
     cred.sign_count = verification.new_sign_count
     cred.last_used_at = datetime.now(UTC)
     await session.commit()
@@ -455,6 +477,14 @@ async def fido_login_verify(
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"FIDO2 인증 실패: {e}")
+
+    # W3-#5: sign_count 클론 탐지 — 로그인 경로
+    ok, reason = _check_sign_count(cred.sign_count, verification.new_sign_count)
+    if not ok:
+        import logging as _lg
+        _lg.getLogger(__name__).warning("[FIDO2 clone-login] user=%s cred=%s %s",
+                                          user_id, cred.credential_id[:12], reason)
+        raise HTTPException(status_code=401, detail=f"인증기 클론 의심: {reason}")
 
     cred.sign_count = verification.new_sign_count
     cred.last_used_at = datetime.now(UTC)

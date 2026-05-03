@@ -39,6 +39,8 @@ class User(TimestampMixin, Base):
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)   # TOTP 2FA
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # W3-#7: 패스키/2FA 분실 시 사용할 일회용 백업 코드 (bcrypt-hashed, JSON list)
+    backup_codes_json: Mapped[str] = mapped_column(Text, default="[]")
 
     # relationships
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")

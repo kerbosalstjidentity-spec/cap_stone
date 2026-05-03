@@ -359,7 +359,7 @@ const credential = await navigator.credentials.create({
 
 - **인메모리 챌린지 저장의 한계**: `_registration_challenges`, `_authentication_challenges`, `_login_challenges` 세 dict가 프로세스 메모리에만 존재한다. 멀티 프로세스(uvicorn workers > 1) 환경이나 서버 재시작 시 챌린지가 사라져 검증이 실패한다. 프로덕션에서는 `redis.setex(f"fido:{user_id}", 300, challenge)` 형태로 TTL이 있는 외부 스토어에 위임해야 한다. (✅ ROADMAP W2-#1 — `app.services.fido_challenge_store` Redis-backed 단일 인터페이스 (scope: register/auth/login, 5분 TTL, Redis 미가용 시 in-memory 폴백))
 
-- **sign_count=0 예외 처리 미구현**: FIDO2 사양은 sign_count가 0이면 "카운터를 지원하지 않는 authenticator"로 간주해 검증을 통과시키도록 권장한다. 현재 구현이 `verify_authentication_response()` 라이브러리 기본 동작에 위임하고 있어 실제 클론 탐지가 어떻게 동작하는지는 py_webauthn 버전에 따라 달라진다.
+- **sign_count=0 예외 처리 미구현**: FIDO2 사양은 sign_count가 0이면 "카운터를 지원하지 않는 authenticator"로 간주해 검증을 통과시키도록 권장한다. 현재 구현이 `verify_authentication_response()` 라이브러리 기본 동작에 위임하고 있어 실제 클론 탐지가 어떻게 동작하는지는 py_webauthn 버전에 따라 달라진다. (✅ ROADMAP W3-#5 — `_check_sign_count()` 헬퍼 추가: new=0 ∧ stored=0 → counter 비지원으로 통과, new ≤ stored → 클론 의심 401 차단. 등록·로그인 양쪽 verify 경로에 적용)
 
 - **세 개의 챌린지 맵 → 단일 테이블 통합 여지**: 등록·인증·로그인 챌린지가 각자 별도 dict에 저장된다. 키 설계(`user_id` vs `pre_auth_token`)가 달라 통합이 쉽지 않지만, Redis를 도입한다면 prefix로 구분하는 단일 인터페이스로 추상화할 수 있다. (✅ ROADMAP W2-#1 — `fido:ch:{scope}:{key}` 키 네임스페이스로 통합)
 
@@ -378,7 +378,7 @@ const credential = await navigator.credentials.create({
 > 네, 현재 단일 인스턴스 가정. K8s replica 또는 Gunicorn `--workers 4`로 띄우면 챌린지 라우팅이 워커마다 분리되어 검증 실패 가능. Redis hash + TTL로 옮기는 게 표준 해법(후속).
 
 **Q3. 패스키 분실 시 복구는?**
-> 현재 1차 복구는 TOTP 코드, 2차는 비밀번호 + 이메일 인증. 패스키만 등록한 사용자(passwordless-only)는 등록 시점에 백업 코드 발급 권장. UX 흐름은 후속 작업.
+> 현재 1차 복구는 TOTP 코드, 2차는 비밀번호 + 이메일 인증. 패스키만 등록한 사용자(passwordless-only)는 등록 시점에 백업 코드 발급 권장. UX 흐름은 후속 작업. (✅ ROADMAP W3-#7 — bcrypt-hashed `backup_codes_json` 필드, `/v1/auth/me/backup-codes/regenerate` 10개 발급, `/v1/auth/login/backup-code` 1회용 소진)
 
 **Q4. `attestation: "none"`인데 보안에 문제 없나요?**
 > 소비자 서비스라 적합한 선택입니다. 기업 환경에서 "FIPS 인증 YubiKey만 허용"이 필요하면 `"direct"`로 전환하고 FIDO MDS 연동. PayWise는 사용자 편의 우선.

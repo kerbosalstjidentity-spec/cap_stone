@@ -388,6 +388,95 @@ async def totp_verify(
     return {"status": "ok", "totp_enabled": True}
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  W3-#7: 백업 코드 (패스키/2FA 분실 복구)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+from pydantic import BaseModel, Field
+
+
+class BackupCodesResponse(BaseModel):
+    codes: list[str] = Field(default_factory=list)  # 평문, 1회 노출
+    count: int
+
+
+class BackupCodeConsumeRequest(BaseModel):
+    code: str
+
+
+@router.post(
+    "/me/backup-codes/regenerate",
+    response_model=BackupCodesResponse,
+    summary="백업 코드 10개 신규 발급 (기존 모두 무효화)",
+)
+async def regenerate_backup_codes(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> BackupCodesResponse:
+    """랜덤 16자 백업 코드 10개 발급. 평문은 응답으로 1회 반환, DB에는 bcrypt 해시만 저장."""
+    import json as _json
+    plain_codes = [secrets.token_urlsafe(12) for _ in range(10)]
+    hashed = [hash_password(c) for c in plain_codes]
+    current_user.backup_codes_json = _json.dumps(hashed)
+    await session.commit()
+    return BackupCodesResponse(codes=plain_codes, count=len(plain_codes))
+
+
+@router.post(
+    "/login/backup-code",
+    response_model=LoginResponse,
+    summary="백업 코드로 2단계 인증 우회 (1회용, 소진 후 제거)",
+)
+async def login_with_backup_code(
+    body: BackupCodeConsumeRequest,
+    pre_auth_token: str,
+    session: AsyncSession = Depends(get_session),
+) -> LoginResponse:
+    """pre_auth_token 으로 사용자 식별 후 백업 코드 검증 → 토큰 발급."""
+    import json as _json
+    try:
+        payload = decode_token(pre_auth_token)
+        if payload.get("type") != "pre_auth":
+            raise ValueError("invalid token type")
+        user_id = payload["sub"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="유효하지 않은 인증 토큰입니다.")
+
+    result = await session.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
+
+    try:
+        codes_hashed: list[str] = _json.loads(user.backup_codes_json or "[]")
+    except Exception:
+        codes_hashed = []
+
+    # 일치하는 해시 찾아서 제거 (1회용)
+    matched_idx = -1
+    for i, h in enumerate(codes_hashed):
+        if verify_password(body.code, h):
+            matched_idx = i
+            break
+    if matched_idx < 0:
+        await _log_security_event(session, user.user_id, "backup_code_fail", False)
+        raise HTTPException(status_code=401, detail="백업 코드가 올바르지 않습니다.")
+
+    codes_hashed.pop(matched_idx)
+    user.backup_codes_json = _json.dumps(codes_hashed)
+    user.last_login_at = datetime.now(UTC)
+    await session.commit()
+    await _log_security_event(session, user.user_id, "login_backup_code", True)
+
+    return LoginResponse(
+        totp_required=False,
+        access_token=create_access_token(user.user_id),
+        refresh_token=create_refresh_token(user.user_id),
+        user_id=user.user_id,
+        nickname=user.nickname,
+    )
+
+
 @router.post(
     "/me/totp/disable",
     summary="TOTP 2FA 비활성화",
