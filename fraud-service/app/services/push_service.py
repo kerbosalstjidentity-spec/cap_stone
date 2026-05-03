@@ -78,8 +78,14 @@ async def send(
     body: str,
     data: dict[str, str] | None = None,
 ) -> bool:
-    """비동기 래퍼 (run_in_executor 없이 단순 동기 호출 — FCM SDK가 동기이므로)."""
-    return send_sync(fcm_token, title, body, data)
+    """비동기 래퍼.
+
+    W4-#6: FCM SDK 의 messaging.send() 는 동기 HTTP 호출(100~300ms 블로킹).
+    이전엔 단순 호출이었지만 이벤트루프가 전체 정지하므로
+    `asyncio.to_thread` 로 워커 스레드에 위임해야 한다.
+    """
+    import asyncio as _aio
+    return await _aio.to_thread(send_sync, fcm_token, title, body, data)
 
 
 def build_step_up_payload(tx_id: str, amount: float, action_type: str) -> dict[str, Any]:

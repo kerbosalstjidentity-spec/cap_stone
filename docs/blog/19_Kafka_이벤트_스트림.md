@@ -202,15 +202,15 @@ producer를 먼저 시작하는 이유: consumer가 메시지를 받아 `send_de
 
 ## ⑤ 설계 포인트 / 트러블슈팅 거리
 
-- **`auto_offset_reset="latest"` — 재시작 시 메시지 유실**: 컨슈머 그룹 오프셋이 없을 때(최초 시작, 그룹 ID 변경) `"latest"`는 해당 시점 이후 메시지만 소비한다. 서비스가 재시작되는 동안 들어온 메시지는 Kafka에 쌓여있지만 소비되지 않는다. `"earliest"`로 바꾸거나 Dead Letter Queue를 두면 재시작 갭을 복구할 수 있다. 금융 거래 누락은 `"latest"`를 쓰기 전에 명시적으로 수용 가능한 SLA인지 확인해야 한다.
+- **`auto_offset_reset="latest"` — 재시작 시 메시지 유실**: 컨슈머 그룹 오프셋이 없을 때(최초 시작, 그룹 ID 변경) `"latest"`는 해당 시점 이후 메시지만 소비한다. 서비스가 재시작되는 동안 들어온 메시지는 Kafka에 쌓여있지만 소비되지 않는다. `"earliest"`로 바꾸거나 Dead Letter Queue를 두면 재시작 갭을 복구할 수 있다. 금융 거래 누락은 `"latest"`를 쓰기 전에 명시적으로 수용 가능한 SLA인지 확인해야 한다. (✅ ROADMAP W4-#1,#4 — `KAFKA_AUTO_OFFSET_RESET` env, DLQ 토픽 `fraud.transaction.deadletter` 추가)
 
-- **_process_message가 동기 함수 — 이벤트루프 블로킹 위험**: `_consume_loop`는 async 컨텍스트에서 동기 함수 `_process_message()`를 직접 호출한다. XGBoost 추론이나 rule_engine 순회가 수십ms 걸리면 그 시간 동안 이벤트루프 전체가 블로킹된다. HTTP 요청도 같은 이벤트루프를 공유하므로, 고부하 시 REST API 응답 지연으로 이어진다. `await asyncio.to_thread(_process_message, msg.value)`로 감싸면 스레드풀에서 실행되어 이벤트루프를 해방한다.
+- **_process_message가 동기 함수 — 이벤트루프 블로킹 위험**: `_consume_loop`는 async 컨텍스트에서 동기 함수 `_process_message()`를 직접 호출한다. XGBoost 추론이나 rule_engine 순회가 수십ms 걸리면 그 시간 동안 이벤트루프 전체가 블로킹된다. HTTP 요청도 같은 이벤트루프를 공유하므로, 고부하 시 REST API 응답 지연으로 이어진다. `await asyncio.to_thread(_process_message, msg.value)`로 감싸면 스레드풀에서 실행되어 이벤트루프를 해방한다. (✅ ROADMAP W4-#3 — `await asyncio.to_thread(...)` 적용)
 
-- **오류 시 메시지 skip — 사기 탐지 누락**: `_consume_loop` catch 블록은 `logger.error()` 후 다음 메시지로 넘어간다. 메시지 파싱 오류나 모델 예외가 발생하면 해당 거래는 **탐지되지 않고 조용히 무시**된다. 금융 도메인에서 이는 큰 리스크다. 처리 실패 메시지를 `fraud.transaction.deadletter` 토픽으로 재발행하고 별도 알람을 울려야 운영팀이 놓친 거래를 복구할 수 있다.
+- **오류 시 메시지 skip — 사기 탐지 누락**: `_consume_loop` catch 블록은 `logger.error()` 후 다음 메시지로 넘어간다. 메시지 파싱 오류나 모델 예외가 발생하면 해당 거래는 **탐지되지 않고 조용히 무시**된다. 금융 도메인에서 이는 큰 리스크다. 처리 실패 메시지를 `fraud.transaction.deadletter` 토픽으로 재발행하고 별도 알람을 울려야 운영팀이 놓친 거래를 복구할 수 있다. (✅ ROADMAP W4-#4 — 처리 실패 시 `kafka_producer.send_dlq()` 자동 호출로 DLQ 재발행)
 
-- **컨슈머 루프 크래시 후 자동 재시작 없음**: `_consume_loop`에서 예상치 못한 예외가 발생하면 `finally` 블록에서 `consumer.stop()`이 호출된 뒤 Task가 끝난다. `_consumer_task`는 완료 상태가 되지만 이를 감지해 재시작하는 코드가 없다. 서비스는 살아있는데 Kafka 소비는 멈춘 "zombie" 상태가 된다. `/health` 엔드포인트에서 `_consumer_task.done()` 여부를 체크하거나, exponential backoff로 재시작하는 supervisor loop가 필요하다.
+- **컨슈머 루프 크래시 후 자동 재시작 없음**: `_consume_loop`에서 예상치 못한 예외가 발생하면 `finally` 블록에서 `consumer.stop()`이 호출된 뒤 Task가 끝난다. `_consumer_task`는 완료 상태가 되지만 이를 감지해 재시작하는 코드가 없다. 서비스는 살아있는데 Kafka 소비는 멈춘 "zombie" 상태가 된다. `/health` 엔드포인트에서 `_consumer_task.done()` 여부를 체크하거나, exponential backoff로 재시작하는 supervisor loop가 필요하다. (✅ ROADMAP W4-#4 — `_supervisor_loop()` backoff 5s 자동 재시작 + `_stop_requested` 플래그로 정상 종료 분리)
 
-- **send_decision 실패가 평가 결과를 삭제한다**: `send_decision()`이 `False`를 반환해도 `_consume_loop`는 아무 조치 없이 다음 메시지로 간다. 평가는 완료됐지만 결과가 발행되지 않은 거래가 생긴다. Spring Boot 입장에서는 해당 거래의 판정 결과를 영원히 받지 못한다. 발행 실패 시 재시도 큐 또는 fallback HTTP 콜백이 필요하다.
+- **send_decision 실패가 평가 결과를 삭제한다**: `send_decision()`이 `False`를 반환해도 `_consume_loop`는 아무 조치 없이 다음 메시지로 간다. 평가는 완료됐지만 결과가 발행되지 않은 거래가 생긴다. Spring Boot 입장에서는 해당 거래의 판정 결과를 영원히 받지 못한다. 발행 실패 시 재시도 큐 또는 fallback HTTP 콜백이 필요하다. (✅ ROADMAP W4-#2,#7 — send_decision 발행 실패 시 ERROR 로그 + DLQ 자동 폴백, `key=user_id` 파티셔닝으로 동일 사용자 순서 보장)
 
 ---
 

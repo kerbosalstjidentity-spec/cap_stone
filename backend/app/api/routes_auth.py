@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import pyotp
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +77,11 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
     response_model=TokenResponse,
     summary="회원가입",
 )
-async def register(body: RegisterRequest, session: AsyncSession = Depends(get_session)) -> TokenResponse:
+async def register(
+    body: RegisterRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
     # 이메일 중복 확인
     existing = await session.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
@@ -105,13 +109,18 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_se
         import logging
         logging.getLogger(__name__).warning("Auto-seed after register failed: %s", e)
 
-    # 백그라운드 ML 모델 학습
-    try:
+    # W4-#5: ML 학습은 BackgroundTasks 로 분리 → 회원가입 응답 지연 제거
+    async def _train_in_background() -> None:
+        import logging as _lg
+        from app.db.session import async_session_factory
         from app.ml.trainer import train_all
-        await train_all(session)
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Auto-train after register failed: %s", e)
+        try:
+            async with async_session_factory() as bg_session:
+                await train_all(bg_session)
+        except Exception as e:
+            _lg.getLogger(__name__).warning("Auto-train after register failed: %s", e)
+
+    background_tasks.add_task(_train_in_background)
 
     return TokenResponse(
         access_token=create_access_token(user_id),

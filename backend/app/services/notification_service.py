@@ -135,8 +135,14 @@ async def create_and_push(
         "is_read": False,
         "created_at": datetime.utcnow().isoformat(),
     }
-    await publish(f"notify:{user_id}", payload)
-    await notification_manager.send_to_user(user_id, payload)
+    # W4-#6: 단일 브로드캐스트 경로 = Redis pub/sub.
+    # subscriber 루프(_subscribe_loop)가 send_to_user 를 호출하므로
+    # 여기서 직접 send_to_user 를 또 호출하면 단일 인스턴스 환경에서 알림이 2번 간다.
+    # publish 가 실패한 경우(Redis 미가용)에만 fallback 으로 직접 전송.
+    delivered = await publish(f"notify:{user_id}", payload)
+    if not delivered:
+        logger.warning("[notify] Redis publish 실패 — 직접 송신 폴백 (user=%s)", user_id)
+        await notification_manager.send_to_user(user_id, payload)
 
     return notif
 

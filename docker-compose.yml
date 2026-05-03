@@ -31,6 +31,36 @@ services:
       timeout: 3s
       retries: 10
 
+  # ── Kafka (W4-#1: KRaft 단일 노드, 개발용) ────
+  kafka:
+    image: bitnami/kafka:3.7
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft (no Zookeeper)
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Topic retention 정책 (W4-#1) — 7일, 1GB 상한
+      KAFKA_CFG_LOG_RETENTION_HOURS: "168"
+      KAFKA_CFG_LOG_RETENTION_BYTES: "1073741824"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - kafkadata:/bitnami/kafka
+
   # ── Fraud Service (포트 8010) ──────────────
   fraud-service:
     build: ./fraud-service
@@ -41,6 +71,13 @@ services:
       PYTHONUNBUFFERED: "1"
       MODEL_PATH: "/capstone/model_bundle_open_full.joblib"
       CAPSTONE_OUTPUTS_DIR: "/capstone"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./fds-research/outputs/fds:/capstone:ro
     healthcheck:
@@ -92,3 +129,4 @@ services:
 
 volumes:
   pgdata:
+  kafkadata:
