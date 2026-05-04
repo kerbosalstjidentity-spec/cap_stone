@@ -247,4 +247,4 @@
 | 2026-05-02 | W3-#2 | backend↔fraud 감사 체인 write-through 미러링 | 4de9f1d |
 | 2026-05-02 | W3-#5,#7 | FIDO2 sign_count 클론 탐지 + 백업 코드 발급/소진 | eb43246 |
 | 2026-05-02 | W4 전체 (#1~#7) + W9-#6 | Kafka 인프라 활성화 (브로커·DLQ·워치독·파티셔닝·async·BG ML·notify pubsub 단일) | 762b67a |
-| 2026-05-02 | (planning) | W5.5/W6.5/W7.5 FDS 강화 스프린트 신설 (20건 추가, 총 102건) | tbd |
+| 2026-05-02 | (planning) | W5.5/W6.5/W7.5 FDS 강화 스프린트 신설 (20건 추가, 총 102건) | 5e20d13 |
