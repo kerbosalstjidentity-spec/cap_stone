@@ -21,13 +21,18 @@
 | W2 | 챌린지·세션 외부화 (P0) | 7 | 7 | 100% |
 | W3 | 감사 체인 영속화 (P0) | 7 | 7 | 100% |
 | W4 | 인프라 활성화 (P1) | 7 | 7 | 100% |
+| **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **7** | **0** | **0%** |
+| **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **0** | **0%** |
+| **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **0** | **0%** |
 | W5 | ML 정확성 (P1) | 8 | 0 | 0% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 0 | 0% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 2 | 13% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **82** | **30** | **37%** |
+| **합계** | | **102** | **30** | **29%** |
+
+> 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
 > 참고: 플랜 표기 "108건"은 동일 작업의 여러 블로그 출처를 별도 카운트한 수치이며, 실제 단일 작업 단위는 위 표의 **82건**.
 
@@ -79,13 +84,57 @@
 
 목표: Kafka·BackgroundTasks·비동기 호출 도입.
 
-- [x] **W4-#1** docker-compose에 Kafka 브로커 + topic retention 정책 — `19_Kafka:220` + `pipeline/04:89,93` — [중/인프라] — ✅ tbd (2026-05-02)
-- [x] **W4-#2** `aiokafka` 의존 추가 + Producer 무음 실패 → DLQ/로깅 — `19_Kafka:219` + `pipeline/04:90` — [중/인프라] — ✅ tbd (2026-05-02)
-- [x] **W4-#3** `_process_message`를 `asyncio.to_thread`로 감싸 이벤트루프 블로킹 제거 — `19_Kafka:207` — [중/백엔드] — ✅ tbd (2026-05-02)
-- [x] **W4-#4** DLQ topic + 알람 + consumer 재시작 워치독 — `19_Kafka:205,209,211` — [중/인프라] — ✅ tbd (2026-05-02)
-- [x] **W4-#5** 가입 시 ML 학습을 BackgroundTasks/Celery로 분리 — `01_기본인증:217` + `20_학습:112` — [중/인프라] — ✅ tbd (2026-05-02)
-- [x] **W4-#6** FCM `send_sync` → `asyncio.to_thread` 래핑 + Redis pub/sub 단일 경로 — `21_알림:208,210` — [중/백엔드] — ✅ tbd (2026-05-02)
-- [x] **W4-#7** user_id 기준 Kafka 파티셔닝으로 순서 보장 — `pipeline/04:92` — [중/백엔드] — ✅ tbd (2026-05-02)
+- [x] **W4-#1** docker-compose에 Kafka 브로커 + topic retention 정책 — `19_Kafka:220` + `pipeline/04:89,93` — [중/인프라] — ✅ 762b67a (2026-05-02)
+- [x] **W4-#2** `aiokafka` 의존 추가 + Producer 무음 실패 → DLQ/로깅 — `19_Kafka:219` + `pipeline/04:90` — [중/인프라] — ✅ 762b67a (2026-05-02)
+- [x] **W4-#3** `_process_message`를 `asyncio.to_thread`로 감싸 이벤트루프 블로킹 제거 — `19_Kafka:207` — [중/백엔드] — ✅ 762b67a (2026-05-02)
+- [x] **W4-#4** DLQ topic + 알람 + consumer 재시작 워치독 — `19_Kafka:205,209,211` — [중/인프라] — ✅ 762b67a (2026-05-02)
+- [x] **W4-#5** 가입 시 ML 학습을 BackgroundTasks/Celery로 분리 — `01_기본인증:217` + `20_학습:112` — [중/인프라] — ✅ 762b67a (2026-05-02)
+- [x] **W4-#6** FCM `send_sync` → `asyncio.to_thread` 래핑 + Redis pub/sub 단일 경로 — `21_알림:208,210` — [중/백엔드] — ✅ 762b67a (2026-05-02)
+- [x] **W4-#7** user_id 기준 Kafka 파티셔닝으로 순서 보장 — `pipeline/04:92` — [중/백엔드] — ✅ 762b67a (2026-05-02)
+
+---
+
+## W5.5 — FDS 강화: PaySim 도메인 확장 (P1, 신설) 🔥
+
+목표: 데이터셋 교체 → 사기 유형 multiclass → 검출률 측정 체계. 캡스톤 핵심 차별화.
+**상세 명세**: [`FDS_ROADMAP.md § W5.5`](FDS_ROADMAP.md).
+
+- [ ] **W5.5-#1** 시나리오 시뮬레이터 4종 (보이스피싱/머니뮬/계정탈취/카드테스팅) — `12-Track 2` — [중/ML]
+- [ ] **W5.5-#2** PaySim 데이터셋 다운로드 + 로더 (`make paysim-download`) — `12-Track 1 전제` — [하/인프라]
+- [ ] **W5.5-#3** PaySim 학습 스크립트 (`fds-research/train_paysim.py`) — `12-Track 1` — [상/ML]
+- [ ] **W5.5-#4** fraud-service 입력 스키마 PaySim 정합화 + `_normalize_anomaly` 재튜닝 — `12-Track 1` — [중/ML]
+- [ ] **W5.5-#5** `fraud_type` 다중분류 라벨 (룰→유형 매핑) — `12-Track 3` — [중/ML]
+- [ ] **W5.5-#6** 불균형 데이터 처리 (SMOTE 또는 class_weight, PaySim 사기율 0.13%) — 신규 — [중/ML]
+- [ ] **W5.5-#7** 시나리오별 검출률 회귀 테스트 (목표 ≥80%) — `12-Track 2 확장` — [중/테스트]
+
+---
+
+## W6.5 — FDS 강화: 그래프 + 비용 가중 (P1, 신설) 🔥
+
+목표: 단일 거래 평가 → 송금 네트워크·금액 가중 평가. 머니뮬 검출.
+**상세 명세**: [`FDS_ROADMAP.md § W6.5`](FDS_ROADMAP.md).
+
+- [ ] **W6.5-#1** 송금 그래프 store (Redis sorted set, sender→receiver 엣지 + TTL) — `12-Track 4` — [상/인프라]
+- [ ] **W6.5-#2** 그래프 피처 추출기 (`graph_features.py`: `dest_first_seen`, `fan_in_count`, `pass_through_ratio`) — `12-Track 4` — [상/ML]
+- [ ] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드]
+- [ ] **W6.5-#4** 다단계 자금세탁 룰 (`LayeringRule`) — `13-Track A` 부분 — [중/백엔드]
+- [ ] **W6.5-#5** 비용 가중 BLOCK 임계값 (`expected_loss = p × amount`, `COST_THRESHOLD_KRW` env) — 신규 — [중/ML]
+- [ ] **W6.5-#6** 유형별 임계값 차등 (머니뮬 0.5, 카드테스팅 0.7) — 신규 — [하/백엔드]
+- [ ] **W6.5-#7** 그래프 + 비용 통합 검출률 측정 (머니뮬 ≥90% 목표) — 신규 — [중/테스트]
+
+---
+
+## W7.5 — FDS 강화: 시계열·운영 신뢰성 (P2, 신설) 🔥
+
+목표: 패턴·드리프트·피드백 루프 — 진짜 운영용 FDS.
+**상세 명세**: [`FDS_ROADMAP.md § W7.5`](FDS_ROADMAP.md).
+
+- [ ] **W7.5-#1** 잔액 급변 패턴 룰 (`BalanceDrainRule`, oldbalance→newbalance 분석) — 신규 — [중/백엔드]
+- [ ] **W7.5-#2** 사용자 시퀀스 LSTM 도입 (직전 N건 → 다음 정상도 예측) — `14-Track γ 확장` — [상/ML]
+- [ ] **W7.5-#3** 시간대 외 거래 군집 탐지 (사용자별 평균 활동 시간 학습) — 신규 — [중/ML]
+- [ ] **W7.5-#4** chargeback 피드백 루프 (`POST /v1/fraud/feedback/chargeback` + ground truth 라벨) — 신규 — [상/백엔드]
+- [ ] **W7.5-#5** 적대적 회귀 테스트 (정교한 머니뮬 체인·smurfing·CASH_OUT 분할) — 신규 — [상/테스트]
+- [ ] **W7.5-#6** FDS SLO 대시보드 (시나리오별 검출률·latency·FN/FP 시계열) — 신규 — [중/백엔드]
 
 ---
 
@@ -151,7 +200,7 @@
 - [ ] **W9-#3** 12_사기점수 ALPHA/BETA env 외부화 — `12_실시간_사기:119` — [하/백엔드]
 - [ ] **W9-#4** 13_룰엔진 `window_minutes` 기본값 5로 조정 — `13_규칙_엔진:249` — [하/백엔드]
 - [ ] **W9-#5** 14_행동시그널 임계값 env 분리 + 원점수 보존 — `14_행동_시그널:185,187` — [하/백엔드]
-- [x] **W9-#6** 21_알림 Redis pub/sub vs 직접 send 중복 제거, mark_all_read commit 통일 — `21_알림_시스템:202,206` — [하/백엔드] — ✅ tbd (2026-05-02, W4-#6과 함께)
+- [x] **W9-#6** 21_알림 Redis pub/sub vs 직접 send 중복 제거, mark_all_read commit 통일 — `21_알림_시스템:202,206` — [하/백엔드] — ✅ 762b67a (2026-05-02, W4-#6과 함께)
 - [ ] **W9-#7** 18_AB bundle_b 로드 실패 ERROR 로그 + soft_review 키 분리 — `18_AB_테스트:155,182` — [하/백엔드]
 - [ ] **W9-#8** 06_LSTM 클램프 발생률 헬스체크 메트릭 + seed 고정 훅 — `06_지출_예측_LSTM:232,233` — [하/백엔드]
 - [ ] **W9-#9** 08_카테고리 ingest 경로 wiring + 키워드 우선순위 문서화 — `08_카테고리_자동_분류:157,159` — [하/백엔드]
@@ -197,4 +246,5 @@
 | 2026-05-02 | W3-#1 | backend 감사 체인 PG 영속화 (AuditChainEntry 테이블) | a13e82d |
 | 2026-05-02 | W3-#2 | backend↔fraud 감사 체인 write-through 미러링 | 4de9f1d |
 | 2026-05-02 | W3-#5,#7 | FIDO2 sign_count 클론 탐지 + 백업 코드 발급/소진 | eb43246 |
-| 2026-05-02 | W4 전체 (#1~#7) + W9-#6 | Kafka 인프라 활성화 (브로커·DLQ·워치독·파티셔닝·async·BG ML·notify pubsub 단일) | tbd |
+| 2026-05-02 | W4 전체 (#1~#7) + W9-#6 | Kafka 인프라 활성화 (브로커·DLQ·워치독·파티셔닝·async·BG ML·notify pubsub 단일) | 762b67a |
+| 2026-05-02 | (planning) | W5.5/W6.5/W7.5 FDS 강화 스프린트 신설 (20건 추가, 총 102건) | tbd |
