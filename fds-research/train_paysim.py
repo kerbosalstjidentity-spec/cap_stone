@@ -68,6 +68,11 @@ NUMERIC_FEATURES: tuple[str, ...] = (
     "type_CASH_OUT",
 )
 
+# W5.5-#8: errorBalanceOrig/Dest 는 PaySim 시뮬레이터의 알려진 잔액 기록 누수
+# (Kaggle ealaxi/paysim1 노트북 다수에서 지적). --no-leakage 옵션 시 제거해
+# 일반화 성능을 정직하게 측정한다.
+LEAKAGE_FEATURES: frozenset[str] = frozenset({"errorBalanceOrig", "errorBalanceDest"})
+
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     """PaySim 원본 컬럼 → 학습용 수치 피처 데이터프레임.
@@ -178,6 +183,16 @@ def main() -> None:
         default=5,
         help="SMOTE k_neighbors (기본 5)",
     )
+    ap.add_argument(
+        "--split-by-step",
+        action="store_true",
+        help="W5.5-#8: 랜덤 split 대신 step(시간) 기준 시간순 split. holdout = 후반 holdout-fraction.",
+    )
+    ap.add_argument(
+        "--no-leakage",
+        action="store_true",
+        help="W5.5-#8: 누수 의심 피처(errorBalanceOrig/Dest) 제거 ablation",
+    )
     args = ap.parse_args()
 
     print("[paysim-train] loading...")
@@ -185,16 +200,36 @@ def main() -> None:
     print(f"[paysim-train] loaded {len(df):,} rows, fraud={int(df['isFraud'].sum())}")
 
     X = build_features(df)
+    if args.no_leakage:
+        keep = [c for c in X.columns if c not in LEAKAGE_FEATURES]
+        X = X[keep]
+        print(f"[paysim-train] --no-leakage: dropped {sorted(LEAKAGE_FEATURES)}, kept {len(keep)} features")
     y = df["isFraud"].astype("int8").values
 
-    X_tr, X_ho, y_tr, y_ho = train_test_split(
-        X,
-        y,
-        test_size=args.holdout_fraction,
-        stratify=y,
-        random_state=RANDOM_STATE,
-    )
-    print(f"[paysim-train] train={len(X_tr):,} holdout={len(X_ho):,}")
+    if args.split_by_step:
+        # 시간순 split — step 기준 후반 holdout-fraction 을 검증으로
+        steps = df["step"].values
+        cutoff_step = int(np.quantile(steps, 1.0 - args.holdout_fraction))
+        train_mask = steps < cutoff_step
+        ho_mask = ~train_mask
+        # 사기 보존 보장: holdout 에 사기 0 이면 fallback to random
+        if int((y[ho_mask] == 1).sum()) == 0:
+            print("[paysim-train] WARN --split-by-step holdout 에 사기 0건 — random split 으로 fallback")
+            X_tr, X_ho, y_tr, y_ho = train_test_split(
+                X, y, test_size=args.holdout_fraction, stratify=y, random_state=RANDOM_STATE,
+            )
+            split_kind = "stratified_random_fallback"
+        else:
+            X_tr, X_ho = X[train_mask].reset_index(drop=True), X[ho_mask].reset_index(drop=True)
+            y_tr, y_ho = y[train_mask], y[ho_mask]
+            split_kind = f"time_step<{cutoff_step}"
+    else:
+        X_tr, X_ho, y_tr, y_ho = train_test_split(
+            X, y, test_size=args.holdout_fraction, stratify=y, random_state=RANDOM_STATE,
+        )
+        split_kind = "stratified_random"
+    print(f"[paysim-train] split={split_kind} train={len(X_tr):,} holdout={len(X_ho):,} "
+          f"holdout_fraud={int((y_ho==1).sum())}")
 
     print("[paysim-train] fitting IsolationForest...")
     if_model = IsolationForest(
@@ -236,15 +271,19 @@ def main() -> None:
     metrics["smote"] = bool(args.smote)
     metrics["if_contamination"] = args.if_contamination
     metrics["rf_estimators"] = args.rf_estimators
+    metrics["split"] = split_kind
+    metrics["no_leakage"] = bool(args.no_leakage)
+    metrics["features_used"] = list(X.columns)
     print(json.dumps(metrics, indent=2, ensure_ascii=False))
 
-    feature_names_with_if = list(NUMERIC_FEATURES) + ["if_suspicion"]
+    raw_features = list(X.columns)  # --no-leakage 반영
+    feature_names_with_if = raw_features + ["if_suspicion"]
     bundle = {
         "domain": "paysim",
         "if_model": if_model,
         "rf_model": rf_model,
         "feature_names": feature_names_with_if,
-        "raw_feature_names": list(NUMERIC_FEATURES),
+        "raw_feature_names": raw_features,
         "type_categories": list(TYPE_CATEGORIES),
         "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "n_train": int(len(X_tr)),
@@ -252,6 +291,8 @@ def main() -> None:
         "metrics": metrics,
         "block_min": args.block_min,
         "review_min": args.review_min,
+        "split": split_kind,
+        "no_leakage": bool(args.no_leakage),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(bundle, args.out)

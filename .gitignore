@@ -33,6 +33,7 @@ desktop.ini
 
 # fraud-service 런타임에 필요한 모델 번들은 예외로 트래킹
 !fds-research/outputs/fds/model_bundle_open_full.joblib
+!fds-research/outputs/fds/model_bundle_paysim_time_clean.joblib
 
 # Logs
 logs/

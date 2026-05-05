@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.services.fraud_service import FraudServiceManager, generate_risk_leakage_report
 from app.services.policy_merge import classify_fraud_type, fraud_type_label_ko
+from app.services.profile_store import profile_store
 from app.services.stats_collector import stats_collector
 from app.services import audit_logger
 from app.services.blockchain_audit import audit_chain
@@ -61,6 +62,17 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
     triggered = rule_id.split(",") if rule_id else []
     # W5.5-#5: 룰 발동 패턴 → 사기 유형 라벨
     fraud_type = classify_fraud_type(triggered)
+
+    # W5.5-#8: 평가 직후 profile_store 갱신 — velocity/avg_amount 룰이 다음 거래에서
+    # 발동할 수 있도록 한다. 이전엔 외부 호출자가 별도로 /v1/profile/ingest 를
+    # 부르지 않으면 VelocityRule/SplitTransactionRule 등이 영구히 비활성이었음.
+    user_id_for_ingest = tx_data.get("user_id", "")
+    if user_id_for_ingest:
+        try:
+            profile_store.ingest(user_id_for_ingest, tx_data)
+        except Exception:
+            # ingest 실패는 평가 결과에 영향 주지 않도록 swallow
+            pass
     stats_collector.record(tx_data.get("tx_id", ""), final_action, triggered,
                            float(tx_data.get("score", 0)), float(tx_data.get("amount", 0)))
     audit_logger.write(

@@ -61,6 +61,14 @@ def _process_message(data: dict[str, Any]) -> dict[str, Any]:
     manager = FraudServiceManager(tx)
     final_action = manager.get_final_action()
 
+    # W5.5-#8: 평가 직후 profile 갱신 — REST evaluate 와 동일 정책
+    user_id_for_ingest = tx.get("user_id", "")
+    if user_id_for_ingest:
+        try:
+            profile_store.ingest(user_id_for_ingest, tx)
+        except Exception:
+            pass
+
     triggered = rule_ids.split(",") if rule_ids else []
     stats_collector.record(
         tx.get("tx_id", ""),

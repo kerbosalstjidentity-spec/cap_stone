@@ -1,0 +1,36 @@
+{
+  "n_holdout": 571456,
+  "n_fraud_holdout": 4270,
+  "fraud_rate_holdout": 0.007472141337215813,
+  "roc_auc": 0.9999999991741967,
+  "pr_auc": 0.9999998903210205,
+  "block_min": 0.95,
+  "review_min": 0.35,
+  "block_count": 3592,
+  "queue_count": 4270,
+  "recall_in_queue": 0.9997658079625292,
+  "fpr_in_queue": 1.7630900621665555e-06,
+  "confusion_queue": {
+    "tp": 4269,
+    "fp": 1,
+    "fn_outside_queue": 1
+  },
+  "class_weight": "balanced_subsample",
+  "smote": false,
+  "if_contamination": 0.001,
+  "rf_estimators": 100,
+  "split": "time_step<354",
+  "no_leakage": true,
+  "features_used": [
+    "step",
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest",
+    "amount_to_oldbalance_ratio",
+    "is_dest_merchant",
+    "type_TRANSFER",
+    "type_CASH_OUT"
+  ]
+}
