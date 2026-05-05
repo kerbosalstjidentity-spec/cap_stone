@@ -90,20 +90,110 @@ _BUILDERS = {
 }
 
 
-def generate(scenario: str, count: int = 100, seed: int = 42) -> list[dict]:
-    """단일 시나리오의 합성 트랜잭션 ``count`` 건을 결정적으로 생성."""
-    if scenario not in _BUILDERS:
+def _voice_phishing_paysim(rng: random.Random, idx: int) -> dict:
+    # 보이스피싱: 큰 금액 TRANSFER, 잔액 거의 전부 빠짐
+    amount = float(rng.randint(5_000_000, 30_000_000))
+    old = amount + rng.randint(0, 100_000)
+    return {
+        "tx_id": f"VP-PS-{idx:04d}",
+        "user_id": f"vp_user_{idx % 30}",
+        "type": "TRANSFER",
+        "amount": amount,
+        "oldbalanceOrg": old,
+        "newbalanceOrig": old - amount,
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0,
+        "nameDest": f"C{rng.randint(100000, 999999)}",
+        "step": rng.randint(1, 743),
+    }
+
+
+def _money_mule_paysim(rng: random.Random, idx: int) -> dict:
+    # 머니뮬: TRANSFER 받은 직후 같은 금액 CASH_OUT — 통과 패턴
+    amount = float(rng.randint(1_000_000, 3_000_000))
+    return {
+        "tx_id": f"MM-PS-{idx:04d}",
+        "user_id": f"mule_{idx % 5}",
+        "type": "CASH_OUT",
+        "amount": amount,
+        "oldbalanceOrg": amount,
+        "newbalanceOrig": 0.0,
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0,  # destination 잔액 미반영
+        "nameDest": f"C{rng.randint(100000, 999999)}",
+        "step": rng.randint(1, 743),
+    }
+
+
+def _account_takeover_paysim(rng: random.Random, idx: int) -> dict:
+    # 계정탈취: 큰 금액 TRANSFER, 잔액 변화 의심
+    amount = float(rng.randint(500_000, 3_000_000))
+    old = amount + rng.randint(10_000, 500_000)
+    return {
+        "tx_id": f"ATO-PS-{idx:04d}",
+        "user_id": f"ato_user_{idx % 50}",
+        "type": "TRANSFER",
+        "amount": amount,
+        "oldbalanceOrg": old,
+        "newbalanceOrig": old - amount,
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0,
+        "nameDest": f"C{rng.randint(100000, 999999)}",
+        "step": rng.randint(1, 743),
+    }
+
+
+def _card_testing_paysim(rng: random.Random, idx: int) -> dict:
+    # 카드테스팅: 소액 다건 TRANSFER (PaySim 에선 PAYMENT 가 사기 없음 → TRANSFER 사용)
+    amount = float(rng.randint(1_000, 10_000))
+    old = float(rng.randint(50_000, 500_000))
+    return {
+        "tx_id": f"CT-PS-{idx:04d}",
+        "user_id": f"ct_attacker_{idx % 3}",
+        "type": "TRANSFER",
+        "amount": amount,
+        "oldbalanceOrg": old,
+        "newbalanceOrig": old - amount,
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0,
+        "nameDest": f"C{rng.randint(100000, 999999)}",
+        "step": rng.randint(1, 743),
+    }
+
+
+_BUILDERS_PAYSIM = {
+    "VOICE_PHISHING": _voice_phishing_paysim,
+    "MONEY_MULE": _money_mule_paysim,
+    "ACCOUNT_TAKEOVER": _account_takeover_paysim,
+    "CARD_TESTING": _card_testing_paysim,
+}
+
+
+def generate(scenario: str, count: int = 100, seed: int = 42, *, paysim_raw: bool = False) -> list[dict]:
+    """단일 시나리오의 합성 트랜잭션 ``count`` 건을 결정적으로 생성.
+
+    Args:
+        scenario: 4종 중 하나
+        count: 생성 건수
+        seed: 결정적 합성 시드
+        paysim_raw: True 면 PaySim 원본 컬럼(type, amount, oldbalanceOrg, ...)
+            출력 — 모델까지 통과하는 회귀 검증용. False(기본)는 score 가
+            미리 합성된 evaluate-입력 형식 (기존 W5.5-#1 호환).
+    """
+    if scenario not in SCENARIO_TYPES:
         raise ValueError(f"unknown scenario: {scenario}. expected one of {SCENARIO_TYPES}")
-    rng = random.Random(f"{scenario}:{seed}")
-    builder = _BUILDERS[scenario]
-    return [builder(rng, i) for i in range(count)]
+    rng = random.Random(f"{scenario}:{seed}:{'raw' if paysim_raw else 'eval'}")
+    builders = _BUILDERS_PAYSIM if paysim_raw else _BUILDERS
+    return [builders[scenario](rng, i) for i in range(count)]
 
 
 def generate_all(
     scenarios: Iterable[str] | None = None,
     count: int = 100,
     seed: int = 42,
+    *,
+    paysim_raw: bool = False,
 ) -> dict[str, list[dict]]:
     """여러 시나리오를 한 번에 합성."""
     targets = tuple(scenarios) if scenarios else SCENARIO_TYPES
-    return {s: generate(s, count=count, seed=seed) for s in targets}
+    return {s: generate(s, count=count, seed=seed, paysim_raw=paysim_raw) for s in targets}

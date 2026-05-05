@@ -27,7 +27,11 @@ BETA = 0.3    # Isolation Forest 비중
 # (paysim 분포 검증 결과 -0.80 ~ -0.33, 정상 중앙값 -0.37, 사기 중앙값 -0.53 — W5.5-#4)
 ANOMALY_RANGES: dict[str, tuple[float, float]] = {
     "open": (-0.5, -0.05),
-    "paysim": (-0.70, -0.35),
+    # paysim 풀 데이터 2.77M행(time_split, no_leakage 번들) IF score 분포:
+    #   range [-0.79, -0.34], normal p10/p50/p90 = (-0.52, -0.39, -0.36),
+    #   fraud  p10/p50/p90 = (-0.69, -0.54, -0.39).
+    # LOW = fraud p10, HIGH = normal p90 — 분포 양 끝단 로 설정.
+    "paysim": (-0.69, -0.36),
 }
 
 

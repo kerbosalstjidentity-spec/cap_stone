@@ -357,7 +357,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 
 #### Track 3. 사기 유형 다중분류 (binary → multiclass)
 - **결손**: 현재 `final_action ∈ {PASS, SOFT_REVIEW, REVIEW, BLOCK}` 4단계만 있고 사기 *유형* 라벨이 없음. 사용자에게 "왜 차단되었는가"를 사기 유형으로 설명할 수 없음
-- **추가**: `fraud_type ∈ {VOICE_PHISHING, MONEY_MULE, ACCOUNT_TAKEOVER, CARD_TESTING, AMOUNT_ANOMALY, NORMAL}` 필드를 룰별 매핑으로 도입. 예: `VelocityRule + SplitTransactionRule → CARD_TESTING`, `ForeignIpRule + AmountReviewRule → ACCOUNT_TAKEOVER`. XAI Reason Code(#7)와 결합해 한국어 라벨로 설명 출력
+- **추가**: `fraud_type ∈ {VOICE_PHISHING, MONEY_MULE, ACCOUNT_TAKEOVER, CARD_TESTING, AMOUNT_ANOMALY, BLACKLIST, NORMAL}` 필드를 룰별 매핑으로 도입. (BLACKLIST 는 W5.5-#5 구현 시 운영 라벨로 추가됨) 예: `VelocityRule + SplitTransactionRule → CARD_TESTING`, `ForeignIpRule + AmountReviewRule → ACCOUNT_TAKEOVER`. XAI Reason Code(#7)와 결합해 한국어 라벨로 설명 출력
 - **코드 변경 위치**: [`policy_merge.py`](fraud-service/app/services/policy_merge.py) 에 룰→유형 매핑 테이블, [`routes_fraud.py`](fraud-service/app/api/routes_fraud.py) 응답 스키마에 `fraud_type` 필드 추가
 - **의존성**: Track 1 또는 Track 2 선행 권장 (시나리오 라벨이 있어야 매핑 검증 가능)
 - **작업량**: 3일

@@ -52,14 +52,20 @@ async def mirror_audit_to_fraud(entry: dict) -> bool:
 
 
 async def fetch_fraud_score(features: dict) -> dict | None:
-    """fraud-service에서 ML 스코어링 수행.
+    """fraud-service 에서 ML 스코어링 수행.
 
     Args:
-        features: V1~V30 dict
+        features: 운영 모델(domain) 에 따라 다름.
+            - paysim (W5.5-#8 이후 기본): {type, amount, oldbalanceOrg,
+              newbalanceOrig, oldbalanceDest, newbalanceDest, nameDest, step}
+            - open (레거시): V1~V30 PCA 익명 피처
 
     Returns:
-        {fraud_probability, xgb_probability, anomaly_score, reason_code}
-        또는 연결 실패 시 None
+        paysim: {fraud_probability, rf_probability, anomaly_score,
+                 anomaly_normalized, reason_code, domain="paysim"}
+        open  : {fraud_probability, xgb_probability, anomaly_score,
+                 reason_code}
+        연결 실패 시 None.
     """
     url = f"{settings.FRAUD_SERVICE_URL}/v1/score"
     try:

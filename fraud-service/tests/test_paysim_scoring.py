@@ -56,6 +56,8 @@ def test_build_paysim_row_merchant_dest():
 
 def test_normalize_anomaly_paysim_range():
     low, high = ANOMALY_RANGES["paysim"]
+    # 풀 데이터 측정 기반 (-0.69, -0.36) — fraud p10 / normal p90
+    assert low == -0.69 and high == -0.36
     assert _normalize_anomaly(high, domain="paysim") == 0.0  # 정상 끝
     assert _normalize_anomaly(low, domain="paysim") == 1.0   # 이상 끝
     assert 0.0 < _normalize_anomaly((low + high) / 2, domain="paysim") < 1.0
