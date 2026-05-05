@@ -120,7 +120,7 @@
 **상세 명세**: [`FDS_ROADMAP.md § W6.5`](FDS_ROADMAP.md).
 
 - [x] **W6.5-#1** 송금 그래프 store (Redis sorted set, sender→receiver 엣지 + TTL) — `12-Track 4` — [상/인프라] — ✅ d72a653 (2026-05-05)
-- [x] **W6.5-#2** 그래프 피처 추출기 (`graph_features.py`: `dest_first_seen`, `fan_in_count`, `pass_through_ratio`) — `12-Track 4` — [상/ML] — ✅ tbd (2026-05-05)
+- [x] **W6.5-#2** 그래프 피처 추출기 (`graph_features.py`: `dest_first_seen`, `fan_in_count`, `pass_through_ratio`) — `12-Track 4` — [상/ML] — ✅ cd12b3d (2026-05-05)
 - [ ] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드]
 - [ ] **W6.5-#4** 다단계 자금세탁 룰 (`LayeringRule`) — `13-Track A` 부분 — [중/백엔드]
 - [ ] **W6.5-#5** 비용 가중 BLOCK 임계값 (`expected_loss = p × amount`, `COST_THRESHOLD_KRW` env) — 신규 — [중/ML]
@@ -263,4 +263,4 @@
 | 2026-05-05 | W5.5-#8 | 운영 모델 PaySim 전환 (시간순 split + leakage ablation + ingest wiring + MODEL_PATH 기본 전환) | ecc044e |
 | 2026-05-05 | W5.5-audit | Medium 갭 정리: ANOMALY_RANGES 풀 데이터 재측정·scenario paysim_raw 모드+모델 회귀·docstring·BLACKLIST 명세 | 89c42e8 |
 | 2026-05-05 | W6.5-#1 | 송금 그래프 store (Redis sorted set 양방향 인덱스 + in-memory 폴백) + evaluate/Kafka 자동 적재 | d72a653 |
-| 2026-05-05 | W6.5-#2 | 그래프 피처 추출기 6종 (first_seen·velocity·fan_in·pass_through_ratio 등) + evaluate 응답 노출 | tbd |
+| 2026-05-05 | W6.5-#2 | 그래프 피처 추출기 6종 (first_seen·velocity·fan_in·pass_through_ratio 등) + evaluate 응답 노출 | cd12b3d |
