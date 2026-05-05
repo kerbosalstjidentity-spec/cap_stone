@@ -360,6 +360,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **의존성**: Track 1 또는 Track 2 선행 권장 (시나리오 라벨이 있어야 매핑 검증 가능)
 - **작업량**: 3일
 - (✅ ROADMAP W5.5-#5 — `policy_merge.classify_fraud_type(rule_ids)` 매핑 함수 + `FRAUD_TYPES`/`FRAUD_TYPE_LABELS_KO` 7종 라벨. 우선순위: BLACKLIST > CARD_TESTING(SPLIT_TXN/velocity-only) > ACCOUNT_TAKEOVER(FOREIGN_IP/DEVICE) > MONEY_MULE(velocity+amount) > VOICE_PHISHING(TIME_RISK+amount) > AMOUNT_ANOMALY > NORMAL. `routes_fraud.py /v1/fraud/evaluate` 응답에 `fraud_type` + `fraud_type_label` 필드 노출)
+- (✅ ROADMAP W5.5-#6 — `train_paysim.py` 에 `--smote` / `--smote-k-neighbors` 옵션 추가. SMOTE 활성 시 train fold 사기를 정상과 1:1 로 오버샘플 후 RF 학습(class_weight 자동 비활성). 300K 샘플 비교: PR-AUC 0.99586(class_weight=balanced) vs 0.99632(SMOTE) — PaySim 신호가 강해 실효 차이 작지만 SMOTE FPR 약간 증가(1→10). 메트릭 JSON 두 모드 모두 트래킹)
 
 #### Track 4. 송금 그래프 피처
 - **결손**: 단일 거래 단위 평가만 있고 거래 *네트워크* 단위 평가 없음. 머니뮬 hub-and-spoke 패턴, 신규 수취인 비율, 1차 이웃 사기율 같은 그래프 시그널 부재

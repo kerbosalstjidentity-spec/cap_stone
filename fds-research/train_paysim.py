@@ -165,7 +165,18 @@ def main() -> None:
         "--class-weight",
         choices=["balanced", "balanced_subsample", "none"],
         default="balanced_subsample",
-        help="RF class_weight 옵션 — none 은 SMOTE 단계(W5.5-#6)에서 사용",
+        help="RF class_weight 옵션. --smote 와 동시 사용 시 자동으로 'none' 으로 전환",
+    )
+    ap.add_argument(
+        "--smote",
+        action="store_true",
+        help="W5.5-#6: SMOTE 오버샘플링으로 학습 데이터 균형 (PaySim 사기율 0.13%%)",
+    )
+    ap.add_argument(
+        "--smote-k-neighbors",
+        type=int,
+        default=5,
+        help="SMOTE k_neighbors (기본 5)",
     )
     args = ap.parse_args()
 
@@ -197,11 +208,22 @@ def main() -> None:
     X_tr_h = X_tr.copy()
     X_tr_h["if_suspicion"] = if_suspicion_tr.astype("float32")
 
-    print("[paysim-train] fitting RandomForest...")
+    if args.smote:
+        from imblearn.over_sampling import SMOTE
+
+        before = int(np.sum(y_tr == 1)), int(np.sum(y_tr == 0))
+        smote = SMOTE(random_state=RANDOM_STATE, k_neighbors=args.smote_k_neighbors)
+        X_tr_h_arr, y_tr = smote.fit_resample(X_tr_h.values, y_tr)
+        X_tr_h = pd.DataFrame(X_tr_h_arr, columns=X_tr_h.columns)
+        after = int(np.sum(y_tr == 1)), int(np.sum(y_tr == 0))
+        print(f"[paysim-train] SMOTE applied: fraud {before[0]:,}→{after[0]:,}, normal {before[1]:,}→{after[1]:,}")
+
+    cw = None if (args.class_weight == "none" or args.smote) else args.class_weight
+    print(f"[paysim-train] fitting RandomForest (class_weight={cw}, smote={args.smote})...")
     rf_model = RandomForestClassifier(
         n_estimators=args.rf_estimators,
         max_depth=None,
-        class_weight=None if args.class_weight == "none" else args.class_weight,
+        class_weight=cw,
         random_state=RANDOM_STATE,
         n_jobs=-1,
     )
@@ -210,7 +232,8 @@ def main() -> None:
     metrics = evaluate_holdout(
         if_model, rf_model, X_ho, y_ho, args.block_min, args.review_min
     )
-    metrics["class_weight"] = args.class_weight
+    metrics["class_weight"] = "none" if args.smote else args.class_weight
+    metrics["smote"] = bool(args.smote)
     metrics["if_contamination"] = args.if_contamination
     metrics["rf_estimators"] = args.rf_estimators
     print(json.dumps(metrics, indent=2, ensure_ascii=False))
