@@ -1,0 +1,21 @@
+{
+  "n_holdout": 554082,
+  "n_fraud_holdout": 1643,
+  "fraud_rate_holdout": 0.002965265069069199,
+  "roc_auc": 0.9990855904304065,
+  "pr_auc": 0.9980774790199903,
+  "block_min": 0.95,
+  "review_min": 0.35,
+  "block_count": 1618,
+  "queue_count": 1638,
+  "recall_in_queue": 0.996956786366403,
+  "fpr_in_queue": 0.0,
+  "confusion_queue": {
+    "tp": 1638,
+    "fp": 0,
+    "fn_outside_queue": 5
+  },
+  "class_weight": "balanced_subsample",
+  "if_contamination": 0.001,
+  "rf_estimators": 200
+}
