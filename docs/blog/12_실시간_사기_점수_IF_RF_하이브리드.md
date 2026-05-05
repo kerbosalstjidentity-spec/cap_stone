@@ -359,6 +359,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **코드 변경 위치**: [`policy_merge.py`](fraud-service/app/services/policy_merge.py) 에 룰→유형 매핑 테이블, [`routes_fraud.py`](fraud-service/app/api/routes_fraud.py) 응답 스키마에 `fraud_type` 필드 추가
 - **의존성**: Track 1 또는 Track 2 선행 권장 (시나리오 라벨이 있어야 매핑 검증 가능)
 - **작업량**: 3일
+- (✅ ROADMAP W5.5-#5 — `policy_merge.classify_fraud_type(rule_ids)` 매핑 함수 + `FRAUD_TYPES`/`FRAUD_TYPE_LABELS_KO` 7종 라벨. 우선순위: BLACKLIST > CARD_TESTING(SPLIT_TXN/velocity-only) > ACCOUNT_TAKEOVER(FOREIGN_IP/DEVICE) > MONEY_MULE(velocity+amount) > VOICE_PHISHING(TIME_RISK+amount) > AMOUNT_ANOMALY > NORMAL. `routes_fraud.py /v1/fraud/evaluate` 응답에 `fraud_type` + `fraud_type_label` 필드 노출)
 
 #### Track 4. 송금 그래프 피처
 - **결손**: 단일 거래 단위 평가만 있고 거래 *네트워크* 단위 평가 없음. 머니뮬 hub-and-spoke 패턴, 신규 수취인 비율, 1차 이웃 사기율 같은 그래프 시그널 부재

@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.services.fraud_service import FraudServiceManager, generate_risk_leakage_report
+from app.services.policy_merge import classify_fraud_type, fraud_type_label_ko
 from app.services.stats_collector import stats_collector
 from app.services import audit_logger
 from app.services.blockchain_audit import audit_chain
@@ -58,6 +59,8 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
     step_up = manager.trigger_step_up_auth()
 
     triggered = rule_id.split(",") if rule_id else []
+    # W5.5-#5: 룰 발동 패턴 → 사기 유형 라벨
+    fraud_type = classify_fraud_type(triggered)
     stats_collector.record(tx_data.get("tx_id", ""), final_action, triggered,
                            float(tx_data.get("score", 0)), float(tx_data.get("amount", 0)))
     audit_logger.write(
@@ -95,6 +98,8 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
         "rule_action": rule_action,
         "rule_id": rule_id or None,
         "final_action": final_action,
+        "fraud_type": fraud_type,
+        "fraud_type_label": fraud_type_label_ko(fraud_type),
         "admin_routing": manager.get_admin_routing(),
         "user_message": manager.get_user_trust_message(),
         "step_up_auth": step_up,

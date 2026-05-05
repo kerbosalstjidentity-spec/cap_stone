@@ -21,7 +21,7 @@
 | W2 | 챌린지·세션 외부화 (P0) | 7 | 7 | 100% |
 | W3 | 감사 체인 영속화 (P0) | 7 | 7 | 100% |
 | W4 | 인프라 활성화 (P1) | 7 | 7 | 100% |
-| **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **7** | **4** | **57%** |
+| **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **7** | **5** | **71%** |
 | **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **0** | **0%** |
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **0** | **0%** |
 | W5 | ML 정확성 (P1) | 8 | 0 | 0% |
@@ -30,7 +30,7 @@
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 2 | 13% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **102** | **34** | **33%** |
+| **합계** | | **102** | **35** | **34%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -103,7 +103,7 @@
 - [x] **W5.5-#2** PaySim 데이터셋 다운로드 + 로더 (`make paysim-download`) — `12-Track 1 전제` — [하/인프라] — ✅ be5adc2 (2026-05-05)
 - [x] **W5.5-#3** PaySim 학습 스크립트 (`fds-research/train_paysim.py`) — `12-Track 1` — [상/ML] — ✅ 29663c3 (2026-05-05)
 - [x] **W5.5-#4** fraud-service 입력 스키마 PaySim 정합화 + `_normalize_anomaly` 재튜닝 — `12-Track 1` — [중/ML] — ✅ db61630 (2026-05-05)
-- [ ] **W5.5-#5** `fraud_type` 다중분류 라벨 (룰→유형 매핑) — `12-Track 3` — [중/ML]
+- [x] **W5.5-#5** `fraud_type` 다중분류 라벨 (룰→유형 매핑) — `12-Track 3` — [중/ML] — ✅ tbd (2026-05-05)
 - [ ] **W5.5-#6** 불균형 데이터 처리 (SMOTE 또는 class_weight, PaySim 사기율 0.13%) — 신규 — [중/ML]
 - [ ] **W5.5-#7** 시나리오별 검출률 회귀 테스트 (목표 ≥80%) — `12-Track 2 확장` — [중/테스트]
 
@@ -252,3 +252,4 @@
 | 2026-05-05 | W5.5-#2 | PaySim CSV 배치(6.36M행) + scripts/paysim/load.py 표준 로더 + Makefile + .gitignore | be5adc2 |
 | 2026-05-05 | W5.5-#3 | PaySim IF+RF 학습 스크립트 + 번들(2.77M행, AUC 0.9991/PR 0.9981/리콜 99.7%) | 29663c3 |
 | 2026-05-05 | W5.5-#4 | fraud-service PaySim 스키마 정합화 (features/ensemble/routes_score 도메인 분기 + ANOMALY_RANGES 재튜닝) | db61630 |
+| 2026-05-05 | W5.5-#5 | classify_fraud_type 7종 라벨 매핑 + /v1/fraud/evaluate 응답 fraud_type/fraud_type_label 필드 | tbd |
