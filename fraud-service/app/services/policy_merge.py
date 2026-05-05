@@ -88,8 +88,8 @@ def classify_fraud_type(rule_ids: list[str] | str | None) -> str:
 
     if "BLACKLIST" in s:
         return "BLACKLIST"
-    # W6.5-#3: 그래프 기반 머니뮬 룰이 발동하면 최우선 라벨
-    if "MONEY_MULE_HUB" in s:
+    # W6.5-#3/#4: 그래프 기반 머니뮬·layering 룰이 발동하면 최우선 라벨
+    if "MONEY_MULE_HUB" in s or "LAYERING_CHAIN" in s:
         return "MONEY_MULE"
     if "SPLIT_TXN" in s:
         return "CARD_TESTING"

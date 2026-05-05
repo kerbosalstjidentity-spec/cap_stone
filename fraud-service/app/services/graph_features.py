@@ -80,6 +80,22 @@ def outbound_amount(node: str, window_minutes: int = WINDOW_FAN_IN) -> float:
     return graph_store.outbound_amount(node, window_minutes=window_minutes) if node else 0.0
 
 
+def sender_recent_inbound_min_ago(sender: str, window_minutes: int = WINDOW_FAN_IN) -> float:
+    """sender 가 가장 최근에 받은 inbound 의 경과 분 (없으면 매우 큰 값).
+
+    LayeringRule(W6.5-#4) 입력 — "직전 받은 송금 후 빠르게 다시 보내는"
+    체인 패턴 검출용. None 이면 sentinel 9999.0 으로 반환해 "직전 inbound
+    없음=피상이 안 잡힘" 를 명확히.
+    """
+    if not sender:
+        return 9999.0
+    edges = graph_store.inbound(sender, window_minutes=window_minutes)
+    if not edges:
+        return 9999.0
+    latest_ts = max(e.ts for e in edges)
+    return round((time.time() - latest_ts) / 60.0, 2)
+
+
 def extract_all(tx: Mapping[str, Any]) -> dict[str, Any]:
     """단건 거래 dict → 그래프 피처 dict.
 
@@ -108,8 +124,9 @@ def extract_all(tx: Mapping[str, Any]) -> dict[str, Any]:
         "fan_in_count": fan_in_count(receiver),
         "pass_through_ratio": pass_through_ratio(receiver),
         "inbound_amount": inbound_amount(receiver),
-        # sender 관점 (mule 검출용)
+        # sender 관점 (mule / layering 검출용)
         "sender_fan_in_count": fan_in_count(sender),
         "sender_pass_through_ratio": pass_through_ratio(sender),
         "sender_outbound_amount": outbound_amount(sender),
+        "sender_recent_inbound_min_ago": sender_recent_inbound_min_ago(sender),
     }

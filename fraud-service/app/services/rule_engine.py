@@ -278,6 +278,53 @@ class MoneyMuleRule(Rule):
         return None
 
 
+class LayeringRule(Rule):
+    """다단계 자금세탁 체인 (W6.5-#4).
+
+    A→B→C 형태로 짧은 시간 내에 받은 만큼 거의 그대로 통과시키는 패턴.
+    머니뮬과의 차이점: hub 가 아니라 *체인* — fan_in 이 작아도 (1~2)
+    inbound 직후(``≤recent_inbound_threshold_min``) outbound 가 나가는
+    "잔액 통과" 행위를 잡는다.
+
+    조건: sender_pass_through_ratio ≥ ratio_threshold AND
+          sender_recent_inbound_min_ago ≤ recent_inbound_threshold_min AND
+          sender_fan_in_count < hub_fan_in_threshold (mule 룰과 분리)
+    Action: REVIEW (mule 룰의 BLOCK 보다 약하게 — 체인 한 단계만 보고
+    판단하는 데 따른 보수성)
+    """
+    rule_id = "LAYERING_CHAIN"
+
+    def __init__(
+        self,
+        ratio_threshold: float = 0.9,
+        recent_inbound_threshold_min: float = 10.0,
+        hub_fan_in_threshold: int = 3,
+    ) -> None:
+        self.ratio_threshold = ratio_threshold
+        self.recent_inbound_threshold_min = recent_inbound_threshold_min
+        self.hub_fan_in_threshold = hub_fan_in_threshold
+
+    def evaluate(self, tx, profile):
+        if not self.enabled:
+            return None
+        feats = tx.get("graph_features") or {}
+        ratio = float(feats.get("sender_pass_through_ratio", 0.0) or 0.0)
+        recent_min = float(feats.get("sender_recent_inbound_min_ago", 9999.0) or 9999.0)
+        fan_in = int(feats.get("sender_fan_in_count", 0) or 0)
+        if (
+            ratio >= self.ratio_threshold
+            and recent_min <= self.recent_inbound_threshold_min
+            and fan_in < self.hub_fan_in_threshold
+        ):
+            return RuleResult(
+                self.rule_id,
+                "REVIEW",
+                f"layering chain: pass_through={ratio:.2f}≥{self.ratio_threshold}, "
+                f"inbound {recent_min:.1f}min ago, fan_in={fan_in}<{self.hub_fan_in_threshold}",
+            )
+        return None
+
+
 class NewMerchantRule(Rule):
     """처음 거래하는 merchant AND 금액 ≥ threshold → SOFT_REVIEW."""
     rule_id = "NEW_MERCHANT"
@@ -314,6 +361,7 @@ class RuleEngine:
             BlacklistRule(),           # 최우선
             DeviceFingerprintRule(),
             MoneyMuleRule(),           # W6.5-#3 — graph_features 기반
+            LayeringRule(),            # W6.5-#4 — 체인 패턴
             AmountBlockRule(),
             AmountReviewRule(),
             TimeRiskRule(),
