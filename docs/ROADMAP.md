@@ -119,7 +119,7 @@
 목표: 단일 거래 평가 → 송금 네트워크·금액 가중 평가. 머니뮬 검출.
 **상세 명세**: [`FDS_ROADMAP.md § W6.5`](FDS_ROADMAP.md).
 
-- [x] **W6.5-#1** 송금 그래프 store (Redis sorted set, sender→receiver 엣지 + TTL) — `12-Track 4` — [상/인프라] — ✅ tbd (2026-05-05)
+- [x] **W6.5-#1** 송금 그래프 store (Redis sorted set, sender→receiver 엣지 + TTL) — `12-Track 4` — [상/인프라] — ✅ d72a653 (2026-05-05)
 - [ ] **W6.5-#2** 그래프 피처 추출기 (`graph_features.py`: `dest_first_seen`, `fan_in_count`, `pass_through_ratio`) — `12-Track 4` — [상/ML]
 - [ ] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드]
 - [ ] **W6.5-#4** 다단계 자금세탁 룰 (`LayeringRule`) — `13-Track A` 부분 — [중/백엔드]
@@ -262,4 +262,4 @@
 | 2026-05-05 | W5.5-#7 | 시나리오별 ≥80% 검출률 + dominant fraud_type ≥50% 강건 회귀 테스트 9개 (profile_store velocity 시드) | f9988f1 |
 | 2026-05-05 | W5.5-#8 | 운영 모델 PaySim 전환 (시간순 split + leakage ablation + ingest wiring + MODEL_PATH 기본 전환) | ecc044e |
 | 2026-05-05 | W5.5-audit | Medium 갭 정리: ANOMALY_RANGES 풀 데이터 재측정·scenario paysim_raw 모드+모델 회귀·docstring·BLACKLIST 명세 | 89c42e8 |
-| 2026-05-05 | W6.5-#1 | 송금 그래프 store (Redis sorted set 양방향 인덱스 + in-memory 폴백) + evaluate/Kafka 자동 적재 | tbd |
+| 2026-05-05 | W6.5-#1 | 송금 그래프 store (Redis sorted set 양방향 인덱스 + in-memory 폴백) + evaluate/Kafka 자동 적재 | d72a653 |
