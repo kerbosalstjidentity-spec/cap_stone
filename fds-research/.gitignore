@@ -14,6 +14,7 @@ env/
 data/creditcard.csv
 data/open/*.csv
 data/ieee-cis/*.csv
+data/paysim.csv
 
 # 로컬 제출/재현 산출물(선택: 추적하고 싶으면 아래 줄 제거)
 # outputs/

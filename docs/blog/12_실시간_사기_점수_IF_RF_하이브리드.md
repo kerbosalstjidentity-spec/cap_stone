@@ -341,6 +341,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **코드 변경 위치**: [`fds-research/train_export_rf.py`](fds-research/train_export_rf.py) 데이터 로더 + feature 컬럼, [`fraud-service/app/scoring/features.py`](fraud-service/app/scoring/features.py) 입력 스키마, [`ensemble.py`](fraud-service/app/scoring/ensemble.py) 의 `_normalize_anomaly` 상수 재튜닝
 - **의존성**: Track 3·4의 전제 조건. 이게 먼저 들어가야 송금 사기·그래프 피처가 의미를 가짐
 - **작업량**: 1주
+- (✅ ROADMAP W5.5-#2 — `fds-research/data/paysim.csv` 배치(6.36M행, 사기율 0.129%) + `scripts/paysim/load.py` 표준 로더 + `make paysim-download` 타겟 + `.gitignore` 등록. 학습 스크립트는 W5.5-#3 에서 합류)
 
 #### Track 2. 사기 시나리오 시뮬레이터 + 검출률 측정
 - **결손**: "어떤 사기 유형을 몇 % 잡는가" 에 대한 정량 답변 부재. 룰 엔진 10개가 어떤 시나리오를 커버하는지 측정 체계 없음
