@@ -73,9 +73,9 @@ def test_route_rejects_unknown_scenario():
 
 
 def test_voice_phishing_detection_smoke():
-    """VOICE_PHISHING 은 score 0.7+ ∧ amount ≥5M 으로 합성하므로 거의 100% BLOCK 기대.
+    """VOICE_PHISHING 은 score 0.7+ ∧ amount ≥5M 으로 합성 — 100% BLOCK 기대.
 
-    임계값 0.5 는 W5.5-#1 단계의 스모크 컷오프 — 본격 ≥80% 회귀는 W5.5-#7.
+    W5.5-#7 강건 회귀에서 ≥80% 강한 floor + dominant fraud_type 라벨까지 검증.
     """
     r = client.post(
         "/v1/scenario/run",
@@ -83,4 +83,4 @@ def test_voice_phishing_detection_smoke():
     )
     assert r.status_code == 200
     rate = r.json()["results"]["VOICE_PHISHING"]["detection_rate"]
-    assert rate >= 0.5, f"VOICE_PHISHING detection_rate={rate} below smoke floor 0.5"
+    assert rate >= 0.8, f"VOICE_PHISHING detection_rate={rate} below floor 0.8"

@@ -352,6 +352,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **코드 변경 위치**: 신규 파일 2개 (`scenario_generator.py`, `routes_scenario.py`) + [`main.py`](fraud-service/app/main.py) 라우터 1줄 등록
 - **작업량**: 4~5시간 (반나절). 발표 직전 투입 가능한 유일한 트랙
 - (✅ ROADMAP W5.5-#1 — `scenario_generator.py` 4종 합성기 + `POST /v1/scenario/run` 검출률 집계 라우터 + 결정적 시드. 100건/시나리오 스모크에서 4종 모두 BLOCK/REVIEW=100%, ≥80% 강건 회귀는 W5.5-#7)
+- (✅ ROADMAP W5.5-#7 — `tests/test_scenario_regression.py` 시나리오별 ≥80% 검출률 + dominant fraud_type ≥50% 강건 회귀 테스트 9개. velocity 의존 룰 발동을 위해 `profile_store` 시드(머니뮬·카드테스팅 user_id 6~8건). 결과: 4종 모두 100% 검출, fraud_type 적중률 VOICE_PHISHING 75%·MONEY_MULE/ACCOUNT_TAKEOVER/CARD_TESTING 100%)
 
 #### Track 3. 사기 유형 다중분류 (binary → multiclass)
 - **결손**: 현재 `final_action ∈ {PASS, SOFT_REVIEW, REVIEW, BLOCK}` 4단계만 있고 사기 *유형* 라벨이 없음. 사용자에게 "왜 차단되었는가"를 사기 유형으로 설명할 수 없음
