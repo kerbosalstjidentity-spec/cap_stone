@@ -370,6 +370,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **의존성**: Track 1 (PaySim 도입) **필수** — Kaggle creditcard.csv에는 송금자/수취자 컬럼 자체가 없어 그래프 구성 불가
 - **작업량**: 1~2주
 - (✅ ROADMAP W6.5-#1 — `app/services/graph_store.py` 송금 그래프 store 구현. Redis sorted set 양방향 인덱스(`graph:inbound:{receiver}`, `graph:outbound:{sender}`) + 윈도우 TTL + in-memory deque 폴백 (device_store 패턴). `evaluate` flow 와 Kafka consumer 양쪽에서 평가 직후 자동 적재. `FraudEvaluateRequest` 에 `receiver_id` / `nameDest` 필드 추가. `inbound/outbound/fan_in_count/inbound_amount/first_seen_ts` API. W6.5-#2 graph_features 가 즉시 활용 가능)
+- (✅ ROADMAP W6.5-#2 — `app/services/graph_features.py` 그래프 피처 추출기. 6종 피처 — `dest_first_seen_within_24h`, `dest_inbound_velocity_1h`, `fan_in_count`, `pass_through_ratio`, `inbound_amount`, `sender_outbound_amount`. `_evaluate_one` 가 store 적재 *전* 시점에서 호출 → 과거 윈도우 컨텍스트 보장. tx_data 와 응답 양쪽에 `graph_features` 노출 — W6.5-#3 MoneyMuleRule, W6.5-#4 LayeringRule 의 입력)
 
 #### 우선순위 및 일정
 | 시점 | 트랙 | 비고 |

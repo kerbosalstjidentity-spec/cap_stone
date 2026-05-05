@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.services.fraud_service import FraudServiceManager, generate_risk_leakage_report
+from app.services.graph_features import extract_all as extract_graph_features
 from app.services.graph_store import graph_store
 from app.services.policy_merge import classify_fraud_type, fraud_type_label_ko
 from app.services.profile_store import profile_store
@@ -56,6 +57,12 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
         timestamp=tx_data.get("signal_timestamp") or None,
         server_context=server_ctx,
     )
+    # W6.5-#2: 그래프 피처 — store 적재 *전* 시점에서 과거 컨텍스트 계산.
+    # 본 평가의 결과로 사용은 W6.5-#3/#4 (MoneyMuleRule, LayeringRule) 에서.
+    graph_feats = extract_graph_features(tx_data)
+    # tx_data 에 합류해 룰엔진이 활용할 수 있도록 함 (룰은 tx dict 만 받음)
+    tx_data = {**tx_data, "graph_features": graph_feats}
+
     manager = FraudServiceManager(tx_data)
     model_action = manager.get_model_action()
     rule_action, rule_id = manager.get_rule_action()
@@ -138,6 +145,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
             "risk_score": signal_result.risk_score,
             "flags": signal_result.flags,
         } if signal_result.flags else None,
+        "graph_features": graph_feats,
     }
 
 
