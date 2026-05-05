@@ -22,7 +22,7 @@
 | W3 | 감사 체인 영속화 (P0) | 7 | 7 | 100% |
 | W4 | 인프라 활성화 (P1) | 7 | 7 | 100% |
 | **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **8** | **8** | **100%** |
-| **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **5** | **71%** |
+| **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **6** | **86%** |
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **0** | **0%** |
 | W5 | ML 정확성 (P1) | 8 | 0 | 0% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
@@ -30,7 +30,7 @@
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 2 | 13% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **43** | **42%** |
+| **합계** | | **103** | **44** | **43%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -124,7 +124,7 @@
 - [x] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드] — ✅ be11664 (2026-05-05)
 - [x] **W6.5-#4** 다단계 자금세탁 룰 (`LayeringRule`) — `13-Track A` 부분 — [중/백엔드] — ✅ c2e91f5 (2026-05-05)
 - [x] **W6.5-#5** 비용 가중 BLOCK 임계값 (`expected_loss = p × amount`, `COST_THRESHOLD_KRW` env) — 신규 — [중/ML] — ✅ bbbc717 (2026-05-05)
-- [ ] **W6.5-#6** 유형별 임계값 차등 (머니뮬 0.5, 카드테스팅 0.7) — 신규 — [하/백엔드]
+- [x] **W6.5-#6** 유형별 임계값 차등 (머니뮬 0.5, 카드테스팅 0.7) — 신규 — [하/백엔드] — ✅ tbd (2026-05-05)
 - [ ] **W6.5-#7** 그래프 + 비용 통합 검출률 측정 (머니뮬 ≥90% 목표) — 신규 — [중/테스트]
 
 ---
@@ -267,3 +267,4 @@
 | 2026-05-05 | W6.5-#3 | MoneyMuleRule (sender_fan_in≥3 ∧ pass_through≥0.8 → BLOCK) + classify_fraud_type 매핑 + sender 관점 피처 2종 | be11664 |
 | 2026-05-05 | W6.5-#4 | LayeringRule (체인 패턴, fan_in<3 ∧ pass_through≥0.9 ∧ recent_inbound≤10min → REVIEW) + sender_recent_inbound_min_ago 피처 | c2e91f5 |
 | 2026-05-05 | W6.5-#5 | 비용 가중 BLOCK (expected_loss = score×amount, COST_BLOCK_KRW/COST_REVIEW_KRW env) + evaluate 응답에 expected_loss | bbbc717 |
+| 2026-05-05 | W6.5-#6 | fraud_type 별 차등 임계값 (mule 0.5/CT 0.7/VP 0.6/ATO 0.65/anomaly 0.85) + apply 헬퍼 | tbd |

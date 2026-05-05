@@ -109,3 +109,41 @@ def classify_fraud_type(rule_ids: list[str] | str | None) -> str:
 def fraud_type_label_ko(fraud_type: str) -> str:
     """``fraud_type`` 키 → 한국어 라벨."""
     return FRAUD_TYPE_LABELS_KO.get(fraud_type, fraud_type)
+
+
+# ---------------------------------------------------------------------------
+# W6.5-#6 — fraud_type 별 차등 임계값
+# ---------------------------------------------------------------------------
+
+# fraud_type 이 식별된 거래에서 모델 score 가 이 임계 이상이면 BLOCK 으로 승격.
+# 룰 시그널이 강한 유형(MONEY_MULE/CARD_TESTING)은 낮은 score 에서도 신뢰 →
+# false-negative 감소. 룰 시그널이 약한 유형(AMOUNT_ANOMALY)은 보수적.
+# NORMAL 은 1.01 (절대 트리거 안 됨, 안전 default).
+FRAUD_TYPE_BLOCK_THRESHOLDS: dict[str, float] = {
+    "BLACKLIST":         0.0,    # 블랙리스트 일치 즉시 BLOCK
+    "MONEY_MULE":        0.5,    # 그래프 시그널 강함
+    "CARD_TESTING":      0.7,    # 룰 시그널 강함
+    "VOICE_PHISHING":    0.6,    # 야간+고액 시그널
+    "ACCOUNT_TAKEOVER":  0.65,   # 해외IP/디바이스 시그널
+    "AMOUNT_ANOMALY":    0.85,   # 금액만 — 보수적
+    "NORMAL":            1.01,   # 룰 미발동 — 차등 적용 안 함
+}
+
+
+def apply_fraud_type_threshold(action: str, score: float, fraud_type: str) -> str:
+    """W6.5-#6 — fraud_type 식별된 거래에서 score 가 유형별 임계 이상이면 BLOCK.
+
+    이미 BLOCK 이거나 NORMAL 유형이면 변화 없음. REVIEW/SOFT_REVIEW/PASS 가
+    임계 통과 시 BLOCK 으로 승격.
+
+    Args:
+        action: 현재 final_action (score+rule+cost merge 결과)
+        score: 모델 score (0~1)
+        fraud_type: classify_fraud_type 결과
+    """
+    if action == "BLOCK":
+        return action
+    threshold = FRAUD_TYPE_BLOCK_THRESHOLDS.get(fraud_type, 1.01)
+    if score >= threshold:
+        return "BLOCK"
+    return action

@@ -8,7 +8,11 @@ from pydantic import BaseModel, Field
 from app.services.fraud_service import FraudServiceManager, generate_risk_leakage_report
 from app.services.graph_features import extract_all as extract_graph_features
 from app.services.graph_store import graph_store
-from app.services.policy_merge import classify_fraud_type, fraud_type_label_ko
+from app.services.policy_merge import (
+    apply_fraud_type_threshold,
+    classify_fraud_type,
+    fraud_type_label_ko,
+)
 from app.services.profile_store import profile_store
 from app.services.stats_collector import stats_collector
 from app.services import audit_logger
@@ -72,6 +76,14 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
     triggered = rule_id.split(",") if rule_id else []
     # W5.5-#5: 룰 발동 패턴 → 사기 유형 라벨
     fraud_type = classify_fraud_type(triggered)
+
+    # W6.5-#6: fraud_type 별 차등 임계값 적용 — 룰 시그널 강한 유형은 낮은
+    # score 에서도 BLOCK 으로 승격 (false-negative 감소).
+    final_action = apply_fraud_type_threshold(
+        final_action,
+        score=float(tx_data.get("score", 0.0) or 0.0),
+        fraud_type=fraud_type,
+    )
 
     # W5.5-#8: 평가 직후 profile_store 갱신 — velocity/avg_amount 룰이 다음 거래에서
     # 발동할 수 있도록 한다. 이전엔 외부 호출자가 별도로 /v1/profile/ingest 를
