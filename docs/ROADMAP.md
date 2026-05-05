@@ -104,7 +104,7 @@
 - [x] **W5.5-#3** PaySim 학습 스크립트 (`fds-research/train_paysim.py`) — `12-Track 1` — [상/ML] — ✅ 29663c3 (2026-05-05)
 - [x] **W5.5-#4** fraud-service 입력 스키마 PaySim 정합화 + `_normalize_anomaly` 재튜닝 — `12-Track 1` — [중/ML] — ✅ db61630 (2026-05-05)
 - [x] **W5.5-#5** `fraud_type` 다중분류 라벨 (룰→유형 매핑) — `12-Track 3` — [중/ML] — ✅ f3ac83f (2026-05-05)
-- [x] **W5.5-#6** 불균형 데이터 처리 (SMOTE 또는 class_weight, PaySim 사기율 0.13%) — 신규 — [중/ML] — ✅ tbd (2026-05-05)
+- [x] **W5.5-#6** 불균형 데이터 처리 (SMOTE 또는 class_weight, PaySim 사기율 0.13%) — 신규 — [중/ML] — ✅ 44a560e (2026-05-05)
 - [ ] **W5.5-#7** 시나리오별 검출률 회귀 테스트 (목표 ≥80%) — `12-Track 2 확장` — [중/테스트]
 
 ---
@@ -253,4 +253,4 @@
 | 2026-05-05 | W5.5-#3 | PaySim IF+RF 학습 스크립트 + 번들(2.77M행, AUC 0.9991/PR 0.9981/리콜 99.7%) | 29663c3 |
 | 2026-05-05 | W5.5-#4 | fraud-service PaySim 스키마 정합화 (features/ensemble/routes_score 도메인 분기 + ANOMALY_RANGES 재튜닝) | db61630 |
 | 2026-05-05 | W5.5-#5 | classify_fraud_type 7종 라벨 매핑 + /v1/fraud/evaluate 응답 fraud_type/fraud_type_label 필드 | f3ac83f |
-| 2026-05-05 | W5.5-#6 | train_paysim.py --smote / --smote-k-neighbors 옵션 + class_weight vs SMOTE 비교 메트릭 | tbd |
+| 2026-05-05 | W5.5-#6 | train_paysim.py --smote / --smote-k-neighbors 옵션 + class_weight vs SMOTE 비교 메트릭 | 44a560e |
