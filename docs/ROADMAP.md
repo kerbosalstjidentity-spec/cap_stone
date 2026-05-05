@@ -261,4 +261,4 @@
 | 2026-05-05 | W5.5-#6 | train_paysim.py --smote / --smote-k-neighbors 옵션 + class_weight vs SMOTE 비교 메트릭 | 44a560e |
 | 2026-05-05 | W5.5-#7 | 시나리오별 ≥80% 검출률 + dominant fraud_type ≥50% 강건 회귀 테스트 9개 (profile_store velocity 시드) | f9988f1 |
 | 2026-05-05 | W5.5-#8 | 운영 모델 PaySim 전환 (시간순 split + leakage ablation + ingest wiring + MODEL_PATH 기본 전환) | ecc044e |
-| 2026-05-05 | W5.5-audit | Medium 갭 정리: ANOMALY_RANGES 풀 데이터 재측정·scenario paysim_raw 모드+모델 회귀·docstring·BLACKLIST 명세 | tbd |
+| 2026-05-05 | W5.5-audit | Medium 갭 정리: ANOMALY_RANGES 풀 데이터 재측정·scenario paysim_raw 모드+모델 회귀·docstring·BLACKLIST 명세 | 89c42e8 |
