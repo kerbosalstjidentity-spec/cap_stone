@@ -348,6 +348,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **산출물**: 시나리오별 `BLOCK + REVIEW` 비율 = 검출률 표. 발표 슬라이드의 "사기 유형별 검출률" 근거 자료
 - **코드 변경 위치**: 신규 파일 2개 (`scenario_generator.py`, `routes_scenario.py`) + [`main.py`](fraud-service/app/main.py) 라우터 1줄 등록
 - **작업량**: 4~5시간 (반나절). 발표 직전 투입 가능한 유일한 트랙
+- (✅ ROADMAP W5.5-#1 — `scenario_generator.py` 4종 합성기 + `POST /v1/scenario/run` 검출률 집계 라우터 + 결정적 시드. 100건/시나리오 스모크에서 4종 모두 BLOCK/REVIEW=100%, ≥80% 강건 회귀는 W5.5-#7)
 
 #### Track 3. 사기 유형 다중분류 (binary → multiclass)
 - **결손**: 현재 `final_action ∈ {PASS, SOFT_REVIEW, REVIEW, BLOCK}` 4단계만 있고 사기 *유형* 라벨이 없음. 사용자에게 "왜 차단되었는가"를 사기 유형으로 설명할 수 없음

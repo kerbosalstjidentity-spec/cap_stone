@@ -10,6 +10,7 @@ from app.api.routes_profile import router as profile_router
 from app.api.routes_simulate import router as simulate_router
 from app.api.routes_audit import router as audit_router
 from app.api.routes_intelligence import router as intelligence_router
+from app.api.routes_scenario import router as scenario_router
 from app.kafka import producer as kafka_producer
 from app.kafka import consumer as kafka_consumer
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -45,6 +46,7 @@ app.include_router(profile_router, prefix="/v1/profile", tags=["profile"])
 app.include_router(simulate_router, prefix="/v1/simulate", tags=["simulate"])
 app.include_router(audit_router, prefix="/v1/audit", tags=["audit"])
 app.include_router(intelligence_router, prefix="/v1/intelligence", tags=["intelligence"])
+app.include_router(scenario_router, prefix="/v1/scenario", tags=["scenario"])
 
 
 @app.get("/")
