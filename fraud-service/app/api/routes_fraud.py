@@ -137,6 +137,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
         "final_action": final_action,
         "fraud_type": fraud_type,
         "fraud_type_label": fraud_type_label_ko(fraud_type),
+        "expected_loss": round(manager.get_expected_loss(), 2),  # W6.5-#5
         "admin_routing": manager.get_admin_routing(),
         "user_message": manager.get_user_trust_message(),
         "step_up_auth": step_up,

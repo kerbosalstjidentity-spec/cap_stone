@@ -1,4 +1,5 @@
 import datetime
+import os
 
 from app.services.policy_merge import audit_summary, merge_actions
 from app.services.rule_engine import rule_engine
@@ -14,6 +15,11 @@ SYSTEM_CONFIG = {
     # 금액 기반 규칙 임계값 (원화)
     "AMOUNT_BLOCK_THRESHOLD": 5_000_000,   # 500만원 이상 → 규칙 BLOCK
     "AMOUNT_REVIEW_THRESHOLD": 1_000_000,  # 100만원 이상 → 규칙 REVIEW
+    # W6.5-#5: 비용 가중 BLOCK — expected_loss = score × amount
+    # 1만원 거래의 0.99 score 와 1억원의 0.5 score 를 차별 처리.
+    # env 로 운영 중 조정 가능.
+    "COST_BLOCK_KRW":  float(os.getenv("COST_BLOCK_KRW",  "3000000")),    # 3M expected loss → BLOCK
+    "COST_REVIEW_KRW": float(os.getenv("COST_REVIEW_KRW", "500000")),     # 0.5M expected loss → REVIEW
 }
 
 
@@ -23,15 +29,33 @@ class FraudServiceManager:
         self.score = float(tx_data.get("score", 0.0))
         self.amount = float(tx_data.get("amount", 0))
 
-    # [서비스 1] 운영팀: 모델 스코어 기반 action
+    # [서비스 1] 운영팀: 모델 스코어 기반 action (W6.5-#5: 비용 가중 결합)
     def get_model_action(self) -> str:
+        # 1) score-only band (기존 로직)
         if self.score >= SYSTEM_CONFIG["BLOCK_THRESHOLD"]:
-            return "BLOCK"
-        if self.score >= SYSTEM_CONFIG["REVIEW_THRESHOLD"]:
-            return "REVIEW"
-        if self.score >= SYSTEM_CONFIG["P99_THRESHOLD"]:
-            return "SOFT_REVIEW"
-        return "PASS"
+            score_action = "BLOCK"
+        elif self.score >= SYSTEM_CONFIG["REVIEW_THRESHOLD"]:
+            score_action = "REVIEW"
+        elif self.score >= SYSTEM_CONFIG["P99_THRESHOLD"]:
+            score_action = "SOFT_REVIEW"
+        else:
+            score_action = "PASS"
+
+        # 2) W6.5-#5: 비용 가중 — expected_loss = score × amount
+        expected_loss = self.score * self.amount
+        if expected_loss >= SYSTEM_CONFIG["COST_BLOCK_KRW"]:
+            cost_action = "BLOCK"
+        elif expected_loss >= SYSTEM_CONFIG["COST_REVIEW_KRW"]:
+            cost_action = "REVIEW"
+        else:
+            cost_action = "PASS"
+
+        # 3) 두 시그널 중 더 강한 쪽 채택
+        return merge_actions(score_action, cost_action)
+
+    def get_expected_loss(self) -> float:
+        """W6.5-#5: expected_loss = score × amount (관측·디버깅·로그용)."""
+        return float(self.score * self.amount)
 
     # [서비스 1-b] Rule Engine 기반 action
     def get_rule_action(self) -> tuple[str, str]:
