@@ -22,7 +22,7 @@
 | W3 | 감사 체인 영속화 (P0) | 7 | 7 | 100% |
 | W4 | 인프라 활성화 (P1) | 7 | 7 | 100% |
 | **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **8** | **8** | **100%** |
-| **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **2** | **29%** |
+| **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **3** | **43%** |
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **0** | **0%** |
 | W5 | ML 정확성 (P1) | 8 | 0 | 0% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
@@ -30,7 +30,7 @@
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 2 | 13% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **40** | **39%** |
+| **합계** | | **103** | **41** | **40%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -121,7 +121,7 @@
 
 - [x] **W6.5-#1** 송금 그래프 store (Redis sorted set, sender→receiver 엣지 + TTL) — `12-Track 4` — [상/인프라] — ✅ d72a653 (2026-05-05)
 - [x] **W6.5-#2** 그래프 피처 추출기 (`graph_features.py`: `dest_first_seen`, `fan_in_count`, `pass_through_ratio`) — `12-Track 4` — [상/ML] — ✅ cd12b3d (2026-05-05)
-- [ ] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드]
+- [x] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드] — ✅ tbd (2026-05-05)
 - [ ] **W6.5-#4** 다단계 자금세탁 룰 (`LayeringRule`) — `13-Track A` 부분 — [중/백엔드]
 - [ ] **W6.5-#5** 비용 가중 BLOCK 임계값 (`expected_loss = p × amount`, `COST_THRESHOLD_KRW` env) — 신규 — [중/ML]
 - [ ] **W6.5-#6** 유형별 임계값 차등 (머니뮬 0.5, 카드테스팅 0.7) — 신규 — [하/백엔드]
@@ -264,3 +264,4 @@
 | 2026-05-05 | W5.5-audit | Medium 갭 정리: ANOMALY_RANGES 풀 데이터 재측정·scenario paysim_raw 모드+모델 회귀·docstring·BLACKLIST 명세 | 89c42e8 |
 | 2026-05-05 | W6.5-#1 | 송금 그래프 store (Redis sorted set 양방향 인덱스 + in-memory 폴백) + evaluate/Kafka 자동 적재 | d72a653 |
 | 2026-05-05 | W6.5-#2 | 그래프 피처 추출기 6종 (first_seen·velocity·fan_in·pass_through_ratio 등) + evaluate 응답 노출 | cd12b3d |
+| 2026-05-05 | W6.5-#3 | MoneyMuleRule (sender_fan_in≥3 ∧ pass_through≥0.8 → BLOCK) + classify_fraud_type 매핑 + sender 관점 피처 2종 | tbd |

@@ -86,6 +86,15 @@ def extract_all(tx: Mapping[str, Any]) -> dict[str, Any]:
     ``tx`` 에서 sender(``user_id``) 와 receiver(``nameDest`` > ``receiver_id``)
     를 추출해 평가 직전 컨텍스트(과거 윈도우 누적) 를 반환한다.
 
+    receiver 관점:
+        ``fan_in_count`` / ``pass_through_ratio`` / ``inbound_amount`` /
+        ``dest_first_seen_within_24h`` / ``dest_inbound_velocity_1h``
+    sender 관점 (W6.5-#3 머니뮬 룰 입력):
+        ``sender_fan_in_count`` / ``sender_pass_through_ratio`` /
+        ``sender_outbound_amount`` — 현재 거래의 송금자가 과거에 받았던
+        패턴. 머니뮬은 받자마자 보내는 송금자이므로 sender 의 fan_in 과
+        pass_through_ratio 가 모두 높음.
+
     빈 노드면 모든 피처 0/0.0 반환 (안전 디폴트).
     """
     sender = str(tx.get("user_id", "") or "")
@@ -93,10 +102,14 @@ def extract_all(tx: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "sender": sender,
         "receiver": receiver,
+        # receiver 관점
         "dest_first_seen_within_24h": dest_first_seen_within_24h(receiver),
         "dest_inbound_velocity_1h": dest_inbound_velocity_1h(receiver),
         "fan_in_count": fan_in_count(receiver),
         "pass_through_ratio": pass_through_ratio(receiver),
         "inbound_amount": inbound_amount(receiver),
+        # sender 관점 (mule 검출용)
+        "sender_fan_in_count": fan_in_count(sender),
+        "sender_pass_through_ratio": pass_through_ratio(sender),
         "sender_outbound_amount": outbound_amount(sender),
     }

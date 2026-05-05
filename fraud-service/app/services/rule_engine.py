@@ -249,6 +249,35 @@ class BlacklistRule(Rule):
         return None
 
 
+class MoneyMuleRule(Rule):
+    """머니뮬 hub-spoke 패턴 (W6.5-#3).
+
+    송금자(현재 거래의 user_id) 가 ``fan_in_count`` 명 이상에게서 받은 후
+    ``pass_through_ratio`` 이상 통과시키는 패턴이면 BLOCK.
+
+    입력: tx['graph_features'] (W6.5-#2 extract_all 결과). 미존재 시 미발동.
+    """
+    rule_id = "MONEY_MULE_HUB"
+
+    def __init__(self, min_fan_in: int = 3, pass_through_ratio_threshold: float = 0.8) -> None:
+        self.min_fan_in = min_fan_in
+        self.pass_through_ratio_threshold = pass_through_ratio_threshold
+
+    def evaluate(self, tx, profile):
+        if not self.enabled:
+            return None
+        feats = tx.get("graph_features") or {}
+        fan_in = int(feats.get("sender_fan_in_count", 0) or 0)
+        ratio = float(feats.get("sender_pass_through_ratio", 0.0) or 0.0)
+        if fan_in >= self.min_fan_in and ratio >= self.pass_through_ratio_threshold:
+            return RuleResult(
+                self.rule_id,
+                "BLOCK",
+                f"hub-spoke: fan_in={fan_in}≥{self.min_fan_in}, pass_through={ratio:.2f}≥{self.pass_through_ratio_threshold}",
+            )
+        return None
+
+
 class NewMerchantRule(Rule):
     """처음 거래하는 merchant AND 금액 ≥ threshold → SOFT_REVIEW."""
     rule_id = "NEW_MERCHANT"
@@ -284,6 +313,7 @@ class RuleEngine:
         self._rules: list[Rule] = [
             BlacklistRule(),           # 최우선
             DeviceFingerprintRule(),
+            MoneyMuleRule(),           # W6.5-#3 — graph_features 기반
             AmountBlockRule(),
             AmountReviewRule(),
             TimeRiskRule(),
