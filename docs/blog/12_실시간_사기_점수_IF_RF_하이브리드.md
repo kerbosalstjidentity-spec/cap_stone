@@ -369,6 +369,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **추가**: `fraud-service/app/services/graph_features.py` 신설. 인메모리 dict 기반 (NetworkX 도입은 옵션). [`behavioral_signals.py`](fraud-service/app/services/behavioral_signals.py) 와 같은 layer-1 위치에서 `_evaluate_one` 파이프라인에 합류. 추출 피처 예: `dest_first_seen_within_hours`, `dest_inbound_velocity`, `is_dest_high_risk_cluster`
 - **의존성**: Track 1 (PaySim 도입) **필수** — Kaggle creditcard.csv에는 송금자/수취자 컬럼 자체가 없어 그래프 구성 불가
 - **작업량**: 1~2주
+- (✅ ROADMAP W6.5-#1 — `app/services/graph_store.py` 송금 그래프 store 구현. Redis sorted set 양방향 인덱스(`graph:inbound:{receiver}`, `graph:outbound:{sender}`) + 윈도우 TTL + in-memory deque 폴백 (device_store 패턴). `evaluate` flow 와 Kafka consumer 양쪽에서 평가 직후 자동 적재. `FraudEvaluateRequest` 에 `receiver_id` / `nameDest` 필드 추가. `inbound/outbound/fan_in_count/inbound_amount/first_seen_ts` API. W6.5-#2 graph_features 가 즉시 활용 가능)
 
 #### 우선순위 및 일정
 | 시점 | 트랙 | 비고 |

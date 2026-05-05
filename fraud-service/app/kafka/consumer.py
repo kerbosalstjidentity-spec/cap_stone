@@ -69,6 +69,20 @@ def _process_message(data: dict[str, Any]) -> dict[str, Any]:
         except Exception:
             pass
 
+    # W6.5-#1: 송금 그래프 store 적재 — sender/receiver 모두 있는 경우
+    receiver = tx.get("nameDest") or tx.get("receiver_id") or ""
+    if user_id_for_ingest and receiver:
+        try:
+            from app.services.graph_store import graph_store
+            graph_store.record(
+                sender=user_id_for_ingest,
+                receiver=str(receiver),
+                amount=float(tx.get("amount", 0) or 0),
+                tx_id=str(tx.get("tx_id", "") or ""),
+            )
+        except Exception:
+            pass
+
     triggered = rule_ids.split(",") if rule_ids else []
     stats_collector.record(
         tx.get("tx_id", ""),

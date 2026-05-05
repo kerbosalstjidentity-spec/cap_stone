@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.services.fraud_service import FraudServiceManager, generate_risk_leakage_report
+from app.services.graph_store import graph_store
 from app.services.policy_merge import classify_fraud_type, fraud_type_label_ko
 from app.services.profile_store import profile_store
 from app.services.stats_collector import stats_collector
@@ -30,6 +31,8 @@ class FraudEvaluateRequest(BaseModel):
     merchant_id: str = Field(default="")
     device_id: str = Field(default="")
     fcm_token: str = Field(default="", description="FCM 디바이스 토큰 (Step-up 푸시용)")
+    receiver_id: str = Field(default="", description="송금 수취자 ID (W6.5-#1 그래프 store)")
+    nameDest: str = Field(default="", description="PaySim 호환 수취자 이름 — receiver_id 미지정 시 fallback")
     signals: dict | None = Field(default=None, description="Layer 1 행동 시그널 (브라우저/앱 SDK)")
     signal_signature: str = Field(default="", description="signals HMAC-SHA256 서명 (hex, W1-#6)")
     signal_timestamp: int = Field(default=0, description="signals 서명 타임스탬프 (epoch s, ±300s 허용)")
@@ -72,6 +75,21 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
             profile_store.ingest(user_id_for_ingest, tx_data)
         except Exception:
             # ingest 실패는 평가 결과에 영향 주지 않도록 swallow
+            pass
+
+    # W6.5-#1: 송금 그래프 store 적재 — sender/receiver 모두 있는 경우에만
+    # (PaySim TRANSFER/CASH_OUT 등). graph_features (W6.5-#2) 가 다음 거래
+    # 평가 시 fan-in / pass-through ratio 등을 즉시 활용 가능.
+    receiver = tx_data.get("nameDest") or tx_data.get("receiver_id") or ""
+    if user_id_for_ingest and receiver:
+        try:
+            graph_store.record(
+                sender=user_id_for_ingest,
+                receiver=str(receiver),
+                amount=float(tx_data.get("amount", 0) or 0),
+                tx_id=str(tx_data.get("tx_id", "") or ""),
+            )
+        except Exception:
             pass
     stats_collector.record(tx_data.get("tx_id", ""), final_action, triggered,
                            float(tx_data.get("score", 0)), float(tx_data.get("amount", 0)))
