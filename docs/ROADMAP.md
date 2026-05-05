@@ -123,7 +123,7 @@
 - [x] **W6.5-#2** 그래프 피처 추출기 (`graph_features.py`: `dest_first_seen`, `fan_in_count`, `pass_through_ratio`) — `12-Track 4` — [상/ML] — ✅ cd12b3d (2026-05-05)
 - [x] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드] — ✅ be11664 (2026-05-05)
 - [x] **W6.5-#4** 다단계 자금세탁 룰 (`LayeringRule`) — `13-Track A` 부분 — [중/백엔드] — ✅ c2e91f5 (2026-05-05)
-- [x] **W6.5-#5** 비용 가중 BLOCK 임계값 (`expected_loss = p × amount`, `COST_THRESHOLD_KRW` env) — 신규 — [중/ML] — ✅ tbd (2026-05-05)
+- [x] **W6.5-#5** 비용 가중 BLOCK 임계값 (`expected_loss = p × amount`, `COST_THRESHOLD_KRW` env) — 신규 — [중/ML] — ✅ bbbc717 (2026-05-05)
 - [ ] **W6.5-#6** 유형별 임계값 차등 (머니뮬 0.5, 카드테스팅 0.7) — 신규 — [하/백엔드]
 - [ ] **W6.5-#7** 그래프 + 비용 통합 검출률 측정 (머니뮬 ≥90% 목표) — 신규 — [중/테스트]
 
@@ -266,4 +266,4 @@
 | 2026-05-05 | W6.5-#2 | 그래프 피처 추출기 6종 (first_seen·velocity·fan_in·pass_through_ratio 등) + evaluate 응답 노출 | cd12b3d |
 | 2026-05-05 | W6.5-#3 | MoneyMuleRule (sender_fan_in≥3 ∧ pass_through≥0.8 → BLOCK) + classify_fraud_type 매핑 + sender 관점 피처 2종 | be11664 |
 | 2026-05-05 | W6.5-#4 | LayeringRule (체인 패턴, fan_in<3 ∧ pass_through≥0.9 ∧ recent_inbound≤10min → REVIEW) + sender_recent_inbound_min_ago 피처 | c2e91f5 |
-| 2026-05-05 | W6.5-#5 | 비용 가중 BLOCK (expected_loss = score×amount, COST_BLOCK_KRW/COST_REVIEW_KRW env) + evaluate 응답에 expected_loss | tbd |
+| 2026-05-05 | W6.5-#5 | 비용 가중 BLOCK (expected_loss = score×amount, COST_BLOCK_KRW/COST_REVIEW_KRW env) + evaluate 응답에 expected_loss | bbbc717 |
