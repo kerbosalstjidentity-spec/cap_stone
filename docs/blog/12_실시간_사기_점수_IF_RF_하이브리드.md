@@ -343,6 +343,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - **작업량**: 1주
 - (✅ ROADMAP W5.5-#2 — `fds-research/data/paysim.csv` 배치(6.36M행, 사기율 0.129%) + `scripts/paysim/load.py` 표준 로더 + `make paysim-download` 타겟 + `.gitignore` 등록. 학습 스크립트는 W5.5-#3 에서 합류)
 - (✅ ROADMAP W5.5-#3 — `train_paysim.py` IF+RF 하이브리드 학습 스크립트 + `model_bundle_paysim.joblib` (TRANSFER+CASH_OUT, 2.77M행). 잔액 모순(`errorBalanceOrig/Dest`)·금액 비율·타입 one-hot 12+1 피처. 홀드아웃 554K에서 ROC-AUC 0.9991 / PR-AUC 0.9981 / 큐 리콜 99.7% / 큐 FPR 0.0%. fraud-service 정합화는 W5.5-#4)
+- (✅ ROADMAP W5.5-#4 — fraud-service 입력 스키마 PaySim 정합화. `app/scoring/features.py:build_paysim_row` 가 학습기와 동일한 파생 규칙으로 단건 변환, `ensemble.py:score_paysim_bundle` 이 IF→RF 합성 추론 단일 경로 제공, `routes_score.py` 가 `bundle.domain==paysim` 분기. `_normalize_anomaly` 는 도메인별 `ANOMALY_RANGES` dict 로 분리(open: -0.5~-0.05, paysim: -0.70~-0.35, 검증된 분포 기반))
 
 #### Track 2. 사기 시나리오 시뮬레이터 + 검출률 측정
 - **결손**: "어떤 사기 유형을 몇 % 잡는가" 에 대한 정량 답변 부재. 룰 엔진 10개가 어떤 시나리오를 커버하는지 측정 체계 없음
