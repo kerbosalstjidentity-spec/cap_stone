@@ -100,7 +100,7 @@
 **상세 명세**: [`FDS_ROADMAP.md § W5.5`](FDS_ROADMAP.md).
 
 - [x] **W5.5-#1** 시나리오 시뮬레이터 4종 (보이스피싱/머니뮬/계정탈취/카드테스팅) — `12-Track 2` — [중/ML] — ✅ 2b8650a (2026-05-05)
-- [x] **W5.5-#2** PaySim 데이터셋 다운로드 + 로더 (`make paysim-download`) — `12-Track 1 전제` — [하/인프라] — ✅ tbd (2026-05-05)
+- [x] **W5.5-#2** PaySim 데이터셋 다운로드 + 로더 (`make paysim-download`) — `12-Track 1 전제` — [하/인프라] — ✅ be5adc2 (2026-05-05)
 - [ ] **W5.5-#3** PaySim 학습 스크립트 (`fds-research/train_paysim.py`) — `12-Track 1` — [상/ML]
 - [ ] **W5.5-#4** fraud-service 입력 스키마 PaySim 정합화 + `_normalize_anomaly` 재튜닝 — `12-Track 1` — [중/ML]
 - [ ] **W5.5-#5** `fraud_type` 다중분류 라벨 (룰→유형 매핑) — `12-Track 3` — [중/ML]
@@ -249,4 +249,4 @@
 | 2026-05-02 | W4 전체 (#1~#7) + W9-#6 | Kafka 인프라 활성화 (브로커·DLQ·워치독·파티셔닝·async·BG ML·notify pubsub 단일) | 762b67a |
 | 2026-05-02 | (planning) | W5.5/W6.5/W7.5 FDS 강화 스프린트 신설 (20건 추가, 총 102건) | 5e20d13 |
 | 2026-05-05 | W5.5-#1 | 시나리오 시뮬레이터 4종 + /v1/scenario/run 검출률 집계 라우터 + 7개 테스트 | 2b8650a |
-| 2026-05-05 | W5.5-#2 | PaySim CSV 배치(6.36M행) + scripts/paysim/load.py 표준 로더 + Makefile + .gitignore | tbd |
+| 2026-05-05 | W5.5-#2 | PaySim CSV 배치(6.36M행) + scripts/paysim/load.py 표준 로더 + Makefile + .gitignore | be5adc2 |
