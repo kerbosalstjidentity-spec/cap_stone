@@ -121,7 +121,7 @@
 
 - [x] **W6.5-#1** 송금 그래프 store (Redis sorted set, sender→receiver 엣지 + TTL) — `12-Track 4` — [상/인프라] — ✅ d72a653 (2026-05-05)
 - [x] **W6.5-#2** 그래프 피처 추출기 (`graph_features.py`: `dest_first_seen`, `fan_in_count`, `pass_through_ratio`) — `12-Track 4` — [상/ML] — ✅ cd12b3d (2026-05-05)
-- [x] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드] — ✅ tbd (2026-05-05)
+- [x] **W6.5-#3** 머니뮬 hub-spoke 룰 (`MoneyMuleRule`) — `13-Track A` 부분 — [중/백엔드] — ✅ be11664 (2026-05-05)
 - [ ] **W6.5-#4** 다단계 자금세탁 룰 (`LayeringRule`) — `13-Track A` 부분 — [중/백엔드]
 - [ ] **W6.5-#5** 비용 가중 BLOCK 임계값 (`expected_loss = p × amount`, `COST_THRESHOLD_KRW` env) — 신규 — [중/ML]
 - [ ] **W6.5-#6** 유형별 임계값 차등 (머니뮬 0.5, 카드테스팅 0.7) — 신규 — [하/백엔드]
@@ -264,4 +264,4 @@
 | 2026-05-05 | W5.5-audit | Medium 갭 정리: ANOMALY_RANGES 풀 데이터 재측정·scenario paysim_raw 모드+모델 회귀·docstring·BLACKLIST 명세 | 89c42e8 |
 | 2026-05-05 | W6.5-#1 | 송금 그래프 store (Redis sorted set 양방향 인덱스 + in-memory 폴백) + evaluate/Kafka 자동 적재 | d72a653 |
 | 2026-05-05 | W6.5-#2 | 그래프 피처 추출기 6종 (first_seen·velocity·fan_in·pass_through_ratio 등) + evaluate 응답 노출 | cd12b3d |
-| 2026-05-05 | W6.5-#3 | MoneyMuleRule (sender_fan_in≥3 ∧ pass_through≥0.8 → BLOCK) + classify_fraud_type 매핑 + sender 관점 피처 2종 | tbd |
+| 2026-05-05 | W6.5-#3 | MoneyMuleRule (sender_fan_in≥3 ∧ pass_through≥0.8 → BLOCK) + classify_fraud_type 매핑 + sender 관점 피처 2종 | be11664 |
