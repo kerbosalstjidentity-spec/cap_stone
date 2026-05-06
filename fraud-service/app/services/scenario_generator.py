@@ -35,12 +35,12 @@ def _voice_phishing(rng: random.Random, idx: int) -> dict:
     }
 
 
-def _money_mule(rng: random.Random, idx: int) -> dict:
+def _money_mule(rng: random.Random, idx: int, *, user_id_prefix: str = "mule_") -> dict:
     # 중간 금액 반복 송금 — AmountReviewRule(≥1M) + score
     # (실제 hub-spoke 그래프 시그널은 W6.5 graph_features.py 가 담당)
     return {
         "tx_id": f"MM-{idx:04d}",
-        "user_id": f"mule_{idx % 5}",  # 5명에 집중 → 후속 W6.5 fan-in 측정용
+        "user_id": f"{user_id_prefix}{idx % 5}",  # 5명에 집중 → 후속 W6.5 fan-in 측정용
         "score": round(rng.uniform(0.40, 0.85), 4),
         "amount": float(rng.randint(1_000_000, 3_000_000)),
         "hour": rng.randint(9, 22),
@@ -169,7 +169,14 @@ _BUILDERS_PAYSIM = {
 }
 
 
-def generate(scenario: str, count: int = 100, seed: int = 42, *, paysim_raw: bool = False) -> list[dict]:
+def generate(
+    scenario: str,
+    count: int = 100,
+    seed: int = 42,
+    *,
+    paysim_raw: bool = False,
+    user_id_prefix: str | None = None,
+) -> list[dict]:
     """단일 시나리오의 합성 트랜잭션 ``count`` 건을 결정적으로 생성.
 
     Args:
@@ -184,6 +191,10 @@ def generate(scenario: str, count: int = 100, seed: int = 42, *, paysim_raw: boo
         raise ValueError(f"unknown scenario: {scenario}. expected one of {SCENARIO_TYPES}")
     rng = random.Random(f"{scenario}:{seed}:{'raw' if paysim_raw else 'eval'}")
     builders = _BUILDERS_PAYSIM if paysim_raw else _BUILDERS
+    # user_id_prefix 는 현재 MONEY_MULE(_money_mule, eval 출력) 만 지원 — 그래프
+    # baseline/seeded 비교 시 user_id 풀 분리용. 다른 시나리오·paysim_raw 는 무시.
+    if user_id_prefix and scenario == "MONEY_MULE" and not paysim_raw:
+        return [builders[scenario](rng, i, user_id_prefix=user_id_prefix) for i in range(count)]
     return [builders[scenario](rng, i) for i in range(count)]
 
 

@@ -373,6 +373,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 - (✅ ROADMAP W6.5-#2 — `app/services/graph_features.py` 그래프 피처 추출기. 6종 피처 — `dest_first_seen_within_24h`, `dest_inbound_velocity_1h`, `fan_in_count`, `pass_through_ratio`, `inbound_amount`, `sender_outbound_amount`. `_evaluate_one` 가 store 적재 *전* 시점에서 호출 → 과거 윈도우 컨텍스트 보장. tx_data 와 응답 양쪽에 `graph_features` 노출 — W6.5-#3 MoneyMuleRule, W6.5-#4 LayeringRule 의 입력)
 - (✅ ROADMAP W6.5-#5 — `FraudServiceManager.get_model_action` 에 비용 가중 결합. expected_loss = score × amount → COST_BLOCK_KRW(기본 3M)/COST_REVIEW_KRW(기본 500k) 임계값 적용 후 score-band action 과 `merge_actions` 로 더 강한 쪽 채택. evaluate 응답에 `expected_loss` 필드 노출. 1만원 거래의 0.99 score 와 1억원의 0.5 score 를 차별 처리)
 - (✅ ROADMAP W6.5-#6 — `policy_merge.FRAUD_TYPE_BLOCK_THRESHOLDS` 딕셔너리 + `apply_fraud_type_threshold` 헬퍼. 룰 시그널 강한 유형(MONEY_MULE 0.5, CARD_TESTING 0.7, VOICE_PHISHING 0.6, ATO 0.65) 은 낮은 score 에서도 BLOCK 으로 승격, 보수적 유형(AMOUNT_ANOMALY 0.85)은 그대로. NORMAL=1.01 로 절대 미적용. routes_fraud._evaluate_one 에서 fraud_type 식별 직후 final_action 에 적용)
+- (✅ ROADMAP W6.5-#7 — `tests/test_w65_integrated_regression.py` 머니뮬 시나리오 graph-seeded ≥90% BLOCK+REVIEW 강건 회귀 + evaluate 응답 `graph_features`/`expected_loss`/`fraud_type` 필드 활성 검증 (2 PASS). 비용 임계값 saturation 으로 baseline 비교는 `scripts/bench_w65_graph_uplift.py` 마이크로 벤치로 분리 — 저금액 50K 구간에서 graph seed 가 BLOCK 85→95 (+10%) 정량 관측)
 
 #### 우선순위 및 일정
 | 시점 | 트랙 | 비고 |
