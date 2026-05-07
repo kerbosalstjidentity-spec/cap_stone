@@ -325,6 +325,59 @@ class LayeringRule(Rule):
         return None
 
 
+class BalanceDrainRule(Rule):
+    """잔액 급변 패턴 (W7.5-#1).
+
+    CASH_OUT/TRANSFER 컨텍스트에서 송금 전 잔액의 ``drain_ratio_threshold``
+    이상이 빠지고 동시에 ``amount`` 가 ``amount_threshold`` 이상이면 BLOCK.
+    계정 탈취 직후 자금 전액 인출 시나리오 대응.
+
+    False-positive 방어:
+    - ``oldbalanceOrg < min_old_balance`` 면 미발동 (잔액 정보 없음/소액)
+    - type 필드가 있고 CASH_OUT/TRANSFER 가 아니면 미발동
+
+    PaySim 컬럼명 호환: ``oldbalanceOrg`` + ``newbalanceOrig`` 우선,
+    ``newbalanceOrg`` 별칭도 허용.
+    """
+    rule_id = "BALANCE_DRAIN"
+
+    def __init__(
+        self,
+        drain_ratio_threshold: float = 0.9,
+        amount_threshold: float = 500_000,
+        min_old_balance: float = 100_000,
+    ) -> None:
+        self.drain_ratio_threshold = drain_ratio_threshold
+        self.amount_threshold = amount_threshold
+        self.min_old_balance = min_old_balance
+
+    def evaluate(self, tx, profile):
+        if not self.enabled:
+            return None
+        type_str = str(tx.get("type", "") or "").upper()
+        if type_str and type_str not in {"CASH_OUT", "TRANSFER"}:
+            return None
+        old = float(tx.get("oldbalanceOrg", 0) or 0)
+        if old < self.min_old_balance:
+            return None
+        new_raw = tx.get("newbalanceOrig")
+        if new_raw is None:
+            new_raw = tx.get("newbalanceOrg")
+        new = float(new_raw or 0)
+        amount = float(tx.get("amount", 0) or 0)
+        if amount < self.amount_threshold:
+            return None
+        drain = (old - new) / old
+        if drain >= self.drain_ratio_threshold:
+            return RuleResult(
+                self.rule_id,
+                "BLOCK",
+                f"drain {drain*100:.1f}%≥{self.drain_ratio_threshold*100:.0f}%, "
+                f"amount {amount:,.0f}≥{self.amount_threshold:,.0f}",
+            )
+        return None
+
+
 class NewMerchantRule(Rule):
     """처음 거래하는 merchant AND 금액 ≥ threshold → SOFT_REVIEW."""
     rule_id = "NEW_MERCHANT"
@@ -362,6 +415,7 @@ class RuleEngine:
             DeviceFingerprintRule(),
             MoneyMuleRule(),           # W6.5-#3 — graph_features 기반
             LayeringRule(),            # W6.5-#4 — 체인 패턴
+            BalanceDrainRule(),        # W7.5-#1 — 잔액 급변 인출
             AmountBlockRule(),
             AmountReviewRule(),
             TimeRiskRule(),

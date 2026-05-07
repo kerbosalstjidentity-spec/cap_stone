@@ -44,6 +44,7 @@ FRAUD_TYPES = (
     "ACCOUNT_TAKEOVER",
     "CARD_TESTING",
     "AMOUNT_ANOMALY",
+    "BALANCE_DRAIN",
     "BLACKLIST",
     "NORMAL",
 )
@@ -55,6 +56,7 @@ FRAUD_TYPE_LABELS_KO: dict[str, str] = {
     "ACCOUNT_TAKEOVER": "계정 탈취 의심",
     "CARD_TESTING": "카드 테스팅 공격 의심",
     "AMOUNT_ANOMALY": "비정상 금액 패턴",
+    "BALANCE_DRAIN": "계좌 자금 인출 의심",
     "BLACKLIST": "블랙리스트 일치",
     "NORMAL": "정상",
 }
@@ -91,6 +93,9 @@ def classify_fraud_type(rule_ids: list[str] | str | None) -> str:
     # W6.5-#3/#4: 그래프 기반 머니뮬·layering 룰이 발동하면 최우선 라벨
     if "MONEY_MULE_HUB" in s or "LAYERING_CHAIN" in s:
         return "MONEY_MULE"
+    # W7.5-#1: 잔액 급변 — 그래프 신호 부재 시 단독 라벨
+    if "BALANCE_DRAIN" in s:
+        return "BALANCE_DRAIN"
     if "SPLIT_TXN" in s:
         return "CARD_TESTING"
     if "VELOCITY_FREQ" in s and not (s & _AMOUNT_RULES):
@@ -126,6 +131,7 @@ FRAUD_TYPE_BLOCK_THRESHOLDS: dict[str, float] = {
     "VOICE_PHISHING":    0.6,    # 야간+고액 시그널
     "ACCOUNT_TAKEOVER":  0.65,   # 해외IP/디바이스 시그널
     "AMOUNT_ANOMALY":    0.85,   # 금액만 — 보수적
+    "BALANCE_DRAIN":     0.55,   # W7.5-#1 — 잔액 90%↑ 드레인 시그널 강함
     "NORMAL":            1.01,   # 룰 미발동 — 차등 적용 안 함
 }
 
