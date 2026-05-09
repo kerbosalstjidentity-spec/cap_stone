@@ -118,6 +118,13 @@ def admin_set_ensemble_weights(body: dict):
 
 # --- W7.5-#6: SLO 대시보드 ---
 
+@router.get("/api/latency")
+def admin_latency():
+    """경로별 p50/p99/avg latency — W7-#2."""
+    from app.middleware.latency import get_path_latency_summary
+    return get_path_latency_summary()
+
+
 @router.get("/api/slo")
 def admin_slo(bucket_minutes: int = 1, buckets: int = 60):
     """시나리오별 검출률·latency p50/p99·FN/FP 비율·시계열."""

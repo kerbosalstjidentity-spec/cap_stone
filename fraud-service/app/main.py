@@ -16,6 +16,7 @@ from app.kafka import consumer as kafka_consumer
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.api_key import ApiKeyMiddleware
 from app.middleware.abe_auth import AbeAuthMiddleware
+from app.middleware.latency import LatencyMiddleware
 
 
 @asynccontextmanager
@@ -37,6 +38,7 @@ app = FastAPI(
 app.add_middleware(ApiKeyMiddleware)
 app.add_middleware(AbeAuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(LatencyMiddleware)  # W7-#2: 응답 헤더 X-Process-Time-Ms / X-P50/P99-Ms
 
 app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(score_router, prefix="/v1", tags=["score"])

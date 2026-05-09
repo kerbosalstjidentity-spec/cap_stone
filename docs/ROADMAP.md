@@ -26,11 +26,11 @@
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **6** | **100%** |
 | W5 | ML 정확성 (P1) | 8 | 1 | 13% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
-| W7 | 드리프트·관측·A/B (P1) | 9 | 0 | 0% |
+| W7 | 드리프트·관측·A/B (P1) | 9 | 1 | 11% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **66** | **64%** |
+| **합계** | | **103** | **67** | **65%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -174,7 +174,7 @@
 ## W7 — 드리프트·관측·A/B (P1)
 
 - [ ] **W7-#1** Feature drift 자동 탐지 (KS 검정 / 분위수 차이) — `mlops/04:87` + `threat/04:90` — [상/ML]
-- [ ] **W7-#2** 추론 latency 단계별 측정 + 응답헤더/메트릭 노출 (P99) — `pipeline/03:108` + `mlops/04:88` — [중/백엔드]
+- [x] **W7-#2** 추론 latency 단계별 측정 + 응답헤더/메트릭 노출 (P99) — `pipeline/03:108` + `mlops/04:88` — [중/백엔드] — ✅ tbd (2026-05-09)
 - [ ] **W7-#3** 모델 점수 분포 일별 모니터링 (평균·분위수 시계열) — `mlops/04:89` — [중/백엔드]
 - [ ] **W7-#4** 분포 변화 임계값 알람 + **자동 롤백** — `mlops/04:91,92` — [상/인프라]
 - [ ] **W7-#5** A/B 트래픽 비율 동적 조정 API (1% → 10% → 50%) — `18_AB:168` + `mlops/02:94` + `mlops/03:90` — [상/백엔드]
@@ -290,3 +290,4 @@
 | 2026-05-09 | W9-#10 | 감정 알림 누락 감사 로그 (_audit_emotion_notify_failure / get_emotion_notify_audit, max 200) + check_and_notify 의존성 주입 (notify_fn keyword-only) + status 반환 + 4 PASS | 707d739 |
 | 2026-05-09 | W9-#13 | BidirectionalPolicy/CPABE_Simulator → app/research/abac_simulation.py 분리 + abe_engine __getattr__ lazy alias (순환 import 회피, 후방 호환) + 4 PASS / 회귀 16 PASS | 69e7edb |
 | 2026-05-09 | W5-#1 | 앙상블 가중치 동적 조정 (ensemble.set_weights/get_weights + GET/PATCH /admin/api/ensemble-weights, 합 0~1.5 클립) + SYSTEM_CONFIG ENSEMBLE_ALPHA/BETA + 5 PASS / 회귀 5 PASS | d2932b8 |
+| 2026-05-09 | W7-#2 | LatencyMiddleware (X-Process-Time-Ms / X-P50-Ms / X-P99-Ms 응답 헤더) + GET /admin/api/latency 경로별 통계 + 4 PASS / 회귀 13 PASS | tbd |
