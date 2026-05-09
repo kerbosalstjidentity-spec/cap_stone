@@ -209,7 +209,7 @@
 - [x] **W9-#7** 18_AB bundle_b 로드 실패 ERROR 로그 + soft_review 키 분리 — `18_AB_테스트:155,182` — [하/백엔드] — ✅ 6ff5fef (2026-05-09)
 - [x] **W9-#8** 06_LSTM 클램프 발생률 헬스체크 메트릭 + seed 고정 훅 — `06_지출_예측_LSTM:232,233` — [하/백엔드] — ✅ 14ab8a3 (2026-05-09)
 - [x] **W9-#9** 08_카테고리 ingest 경로 wiring + 키워드 우선순위 문서화 — `08_카테고리_자동_분류:157,159` — [하/백엔드] — ✅ e9d56ff (2026-05-09)
-- [x] **W9-#10** 09_감정 알림 누락 감사 로그 + 의존성 주입 정리 — `09_감정_기반_소비_분석:305,307` — [하/백엔드] — ✅ tbd (2026-05-09)
+- [x] **W9-#10** 09_감정 알림 누락 감사 로그 + 의존성 주입 정리 — `09_감정_기반_소비_분석:305,307` — [하/백엔드] — ✅ 707d739 (2026-05-09)
 - [x] **W9-#11** 04_대시보드 MyData 동의 철회 소유권 검증 — `04_보안_대시보드:289` — [하/백엔드] — ✅ f5bd917 (2026-05-09)
 - [x] **W9-#12** 01_기본인증 TOTP `valid_window` env 노출 — `01_기본인증:220` — [하/백엔드] — ✅ 58e8d0e (2026-05-09)
 - [ ] **W9-#13** 15_ABAC BidirectionalPolicy/CPABE_Simulator를 research/로 분리 — `15_ABAC_ABE:523` — [하/문서]
@@ -287,4 +287,4 @@
 | 2026-05-09 | W9-#16 | fds_scripts 패키지 등록 (__init__.py) + routes_evaluation.py sys.path 디렉터리 주입 → from fds_scripts.evaluation_suite import 로 전환 + 2 PASS | 36a3252 |
 | 2026-05-09 | W9-#8 | LSTM 클램프 발생률 헬스체크 (get_clamp_health, threshold 5%) + LSTM_SEED env 시드 고정 훅 (np/torch 동시) + 6 PASS | 14ab8a3 |
 | 2026-05-09 | W9-#9 | 카테고리 ingest 경로 wiring (_autoclassify_if_other in spend_profile_db) + 키워드 우선순위 docstring 명시 (삽입 순서) + 6 PASS | e9d56ff |
-| 2026-05-09 | W9-#10 | 감정 알림 누락 감사 로그 (_audit_emotion_notify_failure / get_emotion_notify_audit, max 200) + check_and_notify 의존성 주입 (notify_fn keyword-only) + status 반환 + 4 PASS | tbd |
+| 2026-05-09 | W9-#10 | 감정 알림 누락 감사 로그 (_audit_emotion_notify_failure / get_emotion_notify_audit, max 200) + check_and_notify 의존성 주입 (notify_fn keyword-only) + status 반환 + 4 PASS | 707d739 |
