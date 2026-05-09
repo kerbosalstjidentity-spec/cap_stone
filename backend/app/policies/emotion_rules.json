@@ -1,0 +1,28 @@
+{
+  "_doc": "W5-#8 — 감정×시간대 위험 가중치 외부화. emotion_engine.py 가 부팅 시 로드.",
+  "hour_risk": {
+    "morning_commute": {"hours": [6, 7, 8, 9, 10], "weight": 0.2},
+    "midday": {"hours": [11, 12, 13, 14, 15, 16], "weight": 0.1},
+    "evening_commute": {"hours": [17, 18, 19, 20], "weight": 0.3},
+    "night": {"hours": [21, 22, 23], "weight": 0.4},
+    "dawn": {"hours": [0, 1, 2, 3, 4, 5], "weight": 0.3}
+  },
+  "weekend_bonus": 0.1,
+  "stress_emotions": ["stressed", "impulse"],
+  "stress_window_hours": 24,
+  "stress_per_tag_weight": 0.08,
+  "stress_max_weight": 0.3,
+  "evening_stress_combo": {"min_hour": 18, "weight": 0.15},
+  "risk_bands": {
+    "danger": {"min_score": 0.75, "message": "지금은 큰 지출을 자제하세요. 충동 소비 위험이 매우 높습니다."},
+    "warning": {"min_score": 0.55, "message": "소비 전 한 번 더 생각해보세요. 충동 소비 위험이 높습니다."},
+    "caution": {"min_score": 0.35, "message": "소비 습관에 주의가 필요한 시간대입니다."},
+    "safe": {"min_score": 0.0, "message": "현재 충동 소비 위험이 낮습니다."}
+  },
+  "risk_factor_messages": {
+    "high_risk_hour": "현재 시간({hour}시)은 충동 소비가 잦은 시간대입니다.",
+    "weekend": "주말에는 평일 대비 충동 소비가 증가하는 경향이 있습니다.",
+    "recent_stress": "최근 24시간 내 스트레스/충동 태그 {count}건이 기록되었습니다.",
+    "evening_stress_combo": "저녁 시간대 + 스트레스 상태의 복합 위험입니다."
+  }
+}

@@ -1,7 +1,15 @@
-"""감정×소비 분석 엔진 — 감정 태깅, 상관 분석, 충동 소비 예측."""
+"""감정×소비 분석 엔진 — 감정 태깅, 상관 분석, 충동 소비 예측.
 
+W5-#8: HOUR_RISK / WEEKEND_BONUS / 위험 등급 / 메시지를
+``backend/app/policies/emotion_rules.json`` 으로 외부화. 정책 변경에 코드
+배포 불요. ``EMOTION_RULES_PATH`` env 로 경로 오버라이드 가능.
+"""
+
+import json
 import logging
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,15 +36,53 @@ CATEGORY_KR = {
 }
 DAY_KR = ["월", "화", "수", "목", "금", "토", "일"]
 
-# 충동 소비 위험 시간대 가중치 (0~23시)
-HOUR_RISK = {
-    **{h: 0.2 for h in range(6, 11)},    # 아침 출근
-    **{h: 0.1 for h in range(11, 17)},   # 낮
-    **{h: 0.3 for h in range(17, 21)},   # 저녁 퇴근
-    **{h: 0.4 for h in range(21, 24)},   # 밤
-    **{h: 0.3 for h in range(0, 6)},     # 새벽
-}
-WEEKEND_BONUS = 0.1  # 주말 추가 가중치
+
+_DEFAULT_RULES_PATH = Path(__file__).resolve().parent.parent / "policies" / "emotion_rules.json"
+
+
+def _load_emotion_rules() -> dict:
+    path = Path(os.getenv("EMOTION_RULES_PATH") or _DEFAULT_RULES_PATH)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.warning("emotion_rules.json missing at %s — falling back to defaults", path)
+        return {}
+    except Exception as e:
+        logger.error("emotion_rules.json load failed: %s — falling back to defaults", e)
+        return {}
+
+
+_RULES = _load_emotion_rules()
+
+
+def reload_emotion_rules() -> dict:
+    global _RULES, HOUR_RISK, WEEKEND_BONUS
+    _RULES = _load_emotion_rules()
+    HOUR_RISK = _build_hour_risk(_RULES)
+    WEEKEND_BONUS = float(_RULES.get("weekend_bonus", 0.1))
+    return _RULES
+
+
+def _build_hour_risk(rules: dict) -> dict[int, float]:
+    out: dict[int, float] = {}
+    for band in (rules.get("hour_risk") or {}).values():
+        w = float(band.get("weight", 0.0))
+        for h in band.get("hours", []) or []:
+            out[int(h)] = w
+    if not out:
+        out = {
+            **{h: 0.2 for h in range(6, 11)},
+            **{h: 0.1 for h in range(11, 17)},
+            **{h: 0.3 for h in range(17, 21)},
+            **{h: 0.4 for h in range(21, 24)},
+            **{h: 0.3 for h in range(0, 6)},
+        }
+    return out
+
+
+HOUR_RISK = _build_hour_risk(_RULES)
+WEEKEND_BONUS = float(_RULES.get("weekend_bonus", 0.1))
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -264,14 +310,21 @@ async def predict_impulse_risk(session: AsyncSession, user_id: str) -> dict:
 
     score = min(score, 1.0)
 
-    if score >= 0.75:
-        level, msg = "danger", "지금은 큰 지출을 자제하세요. 충동 소비 위험이 매우 높습니다."
-    elif score >= 0.55:
-        level, msg = "warning", "소비 전 한 번 더 생각해보세요. 충동 소비 위험이 높습니다."
-    elif score >= 0.35:
-        level, msg = "caution", "소비 습관에 주의가 필요한 시간대입니다."
-    else:
-        level, msg = "safe", "현재 충동 소비 위험이 낮습니다."
+    bands = _RULES.get("risk_bands") or {}
+    ordered = sorted(bands.items(), key=lambda kv: -float(kv[1].get("min_score", 0.0)))
+    level, msg = "safe", "현재 충동 소비 위험이 낮습니다."
+    for name, b in ordered:
+        if score >= float(b.get("min_score", 0.0)):
+            level = name
+            msg = b.get("message", msg)
+            break
+    if not ordered:
+        if score >= 0.75:
+            level, msg = "danger", "지금은 큰 지출을 자제하세요. 충동 소비 위험이 매우 높습니다."
+        elif score >= 0.55:
+            level, msg = "warning", "소비 전 한 번 더 생각해보세요. 충동 소비 위험이 높습니다."
+        elif score >= 0.35:
+            level, msg = "caution", "소비 습관에 주의가 필요한 시간대입니다."
 
     return {
         "user_id": user_id,

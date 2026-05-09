@@ -24,13 +24,13 @@
 | **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **8** | **8** | **100%** |
 | **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **7** | **100%** |
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **6** | **100%** |
-| W5 | ML 정확성 (P1) | 8 | 1 | 13% |
+| W5 | ML 정확성 (P1) | 8 | 2 | 25% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 1 | 13% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 2 | 22% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **69** | **67%** |
+| **합계** | | **103** | **70** | **68%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -154,7 +154,7 @@
 - [ ] **W5-#5** XGBoost 학습 (mu, std) 번들 저장 → 단건 z-score 일관성 — `07_XAI:266` — [중/ML]
 - [ ] **W5-#6** 카테고리 분류 confidence score 도입 + 가중치화 — `journey/03:84` + `pipeline/01:87` — [상/ML]
 - [ ] **W5-#7** KMeans K값 silhouette 자동 선정 + cold-start 플래그 — `05_KMeans:249,258` — [중/ML]
-- [ ] **W5-#8** 감정 라벨 룰 → JSON/DSL 외부화 — `journey/03:86` + `pipeline/01:89` — [중/백엔드]
+- [x] **W5-#8** 감정 라벨 룰 → JSON/DSL 외부화 — `journey/03:86` + `pipeline/01:89` — [중/백엔드] — ✅ tbd (2026-05-09)
 
 ---
 
@@ -293,3 +293,4 @@
 | 2026-05-09 | W7-#2 | LatencyMiddleware (X-Process-Time-Ms / X-P50-Ms / X-P99-Ms 응답 헤더) + GET /admin/api/latency 경로별 통계 + 4 PASS / 회귀 13 PASS | 23a6df9 |
 | 2026-05-09 | W6-#2 | model_loader `@lru_cache(maxsize=1)` + clear_model_cache/model_cache_info 노출, 동일 경로 hit 캐시 + 4 PASS / 회귀 13 PASS | 8c4df96 |
 | 2026-05-09 | W7-#6 | shadow_evaluate ↔ /v1/score wiring + _evaluate_one 끝 ab_test._record(variant, action), ScoreRequest.tx_id / FraudEvaluateRequest.ab_variant 추가 + 4 PASS / 회귀 7 PASS | f4d1b95 |
+| 2026-05-09 | W5-#8 | 감정 라벨 룰 JSON 외부화 (backend/app/policies/emotion_rules.json + reload_emotion_rules + EMOTION_RULES_PATH env) — 시간대/주말/스트레스 가중치/위험 등급/메시지 일괄 + 4 PASS | tbd |
