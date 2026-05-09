@@ -28,9 +28,9 @@
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 0 | 0% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
-| W9 | Quick wins (P3) | 16 | 7 | 44% |
+| W9 | Quick wins (P3) | 16 | 8 | 50% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **56** | **54%** |
+| **합계** | | **103** | **57** | **55%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -211,7 +211,7 @@
 - [ ] **W9-#9** 08_카테고리 ingest 경로 wiring + 키워드 우선순위 문서화 — `08_카테고리_자동_분류:157,159` — [하/백엔드]
 - [ ] **W9-#10** 09_감정 알림 누락 감사 로그 + 의존성 주입 정리 — `09_감정_기반_소비_분석:305,307` — [하/백엔드]
 - [ ] **W9-#11** 04_대시보드 MyData 동의 철회 소유권 검증 — `04_보안_대시보드:289` — [하/백엔드]
-- [ ] **W9-#12** 01_기본인증 TOTP `valid_window` env 노출 — `01_기본인증:220` — [하/백엔드]
+- [x] **W9-#12** 01_기본인증 TOTP `valid_window` env 노출 — `01_기본인증:220` — [하/백엔드] — ✅ tbd (2026-05-09)
 - [ ] **W9-#13** 15_ABAC BidirectionalPolicy/CPABE_Simulator를 research/로 분리 — `15_ABAC_ABE:523` — [하/문서]
 - [x] **W9-#14** 16_블록체인 싱글턴 환경변수 오버라이드 — `16_블록체인:369` — [하/인프라] — ✅ 3a511c6 (2026-05-02)
 - [ ] **W9-#15** 17_위협 query Lock 범위 축소 + detail 타입 명시 — `17_위협_인텔리전스:172,174` — [하/백엔드]
@@ -280,3 +280,4 @@
 | 2026-05-09 | W9-#1 | 사기 퀴즈 채점 정답 검증 버그 수정 (_FRAUD_SCENARIOS id 부여 + _fraud_correct_answer_map 으로 question_id↔정답 대조) + 3 PASS | 98f29ff |
 | 2026-05-09 | W9-#2 | evaluation_suite.py 'compliance_rate' KeyError 수정 (실제 키 production_ready_rate 로 print 2곳 교체) | 74574b6 |
 | 2026-05-09 | W9-#5 | 행동 시그널 임계값 6종 env 외부화 (BEHAVIOR_T_*) + raw_score 필드 + UNTRUSTED_DECAY env (기존 회귀 11 PASS — W1-#6 untrusted decay 미반영 테스트 동시 정정) | 1c3d3bb |
+| 2026-05-09 | W9-#12 | TOTP valid_window env 노출 (TOTP_VALID_WINDOW, 기본 1, 0~5 클립, totp_config.py 분리) — routes_auth 3곳 + routes_stepup 1곳 적용 + 5 PASS | tbd |

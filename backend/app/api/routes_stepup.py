@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import get_current_user
+from app.auth.totp_config import totp_valid_window as _totp_valid_window
 from app.auth.jwt import create_access_token, create_stepup_token, decode_token
 from app.config import settings
 from app.db.session import get_session
@@ -160,7 +161,7 @@ async def verify_challenge(
         if not current_user.totp_enabled or not current_user.totp_secret:
             raise HTTPException(status_code=400, detail="TOTP가 활성화되어 있지 않습니다.")
         totp = pyotp.TOTP(current_user.totp_secret)
-        if not totp.verify(body.code, valid_window=1):
+        if not totp.verify(body.code, valid_window=_totp_valid_window()):
             return StepUpVerifyResponse(verified=False, message="OTP 코드가 올바르지 않습니다.")
 
     elif body.method == "fido":

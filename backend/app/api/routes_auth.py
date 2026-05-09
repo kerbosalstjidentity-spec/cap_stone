@@ -6,6 +6,8 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from app.auth.totp_config import totp_valid_window as _totp_valid_window  # W9-#12
+
 import pyotp
 import qrcode
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -203,7 +205,7 @@ async def login_totp(body: TotpLoginRequest, session: AsyncSession = Depends(get
         raise HTTPException(status_code=400, detail="TOTP가 활성화되어 있지 않습니다.")
 
     totp = pyotp.TOTP(user.totp_secret)
-    if not totp.verify(body.code, valid_window=1):
+    if not totp.verify(body.code, valid_window=_totp_valid_window()):
         await _log_security_event(session, user.user_id, "totp_fail", False)
         raise HTTPException(status_code=401, detail="OTP 코드가 올바르지 않습니다.")
 
@@ -390,7 +392,7 @@ async def totp_verify(
     if not current_user.totp_secret:
         raise HTTPException(status_code=400, detail="먼저 TOTP 설정을 시작하세요 (/totp/setup).")
     totp = pyotp.TOTP(current_user.totp_secret)
-    if not totp.verify(body.code, valid_window=1):
+    if not totp.verify(body.code, valid_window=_totp_valid_window()):
         raise HTTPException(status_code=400, detail="OTP 코드가 올바르지 않습니다.")
     current_user.totp_enabled = True
     await session.commit()
@@ -498,7 +500,7 @@ async def totp_disable(
     if not current_user.totp_enabled or not current_user.totp_secret:
         raise HTTPException(status_code=400, detail="TOTP가 활성화되어 있지 않습니다.")
     totp = pyotp.TOTP(current_user.totp_secret)
-    if not totp.verify(body.code, valid_window=1):
+    if not totp.verify(body.code, valid_window=_totp_valid_window()):
         raise HTTPException(status_code=400, detail="OTP 코드가 올바르지 않습니다.")
     current_user.totp_enabled = False
     current_user.totp_secret = None
