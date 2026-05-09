@@ -135,7 +135,7 @@
 **상세 명세**: [`FDS_ROADMAP.md § W7.5`](FDS_ROADMAP.md).
 
 - [x] **W7.5-#1** 잔액 급변 패턴 룰 (`BalanceDrainRule`, oldbalance→newbalance 분석) — 신규 — [중/백엔드] — ✅ 769266a (2026-05-07)
-- [x] **W7.5-#2** 사용자 시퀀스 LSTM 도입 (직전 N건 → 다음 정상도 예측) — `14-Track γ 확장` — [상/ML] — ✅ tbd (2026-05-09)
+- [x] **W7.5-#2** 사용자 시퀀스 LSTM 도입 (직전 N건 → 다음 정상도 예측) — `14-Track γ 확장` — [상/ML] — ✅ 44c1ab3 (2026-05-09)
 - [x] **W7.5-#3** 시간대 외 거래 군집 탐지 (사용자별 평균 활동 시간 학습) — 신규 — [중/ML] — ✅ 587a213 (2026-05-07)
 - [x] **W7.5-#4** chargeback 피드백 루프 (`POST /v1/fraud/feedback/chargeback` + ground truth 라벨) — 신규 — [상/백엔드] — ✅ 08d9613 (2026-05-09)
 - [x] **W7.5-#5** 적대적 회귀 테스트 (정교한 머니뮬 체인·smurfing·CASH_OUT 분할) — 신규 — [상/테스트] — ✅ c789a25 (2026-05-07)
@@ -274,4 +274,4 @@
 | 2026-05-07 | W7.5-#5 | 적대적 회귀 5종 (mule chain layering / smurfing 100K×20건 / CASH_OUT 25% drain 분할 + velocity 백업 / 단발 회피 한계 명시) + 5 PASS | c789a25 |
 | 2026-05-09 | W7.5-#6 | FDS SLO 대시보드 (`/admin/api/slo`: 시나리오 7종 자동 라벨링·latency p50/p99·FN/FP·분 단위 시계열, stats_collector.slo_summary + routes_fraud latency 측정) + 7 PASS / 회귀 36 PASS | 8ae914f |
 | 2026-05-09 | W7.5-#4 | chargeback 피드백 루프 (feedback_store InMemory/Redis + `POST /v1/fraud/feedback/chargeback` + `/feedback/metrics` precision/recall/F1) + 6 PASS / 회귀 30 PASS | 08d9613 |
-| 2026-05-09 | W7.5-#2 | 사용자 시퀀스 정상도 점수 (sequence_score.py: 직전 N건 amount z-score + hour anomaly 합성, cold-start 가드, evaluate 응답 노출) + 8 PASS / 회귀 41 PASS | tbd |
+| 2026-05-09 | W7.5-#2 | 사용자 시퀀스 정상도 점수 (sequence_score.py: 직전 N건 amount z-score + hour anomaly 합성, cold-start 가드, evaluate 응답 노출) + 8 PASS / 회귀 41 PASS | 44c1ab3 |
