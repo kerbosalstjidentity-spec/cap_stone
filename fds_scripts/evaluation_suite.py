@@ -522,7 +522,8 @@ def run_full_evaluation(output_dir: str | None = None) -> dict[str, Any]:
     summary = compliance["summary"]
     print(f"  Total: {summary['total_items']} items")
     print(f"  Implemented: {summary['implemented']}")
-    print(f"  Compliance Rate: {summary['compliance_rate']}%")
+    # W9-#2: summary 키는 production_ready_rate (compliance_rate 는 미존재 → KeyError)
+    print(f"  Compliance Rate: {summary['production_ready_rate']}%")
 
     # 종합 요약
     print("\n" + "=" * 70)
@@ -530,7 +531,7 @@ def run_full_evaluation(output_dir: str | None = None) -> dict[str, Any]:
     print("=" * 70)
     print(f"  Benchmarks: {len(benchmarks)} completed")
     print(f"  Threats: {'ALL PASS' if all_passed else 'SOME FAILURES'}")
-    print(f"  Compliance: {summary['compliance_rate']}%")
+    print(f"  Compliance: {summary['production_ready_rate']}%")
 
     # 저장
     if output_dir:
