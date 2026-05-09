@@ -255,7 +255,7 @@ DB 단에서 (user_id, category) 그룹별 합계를 한 번에 가져온 뒤, �
 > 절대 금액·소득 대비 지출률·시점은 다른 모델(#7 XGBoost 과소비, #6 LSTM 예측)이 담당하는 분리 설계입니다. K-Means는 "지출 구조의 형태"만, 다른 ML이 "지출 강도와 시점"을 보완.
 
 **Q4. 거래가 거의 없는 신규 사용자(콜드 스타트)는?**
-> fit 전에는 비율 합 0.3/0.6 임계값 규칙 fallback으로 임시 라벨을 줍니다. 다만 ⑤절에서 지적한 대로 fallback의 "절약형"이 실제로는 "데이터 부족"인 경우가 많아, 향후 `is_cold_start: bool` 플래그 응답 포함 계획.
+> fit 전에는 비율 합 0.3/0.6 임계값 규칙 fallback으로 임시 라벨을 줍니다. 다만 ⑤절에서 지적한 대로 fallback의 "절약형"이 실제로는 "데이터 부족"인 경우가 많아, 향후 `is_cold_start: bool` 플래그 응답 포함 계획. (✅ ROADMAP W5-#7 — `_select_k_by_silhouette(k_min=2, k_max=6)` 자동 K 선정 + `KMEANS_AUTO_K` env, fit 표본 부족 시 `cold_start=True` 유지하고 predict 응답에 `cold_start: True` 노출)
 
 **Q5. 학습 중 예측 요청이 들어오면?**
 > 현재는 모듈 싱글턴이라 학습/예측 동시 호출 시 일시적 모순 가능 (⑤절 참조). 운영 시 락 또는 swap 패턴(새 모델 학습 후 atomic 교체)이 필요한 후속 작업.
