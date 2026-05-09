@@ -14,6 +14,7 @@ from app.services.policy_merge import (
     classify_fraud_type,
     fraud_type_label_ko,
 )
+from app.services.feedback_store import feedback_store, precision_recall_summary
 from app.services.profile_store import profile_store
 from app.services.stats_collector import stats_collector
 from app.services import audit_logger
@@ -232,6 +233,59 @@ def step_up_status(tx_id: str) -> dict[str, Any]:
     if entry is None:
         raise HTTPException(status_code=404, detail=f"Step-up 대기 tx 없음: {tx_id}")
     return {"tx_id": tx_id, **entry}
+
+
+class ChargebackFeedbackRequest(BaseModel):
+    tx_id: str = Field(..., description="chargeback 대상 트랜잭션 ID")
+    user_id: str = Field(default="", description="피해 사용자 ID")
+    amount: float = Field(default=0.0, ge=0.0, description="환불 금액 (원)")
+    reason: str = Field(default="", description="신고 사유 (분쟁 코드 등)")
+
+
+@router.post("/feedback/chargeback", status_code=201)
+def feedback_chargeback(req: ChargebackFeedbackRequest) -> dict[str, Any]:
+    """W7.5-#4 — 사기 신고(chargeback) ground truth 라벨 기록."""
+    entry = feedback_store.record(
+        tx_id=req.tx_id,
+        user_id=req.user_id,
+        amount=req.amount,
+        reason=req.reason,
+    )
+    return {
+        "tx_id": entry.tx_id,
+        "label": entry.label,
+        "reported_at": entry.reported_at,
+        "total_recorded": feedback_store.count(),
+    }
+
+
+@router.get("/feedback/chargeback")
+def list_chargebacks(limit: int = Query(100, ge=1, le=1000)) -> dict[str, Any]:
+    items = feedback_store.all()[-limit:]
+    return {
+        "count": len(items),
+        "total": feedback_store.count(),
+        "items": [
+            {
+                "tx_id": e.tx_id,
+                "user_id": e.user_id,
+                "amount": e.amount,
+                "reason": e.reason,
+                "label": e.label,
+                "reported_at": e.reported_at,
+            }
+            for e in items
+        ],
+    }
+
+
+@router.get("/feedback/metrics")
+def feedback_metrics() -> dict[str, Any]:
+    """평가 이력 + chargeback 라벨로 precision/recall/F1 계산."""
+    # stats_collector 의 내부 deque 에 직접 접근 — slo_summary 와 동일 패턴
+    with stats_collector._lock:  # type: ignore[attr-defined]
+        entries = list(stats_collector._entries)  # type: ignore[attr-defined]
+    return precision_recall_summary(entries)
 
 
 @router.get("/risk-leakage-report")

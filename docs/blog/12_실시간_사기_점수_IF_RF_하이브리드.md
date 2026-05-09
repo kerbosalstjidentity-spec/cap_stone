@@ -390,6 +390,8 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 | "그냥 이상치 탐지 아닌가요?" | Track 3 | 사기 유형별 다중분류 라벨(`fraud_type`) 도입으로 유형 식별까지 확장 예정 |
 | "관계·네트워크 분석은 없나요?" | Track 4 | PaySim 도입 후 송금 그래프 피처(수취인 신규성·hub-spoke 패턴)를 layer-1에 추가 예정 |
 
+(✅ ROADMAP W7.5-#4 — `POST /v1/fraud/feedback/chargeback` ground truth 라벨 누적 + `/v1/fraud/feedback/metrics` precision/recall/F1)
+
 ---
 
 ### 예상 질문 & 답변 (발표 Q&A 대비)
