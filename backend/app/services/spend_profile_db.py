@@ -20,6 +20,21 @@ from app.schemas.spend import (
     SpendProfile,
     TransactionIngest,
 )
+from app.services.category_engine import classify as classify_category
+
+
+def _autoclassify_if_other(tx: TransactionIngest) -> SpendCategory:
+    """W9-#9: ingest 경로 wiring — category 가 OTHER 인 경우만 자동 분류 시도.
+
+    - merchant_id (또는 memo) 텍스트만 사용; MCC 정보는 현 입력 스키마에 없음.
+    - 호출자가 명시적으로 OTHER 를 의도했어도 무해 (분류 실패 시 OTHER 유지).
+    """
+    if tx.category != SpendCategory.OTHER:
+        return tx.category
+    text = (tx.merchant_id or "") + " " + (tx.memo or "")
+    if not text.strip():
+        return SpendCategory.OTHER
+    return classify_category(text=text)
 
 
 # ──────────────────────────────────────────────
@@ -34,13 +49,14 @@ async def ingest_transaction(tx: TransactionIngest, session: AsyncSession) -> No
         session.add(User(user_id=tx.user_id))
         await session.flush()
 
+    auto_cat = _autoclassify_if_other(tx)
     db_tx = Transaction(
         transaction_id=tx.transaction_id,
         user_id=tx.user_id,
         amount=tx.amount,
         timestamp=tx.timestamp,
         merchant_id=tx.merchant_id,
-        category=tx.category.value,
+        category=auto_cat.value,
         channel=tx.channel,
         is_domestic=tx.is_domestic,
         memo=tx.memo,

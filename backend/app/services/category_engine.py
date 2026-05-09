@@ -1,4 +1,12 @@
-"""MCC 코드 → SpendCategory 매핑 엔진."""
+"""MCC 코드 → SpendCategory 매핑 엔진.
+
+W9-#9: 키워드 매칭 우선순위는 ``_KEYWORD_MAP`` 의 **삽입 순서**.
+파이썬 dict 는 3.7+ 이후 순서를 보존하므로 첫 번째 매칭 키워드가 이긴다.
+복합 가맹점명(예: "배달의민족_쿠팡마트")은 dict 위쪽 키워드(``배달의민족``)가
+먼저 매칭되어 FOOD 로 분류 — 모호함을 피하려면 더 구체적인 브랜드를 위에
+배치할 것. 향후 확장 시 ``(keyword, priority, category)`` 튜플 + 정렬 리스트
+로 마이그레이션 권장.
+"""
 
 from app.schemas.spend import SpendCategory
 
