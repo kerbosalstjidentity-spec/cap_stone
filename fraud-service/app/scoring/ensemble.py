@@ -14,13 +14,26 @@ Isolation Forest + 분류기 앙상블 스코어링.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import numpy as np
 
-# 앙상블 가중치 — 나중에 SYSTEM_CONFIG 또는 .env로 빼도 됨
-ALPHA = 0.7   # XGBoost 비중
-BETA = 0.3    # Isolation Forest 비중
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+# 앙상블 가중치 — W9-#3: env 외부화 (ENSEMBLE_ALPHA / ENSEMBLE_BETA).
+# 정합성 보장을 위해 합이 1.0 가까이 되도록 하되, 강제 정규화는 운영자 책임.
+ALPHA = _env_float("ENSEMBLE_ALPHA", 0.7)   # XGBoost 비중
+BETA = _env_float("ENSEMBLE_BETA", 0.3)     # Isolation Forest 비중
 
 # IF score_samples 정규화 범위 — 도메인별로 다름.
 # (open V1..V30 분포: 대략 -0.5 ~ -0.05)

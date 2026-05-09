@@ -28,9 +28,9 @@
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 0 | 0% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
-| W9 | Quick wins (P3) | 16 | 2 | 13% |
+| W9 | Quick wins (P3) | 16 | 3 | 19% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **51** | **50%** |
+| **합계** | | **103** | **52** | **50%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -202,7 +202,7 @@
 
 - [ ] **W9-#1** 11_금융교육 퀴즈 채점 정답 검증 버그 수정 — `11_금융_교육:286` — [하/백엔드]
 - [ ] **W9-#2** 22_평가 `compliance_rate` → `production_ready_rate` KeyError 수정 — `22_모델_평가:160` — [하/백엔드]
-- [ ] **W9-#3** 12_사기점수 ALPHA/BETA env 외부화 — `12_실시간_사기:119` — [하/백엔드]
+- [x] **W9-#3** 12_사기점수 ALPHA/BETA env 외부화 — `12_실시간_사기:119` — [하/백엔드] — ✅ tbd (2026-05-09)
 - [ ] **W9-#4** 13_룰엔진 `window_minutes` 기본값 5로 조정 — `13_규칙_엔진:249` — [하/백엔드]
 - [ ] **W9-#5** 14_행동시그널 임계값 env 분리 + 원점수 보존 — `14_행동_시그널:185,187` — [하/백엔드]
 - [x] **W9-#6** 21_알림 Redis pub/sub vs 직접 send 중복 제거, mark_all_read commit 통일 — `21_알림_시스템:202,206` — [하/백엔드] — ✅ 762b67a (2026-05-02, W4-#6과 함께)
@@ -275,3 +275,4 @@
 | 2026-05-09 | W7.5-#6 | FDS SLO 대시보드 (`/admin/api/slo`: 시나리오 7종 자동 라벨링·latency p50/p99·FN/FP·분 단위 시계열, stats_collector.slo_summary + routes_fraud latency 측정) + 7 PASS / 회귀 36 PASS | 8ae914f |
 | 2026-05-09 | W7.5-#4 | chargeback 피드백 루프 (feedback_store InMemory/Redis + `POST /v1/fraud/feedback/chargeback` + `/feedback/metrics` precision/recall/F1) + 6 PASS / 회귀 30 PASS | 08d9613 |
 | 2026-05-09 | W7.5-#2 | 사용자 시퀀스 정상도 점수 (sequence_score.py: 직전 N건 amount z-score + hour anomaly 합성, cold-start 가드, evaluate 응답 노출) + 8 PASS / 회귀 41 PASS | 44c1ab3 |
+| 2026-05-09 | W9-#3 | 앙상블 ALPHA/BETA env 외부화 (ENSEMBLE_ALPHA/BETA, _env_float fallback) + 3 PASS / 회귀 19 PASS | tbd |

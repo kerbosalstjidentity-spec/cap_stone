@@ -114,7 +114,7 @@ def ensemble_score(xgb_proba, bundle, X):
 **핵심 설계 의도**:
 - `iso is None` 또는 예외 발생 시 XGBoost 단독 점수로 자동 폴백 — 모델 번들 호환성 문제로 IF가 빠져도 서비스가 죽지 않는다.
 - `min(combined, 1.0)` 로 상한을 명시 — 부동소수 오차로 1.0001 같은 값이 나와도 안전하다.
-- 가중치가 모듈 상수로 하드코딩 — 주석에 "나중에 SYSTEM_CONFIG 또는 .env로 빼도 됨" 이라고 향후 작업이 표시되어 있다.
+- 가중치가 모듈 상수로 하드코딩 — 주석에 "나중에 SYSTEM_CONFIG 또는 .env로 빼도 됨" 이라고 향후 작업이 표시되어 있다. (✅ ROADMAP W9-#3 — `ENSEMBLE_ALPHA`/`ENSEMBLE_BETA` env 외부화)
 
 ### 4-3. 점수 API의 전체 파이프라인
 
