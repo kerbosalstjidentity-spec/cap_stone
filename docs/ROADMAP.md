@@ -200,7 +200,7 @@
 
 ## W9 — Quick wins (P3 / 일괄)
 
-- [x] **W9-#1** 11_금융교육 퀴즈 채점 정답 검증 버그 수정 — `11_금융_교육:286` — [하/백엔드] — ✅ tbd (2026-05-09)
+- [x] **W9-#1** 11_금융교육 퀴즈 채점 정답 검증 버그 수정 — `11_금융_교육:286` — [하/백엔드] — ✅ 98f29ff (2026-05-09)
 - [ ] **W9-#2** 22_평가 `compliance_rate` → `production_ready_rate` KeyError 수정 — `22_모델_평가:160` — [하/백엔드]
 - [x] **W9-#3** 12_사기점수 ALPHA/BETA env 외부화 — `12_실시간_사기:119` — [하/백엔드] — ✅ ac48c0d (2026-05-09)
 - [x] **W9-#4** 13_룰엔진 `window_minutes` 기본값 5로 조정 — `13_규칙_엔진:249` — [하/백엔드] — ✅ 84fc101 (2026-05-09)
@@ -277,4 +277,4 @@
 | 2026-05-09 | W7.5-#2 | 사용자 시퀀스 정상도 점수 (sequence_score.py: 직전 N건 amount z-score + hour anomaly 합성, cold-start 가드, evaluate 응답 노출) + 8 PASS / 회귀 41 PASS | 44c1ab3 |
 | 2026-05-09 | W9-#3 | 앙상블 ALPHA/BETA env 외부화 (ENSEMBLE_ALPHA/BETA, _env_float fallback) + 3 PASS / 회귀 19 PASS | ac48c0d |
 | 2026-05-09 | W9-#4 | VelocityRule window_minutes 기본 10→5 (profile.velocity 키 1m/5m/15m 정합화, 회귀 21 PASS) | 84fc101 |
-| 2026-05-09 | W9-#1 | 사기 퀴즈 채점 정답 검증 버그 수정 (_FRAUD_SCENARIOS id 부여 + _fraud_correct_answer_map 으로 question_id↔정답 대조) + 3 PASS | tbd |
+| 2026-05-09 | W9-#1 | 사기 퀴즈 채점 정답 검증 버그 수정 (_FRAUD_SCENARIOS id 부여 + _fraud_correct_answer_map 으로 question_id↔정답 대조) + 3 PASS | 98f29ff |
