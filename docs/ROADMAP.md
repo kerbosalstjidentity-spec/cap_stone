@@ -214,7 +214,7 @@
 - [x] **W9-#12** 01_기본인증 TOTP `valid_window` env 노출 — `01_기본인증:220` — [하/백엔드] — ✅ 58e8d0e (2026-05-09)
 - [ ] **W9-#13** 15_ABAC BidirectionalPolicy/CPABE_Simulator를 research/로 분리 — `15_ABAC_ABE:523` — [하/문서]
 - [x] **W9-#14** 16_블록체인 싱글턴 환경변수 오버라이드 — `16_블록체인:369` — [하/인프라] — ✅ 3a511c6 (2026-05-02)
-- [x] **W9-#15** 17_위협 query Lock 범위 축소 + detail 타입 명시 — `17_위협_인텔리전스:172,174` — [하/백엔드] — ✅ tbd (2026-05-09)
+- [x] **W9-#15** 17_위협 query Lock 범위 축소 + detail 타입 명시 — `17_위협_인텔리전스:172,174` — [하/백엔드] — ✅ 566f9a1 (2026-05-09)
 - [ ] **W9-#16** 22_평가 `sys.path` 조작 제거 + 패키지 등록 — `22_모델_평가:152` — [중/백엔드]
 
 ---
@@ -283,4 +283,4 @@
 | 2026-05-09 | W9-#12 | TOTP valid_window env 노출 (TOTP_VALID_WINDOW, 기본 1, 0~5 클립, totp_config.py 분리) — routes_auth 3곳 + routes_stepup 1곳 적용 + 5 PASS | 58e8d0e |
 | 2026-05-09 | W9-#7 | A/B bundle_b 로드 실패 ERROR 로그 (load_bundle_b()) + soft_review 키 분리 (_record action 매핑 정정) + 4 PASS / 회귀 2 PASS | 6ff5fef |
 | 2026-05-09 | W9-#11 | MyData 동의 철회 소유권 검증 (revoke_mydata_consent: get_current_user 주입 + JWT user_id 와 consent owner 일치 검사 + admin 우회) + 4 PASS | f5bd917 |
-| 2026-05-09 | W9-#15 | intelligence_store query Lock 범위 축소 (snapshot 만 lock 안, reversed 밖) + detail 타입 docstring 명시 (dict | "[ENCRYPTED:...]" 문자열) — 회귀 6 PASS | tbd |
+| 2026-05-09 | W9-#15 | intelligence_store query Lock 범위 축소 (snapshot 만 lock 안, reversed 밖) + detail 타입 docstring 명시 (dict | "[ENCRYPTED:...]" 문자열) — 회귀 6 PASS | 566f9a1 |
