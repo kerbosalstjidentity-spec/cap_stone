@@ -101,6 +101,17 @@ def admin_stats():
     return stats_collector.summary()
 
 
+# --- W7.5-#6: SLO 대시보드 ---
+
+@router.get("/api/slo")
+def admin_slo(bucket_minutes: int = 1, buckets: int = 60):
+    """시나리오별 검출률·latency p50/p99·FN/FP 비율·시계열."""
+    return stats_collector.slo_summary(
+        bucket_minutes=max(1, bucket_minutes),
+        buckets=max(1, min(buckets, 240)),
+    )
+
+
 @router.delete("/api/stats")
 def admin_reset_stats():
     stats_collector.reset()

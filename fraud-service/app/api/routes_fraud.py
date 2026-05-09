@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -50,6 +51,8 @@ class StepUpResultRequest(BaseModel):
 
 def _evaluate_one(tx_data: dict) -> dict[str, Any]:
     """단건 평가 공통 로직 — evaluate / batch 둘 다 재사용."""
+    # W7.5-#6: SLO 대시보드용 latency 측정 시작
+    _t0 = time.perf_counter()
     # Layer 1: 행동 시그널 리스크 분석 (W1-#6 HMAC 서명 검증 + 서버 IP 보강)
     server_ctx = {
         "ip": tx_data.get("ip", ""),
@@ -110,8 +113,14 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
             )
         except Exception:
             pass
-    stats_collector.record(tx_data.get("tx_id", ""), final_action, triggered,
-                           float(tx_data.get("score", 0)), float(tx_data.get("amount", 0)))
+    _latency_ms = (time.perf_counter() - _t0) * 1000.0
+    stats_collector.record(
+        tx_data.get("tx_id", ""), final_action, triggered,
+        float(tx_data.get("score", 0)), float(tx_data.get("amount", 0)),
+        latency_ms=_latency_ms,
+        scenario_label=tx_data.get("scenario_label") or None,
+        expected_action=tx_data.get("expected_action") or None,
+    )
     audit_logger.write(
         tx_id=tx_data.get("tx_id", ""),
         user_id=tx_data.get("user_id", ""),
