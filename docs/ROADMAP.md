@@ -139,7 +139,7 @@
 - [x] **W7.5-#3** 시간대 외 거래 군집 탐지 (사용자별 평균 활동 시간 학습) — 신규 — [중/ML] — ✅ 587a213 (2026-05-07)
 - [ ] **W7.5-#4** chargeback 피드백 루프 (`POST /v1/fraud/feedback/chargeback` + ground truth 라벨) — 신규 — [상/백엔드]
 - [x] **W7.5-#5** 적대적 회귀 테스트 (정교한 머니뮬 체인·smurfing·CASH_OUT 분할) — 신규 — [상/테스트] — ✅ c789a25 (2026-05-07)
-- [x] **W7.5-#6** FDS SLO 대시보드 (시나리오별 검출률·latency·FN/FP 시계열) — 신규 — [중/백엔드] — ✅ tbd (2026-05-09)
+- [x] **W7.5-#6** FDS SLO 대시보드 (시나리오별 검출률·latency·FN/FP 시계열) — 신규 — [중/백엔드] — ✅ 8ae914f (2026-05-09)
 
 ---
 
@@ -272,4 +272,4 @@
 | 2026-05-07 | W7.5-#1 | BalanceDrainRule (CASH_OUT/TRANSFER, drain≥90% AND amount≥500K AND old≥100K → BLOCK) + BALANCE_DRAIN fraud_type/임계값 0.55 + 10 PASS | 769266a |
 | 2026-05-07 | W7.5-#3 | OffHoursClusterRule (UserProfile.hour_histogram + 미사용시간대 REVIEW / ≤5% SOFT_REVIEW, ACCOUNT_TAKEOVER 매핑, InMemory/Redis 양쪽 노출) + 10 PASS | 587a213 |
 | 2026-05-07 | W7.5-#5 | 적대적 회귀 5종 (mule chain layering / smurfing 100K×20건 / CASH_OUT 25% drain 분할 + velocity 백업 / 단발 회피 한계 명시) + 5 PASS | c789a25 |
-| 2026-05-09 | W7.5-#6 | FDS SLO 대시보드 (`/admin/api/slo`: 시나리오 7종 자동 라벨링·latency p50/p99·FN/FP·분 단위 시계열, stats_collector.slo_summary + routes_fraud latency 측정) + 7 PASS / 회귀 36 PASS | tbd |
+| 2026-05-09 | W7.5-#6 | FDS SLO 대시보드 (`/admin/api/slo`: 시나리오 7종 자동 라벨링·latency p50/p99·FN/FP·분 단위 시계열, stats_collector.slo_summary + routes_fraud latency 측정) + 7 PASS / 회귀 36 PASS | 8ae914f |
