@@ -6,6 +6,7 @@ import numpy as np
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.scoring import ab_test
 from app.scoring.ensemble import ensemble_score, score_paysim_bundle
 from app.scoring.features import features_dict_to_matrix, paysim_dict_to_matrix
 from app.scoring.model_loader import load_model_bundle
@@ -23,6 +24,7 @@ class ScoreRequest(BaseModel):
             "nameDest, step. 없는 키는 0.0."
         ),
     )
+    tx_id: str = Field(default="", description="A/B 라우팅 키 (W7-#6 shadow_evaluate)")
 
 
 class BatchScoreItem(BaseModel):
@@ -73,6 +75,22 @@ def score(req: ScoreRequest):
         reason_code = single_reason(X_t[0], names, importances)
         reason_human = reason_code_to_human(X_t[0], names, importances)
 
+    # W7-#6: shadow_evaluate ↔ /score wiring — bundle_b 가 있으면 동시 평가, 없으면 None
+    ab_info = None
+    bundle_b = ab_test.load_bundle_b()
+    if bundle_b is not None:
+        try:
+            shadow = ab_test.shadow_evaluate(req.tx_id or "", X_t, bundle, bundle_b)
+            ab_info = {
+                "score_a": shadow["score_a"],
+                "score_b": shadow["score_b"],
+                "serving": shadow["serving"],
+            }
+            if shadow["serving"] == "b" and shadow["score_b"] is not None:
+                final_proba = float(shadow["score_b"])
+        except Exception:
+            ab_info = None
+
     return {
         "fraud_probability": final_proba,
         "xgb_probability": xgb_proba,
@@ -80,6 +98,7 @@ def score(req: ScoreRequest):
         "reason_code": reason_code,
         "reason_human": reason_human,
         "feature_count": len(names),
+        "ab_test": ab_info,
     }
 
 

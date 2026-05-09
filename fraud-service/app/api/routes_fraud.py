@@ -14,6 +14,7 @@ from app.services.policy_merge import (
     classify_fraud_type,
     fraud_type_label_ko,
 )
+from app.scoring import ab_test
 from app.scoring.sequence_score import score_sequence, sequence_store
 from app.services.feedback_store import feedback_store, precision_recall_summary
 from app.services.profile_store import profile_store
@@ -44,6 +45,7 @@ class FraudEvaluateRequest(BaseModel):
     signals: dict | None = Field(default=None, description="Layer 1 행동 시그널 (브라우저/앱 SDK)")
     signal_signature: str = Field(default="", description="signals HMAC-SHA256 서명 (hex, W1-#6)")
     signal_timestamp: int = Field(default=0, description="signals 서명 타임스탬프 (epoch s, ±300s 허용)")
+    ab_variant: str = Field(default="a", description="A/B 평가 시 어느 모델이 score 산출했는지 (W7-#6, a|b)")
 
 
 class StepUpResultRequest(BaseModel):
@@ -131,6 +133,11 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
             )
         except Exception:
             pass
+    # W7-#6: A/B 통계 기록 — variant 별 final_action 카운트
+    try:
+        ab_test._record(str(tx_data.get("ab_variant", "a") or "a").lower(), final_action)
+    except Exception:
+        pass
     _latency_ms = (time.perf_counter() - _t0) * 1000.0
     stats_collector.record(
         tx_data.get("tx_id", ""), final_action, triggered,
