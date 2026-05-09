@@ -147,7 +147,7 @@
 
 목표: 가중치 하드코딩·정규화 가정 등 ML 신뢰도 결함 해결.
 
-- [x] **W5-#1** 앙상블 ALPHA/BETA → `SYSTEM_CONFIG`/env 외부화 + 동적 조정 — `12_사기점수:119` + `journey/04:99` + `threat/04:86` — [중/ML] — ✅ tbd (2026-05-09)
+- [x] **W5-#1** 앙상블 ALPHA/BETA → `SYSTEM_CONFIG`/env 외부화 + 동적 조정 — `12_사기점수:119` + `journey/04:99` + `threat/04:86` — [중/ML] — ✅ d2932b8 (2026-05-09)
 - [ ] **W5-#2** IF 정규화 상수 → 학습 시 quantile 기반 자동 추정 후 번들 저장 — `12_사기점수:323` + `pipeline/03:106` — [상/ML]
 - [ ] **W5-#3** 사용자별 적응형 step-up 임계값 (전역 0.6 제거) — `03_Step-up:239` + `journey/04:102` + `threat/02:87` — [상/ML]
 - [ ] **W5-#4** LSTM 신뢰도 → 예측 분산 추정 + 모델 가중치 영속화 — `06_LSTM:229,231` — [상/ML]
@@ -289,4 +289,4 @@
 | 2026-05-09 | W9-#9 | 카테고리 ingest 경로 wiring (_autoclassify_if_other in spend_profile_db) + 키워드 우선순위 docstring 명시 (삽입 순서) + 6 PASS | e9d56ff |
 | 2026-05-09 | W9-#10 | 감정 알림 누락 감사 로그 (_audit_emotion_notify_failure / get_emotion_notify_audit, max 200) + check_and_notify 의존성 주입 (notify_fn keyword-only) + status 반환 + 4 PASS | 707d739 |
 | 2026-05-09 | W9-#13 | BidirectionalPolicy/CPABE_Simulator → app/research/abac_simulation.py 분리 + abe_engine __getattr__ lazy alias (순환 import 회피, 후방 호환) + 4 PASS / 회귀 16 PASS | 69e7edb |
-| 2026-05-09 | W5-#1 | 앙상블 가중치 동적 조정 (ensemble.set_weights/get_weights + GET/PATCH /admin/api/ensemble-weights, 합 0~1.5 클립) + SYSTEM_CONFIG ENSEMBLE_ALPHA/BETA + 5 PASS / 회귀 5 PASS | tbd |
+| 2026-05-09 | W5-#1 | 앙상블 가중치 동적 조정 (ensemble.set_weights/get_weights + GET/PATCH /admin/api/ensemble-weights, 합 0~1.5 클립) + SYSTEM_CONFIG ENSEMBLE_ALPHA/BETA + 5 PASS / 회귀 5 PASS | d2932b8 |
