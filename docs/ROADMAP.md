@@ -161,7 +161,7 @@
 ## W6 — 모델 영속화 + 학습 자동화 (P1)
 
 - [ ] **W6-#1** `train_all()` 결과 `joblib.dump`로 디스크 저장 + 부팅 시 자동 로드 — `20_학습:198` — [중/ML]
-- [x] **W6-#2** `model_loader.py`에 `@functools.lru_cache(maxsize=1)` — `20_학습:178` — [하/백엔드] — ✅ tbd (2026-05-09)
+- [x] **W6-#2** `model_loader.py`에 `@functools.lru_cache(maxsize=1)` — `20_학습:178` — [하/백엔드] — ✅ 8c4df96 (2026-05-09)
 - [ ] **W6-#3** 번들 포맷 스키마 정의 + 로드 시 키/predict_proba/입력차원 검증 — `pipeline/02:95` + `mlops/02:91` — [중/백엔드]
 - [ ] **W6-#4** 메타데이터 자동 검증 (AUC 임계값 미달 시 거부) — `pipeline/02:97` + `mlops/04:90` — [중/ML]
 - [ ] **W6-#5** fds-research → fraud-service MLflow/DVC 버전 관리 + CI/CD — `20_학습:200` + `pipeline/02:94` + `mlops/02:90` — [상/인프라]
@@ -291,4 +291,4 @@
 | 2026-05-09 | W9-#13 | BidirectionalPolicy/CPABE_Simulator → app/research/abac_simulation.py 분리 + abe_engine __getattr__ lazy alias (순환 import 회피, 후방 호환) + 4 PASS / 회귀 16 PASS | 69e7edb |
 | 2026-05-09 | W5-#1 | 앙상블 가중치 동적 조정 (ensemble.set_weights/get_weights + GET/PATCH /admin/api/ensemble-weights, 합 0~1.5 클립) + SYSTEM_CONFIG ENSEMBLE_ALPHA/BETA + 5 PASS / 회귀 5 PASS | d2932b8 |
 | 2026-05-09 | W7-#2 | LatencyMiddleware (X-Process-Time-Ms / X-P50-Ms / X-P99-Ms 응답 헤더) + GET /admin/api/latency 경로별 통계 + 4 PASS / 회귀 13 PASS | 23a6df9 |
-| 2026-05-09 | W6-#2 | model_loader `@lru_cache(maxsize=1)` + clear_model_cache/model_cache_info 노출, 동일 경로 hit 캐시 + 4 PASS / 회귀 13 PASS | tbd |
+| 2026-05-09 | W6-#2 | model_loader `@lru_cache(maxsize=1)` + clear_model_cache/model_cache_info 노출, 동일 경로 hit 캐시 + 4 PASS / 회귀 13 PASS | 8c4df96 |
