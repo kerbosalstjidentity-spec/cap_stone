@@ -154,7 +154,7 @@
 - [ ] **W5-#5** XGBoost 학습 (mu, std) 번들 저장 → 단건 z-score 일관성 — `07_XAI:266` — [중/ML]
 - [ ] **W5-#6** 카테고리 분류 confidence score 도입 + 가중치화 — `journey/03:84` + `pipeline/01:87` — [상/ML]
 - [ ] **W5-#7** KMeans K값 silhouette 자동 선정 + cold-start 플래그 — `05_KMeans:249,258` — [중/ML]
-- [x] **W5-#8** 감정 라벨 룰 → JSON/DSL 외부화 — `journey/03:86` + `pipeline/01:89` — [중/백엔드] — ✅ tbd (2026-05-09)
+- [x] **W5-#8** 감정 라벨 룰 → JSON/DSL 외부화 — `journey/03:86` + `pipeline/01:89` — [중/백엔드] — ✅ f6123ed (2026-05-09)
 
 ---
 
@@ -293,4 +293,4 @@
 | 2026-05-09 | W7-#2 | LatencyMiddleware (X-Process-Time-Ms / X-P50-Ms / X-P99-Ms 응답 헤더) + GET /admin/api/latency 경로별 통계 + 4 PASS / 회귀 13 PASS | 23a6df9 |
 | 2026-05-09 | W6-#2 | model_loader `@lru_cache(maxsize=1)` + clear_model_cache/model_cache_info 노출, 동일 경로 hit 캐시 + 4 PASS / 회귀 13 PASS | 8c4df96 |
 | 2026-05-09 | W7-#6 | shadow_evaluate ↔ /v1/score wiring + _evaluate_one 끝 ab_test._record(variant, action), ScoreRequest.tx_id / FraudEvaluateRequest.ab_variant 추가 + 4 PASS / 회귀 7 PASS | f4d1b95 |
-| 2026-05-09 | W5-#8 | 감정 라벨 룰 JSON 외부화 (backend/app/policies/emotion_rules.json + reload_emotion_rules + EMOTION_RULES_PATH env) — 시간대/주말/스트레스 가중치/위험 등급/메시지 일괄 + 4 PASS | tbd |
+| 2026-05-09 | W5-#8 | 감정 라벨 룰 JSON 외부화 (backend/app/policies/emotion_rules.json + reload_emotion_rules + EMOTION_RULES_PATH env) — 시간대/주말/스트레스 가중치/위험 등급/메시지 일괄 + 4 PASS | f6123ed |
