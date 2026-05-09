@@ -378,6 +378,81 @@ class BalanceDrainRule(Rule):
         return None
 
 
+class OffHoursClusterRule(Rule):
+    """시간대 외 거래 군집 탐지 (W7.5-#3).
+
+    사용자별 활동 시간 분포(``hour_histogram``)를 학습된 베이스라인으로 보고,
+    현재 거래 시간이 사용자 평소 활동 영역에서 크게 벗어나면 시그널.
+
+    Cold-start 방어: ``tx_count < min_history`` 이면 미발동 (학습 표본 부족).
+    소액 false-positive 방어: ``amount < amount_threshold`` 면 미발동.
+
+    분기:
+    - 해당 hour 의 활동 비율 == 0 (한 번도 사용 안 한 시간대) → REVIEW
+    - 비율 ≤ ``off_hours_threshold`` (e.g., 5%) → SOFT_REVIEW
+    """
+    rule_id = "OFF_HOURS_CLUSTER"
+
+    def __init__(
+        self,
+        min_history: int = 20,
+        off_hours_threshold: float = 0.05,
+        amount_threshold: float = 100_000,
+    ) -> None:
+        self.min_history = min_history
+        self.off_hours_threshold = off_hours_threshold
+        self.amount_threshold = amount_threshold
+
+    @staticmethod
+    def _resolve_hour(tx: dict[str, Any]) -> int:
+        h = tx.get("hour", -1)
+        try:
+            h = int(h)
+        except (TypeError, ValueError):
+            h = -1
+        if 0 <= h <= 23:
+            return h
+        ts = tx.get("timestamp")
+        if isinstance(ts, str):
+            try:
+                return datetime.fromisoformat(ts).hour
+            except ValueError:
+                return -1
+        return -1
+
+    def evaluate(self, tx, profile):
+        if not self.enabled or profile is None:
+            return None
+        if profile.tx_count < self.min_history:
+            return None
+        hist = getattr(profile, "hour_histogram", None) or {}
+        if not hist:
+            return None
+        amount = float(tx.get("amount", 0) or 0)
+        if amount < self.amount_threshold:
+            return None
+        hour = self._resolve_hour(tx)
+        if hour < 0:
+            return None
+        total = sum(hist.values())
+        if total <= 0:
+            return None
+        rate = hist.get(hour, 0) / total
+        if rate == 0.0:
+            return RuleResult(
+                self.rule_id,
+                "REVIEW",
+                f"미사용 시간대 {hour}시 거래 (history={profile.tx_count}건)",
+            )
+        if rate <= self.off_hours_threshold:
+            return RuleResult(
+                self.rule_id,
+                "SOFT_REVIEW",
+                f"평소 외 시간대 {hour}시 (활동비율 {rate*100:.1f}% ≤ {self.off_hours_threshold*100:.0f}%)",
+            )
+        return None
+
+
 class NewMerchantRule(Rule):
     """처음 거래하는 merchant AND 금액 ≥ threshold → SOFT_REVIEW."""
     rule_id = "NEW_MERCHANT"
@@ -416,6 +491,7 @@ class RuleEngine:
             MoneyMuleRule(),           # W6.5-#3 — graph_features 기반
             LayeringRule(),            # W6.5-#4 — 체인 패턴
             BalanceDrainRule(),        # W7.5-#1 — 잔액 급변 인출
+            OffHoursClusterRule(),     # W7.5-#3 — 시간대 외 거래
             AmountBlockRule(),
             AmountReviewRule(),
             TimeRiskRule(),

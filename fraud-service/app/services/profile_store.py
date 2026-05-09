@@ -42,6 +42,8 @@ class UserProfile:
     peak_hour: int = -1           # 가장 많이 거래한 시간대
     merchant_diversity: int = 0   # 고유 merchant 수
     velocity: dict[str, int] = field(default_factory=lambda: {"1m": 0, "5m": 0, "15m": 0})
+    # W7.5-#3: 사용자 시간대 활동 분포 (0~23 → 거래 건수). OffHoursClusterRule 입력.
+    hour_histogram: dict[int, int] = field(default_factory=dict)
 
 
 _MAX_HISTORY = 500  # 사용자당 최대 보관 건수
@@ -104,6 +106,7 @@ class InMemoryProfileStore:
             peak_hour=peak_hour,
             merchant_diversity=len(merchants),
             velocity=self._calc_velocity(history),
+            hour_histogram=dict(hour_counts),
         )
         return profile
 

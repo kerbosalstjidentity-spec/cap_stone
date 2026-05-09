@@ -100,7 +100,7 @@ def classify_fraud_type(rule_ids: list[str] | str | None) -> str:
         return "CARD_TESTING"
     if "VELOCITY_FREQ" in s and not (s & _AMOUNT_RULES):
         return "CARD_TESTING"
-    if s & {"FOREIGN_IP", "DEVICE_FINGERPRINT"}:
+    if s & {"FOREIGN_IP", "DEVICE_FINGERPRINT", "OFF_HOURS_CLUSTER"}:
         return "ACCOUNT_TAKEOVER"
     if "VELOCITY_FREQ" in s and (s & _AMOUNT_RULES):
         return "MONEY_MULE"

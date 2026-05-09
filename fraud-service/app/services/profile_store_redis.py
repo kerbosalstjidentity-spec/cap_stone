@@ -114,6 +114,7 @@ class RedisProfileStore:
             peak_hour=peak_hour,
             merchant_diversity=len(merchants),
             velocity=self._calc_velocity_from_records(records),
+            hour_histogram=dict(hour_counts),
         )
 
     def get_velocity(self, user_id: str, window_minutes: int) -> int:
