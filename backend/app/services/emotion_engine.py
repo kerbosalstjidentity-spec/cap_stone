@@ -328,19 +328,71 @@ async def get_insights(session: AsyncSession, user_id: str) -> dict:
 #  알림 연동
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-async def check_and_notify(session: AsyncSession, user_id: str) -> None:
-    """충동 위험이 threshold 이상이면 실시간 알림 발송."""
+async def check_and_notify(
+    session: AsyncSession,
+    user_id: str,
+    *,
+    notify_fn=None,  # W9-#10: 의존성 주입 — 테스트/대체 구현 가능
+) -> dict:
+    """충동 위험이 threshold 이상이면 실시간 알림 발송.
+
+    W9-#10:
+    - notify_fn 주입 가능 (default 는 notification_service.create_and_push)
+    - 알림 누락(예외) 을 무음 warning 외에 감사 로그(_audit_emotion_notify_failure)
+      에 누적 — 통계로 누락률 모니터링 가능
+    - 반환값에 status/risk_score 포함 (이전엔 None)
+    """
+    audit = {"status": "skipped", "user_id": user_id}
     try:
         risk = await predict_impulse_risk(session, user_id)
-        if risk["risk_score"] >= settings.EMOTION_RISK_THRESHOLD:
-            from app.services.notification_service import create_and_push
-            await create_and_push(
-                session=session,
-                user_id=user_id,
-                event_type="emotion_risk",
-                title="충동 소비 주의",
-                body=risk["warning_message"],
-                metadata={"risk_score": risk["risk_score"], "risk_level": risk["risk_level"]},
-            )
+        audit["risk_score"] = risk["risk_score"]
+        if risk["risk_score"] < settings.EMOTION_RISK_THRESHOLD:
+            audit["status"] = "below_threshold"
+            return audit
+        if notify_fn is None:
+            from app.services.notification_service import create_and_push as notify_fn  # type: ignore
+        await notify_fn(
+            session=session,
+            user_id=user_id,
+            event_type="emotion_risk",
+            title="충동 소비 주의",
+            body=risk["warning_message"],
+            metadata={"risk_score": risk["risk_score"], "risk_level": risk["risk_level"]},
+        )
+        audit["status"] = "notified"
+        return audit
     except Exception as e:
         logger.warning("[Emotion] check_and_notify error: %s", e)
+        _audit_emotion_notify_failure(user_id, repr(e))
+        audit["status"] = "failed"
+        audit["error"] = repr(e)
+        return audit
+
+
+# W9-#10: 알림 누락 감사 로그 — 인메모리 카운터 + 최근 N건 보관
+_NOTIFY_FAILURE_LOG: list[dict] = []
+_NOTIFY_FAILURE_MAX = 200
+
+
+def _audit_emotion_notify_failure(user_id: str, error: str) -> None:
+    from datetime import datetime, timezone
+    entry = {
+        "user_id": user_id,
+        "error": error,
+        "ts": datetime.now(tz=timezone.utc).isoformat(),
+    }
+    _NOTIFY_FAILURE_LOG.append(entry)
+    if len(_NOTIFY_FAILURE_LOG) > _NOTIFY_FAILURE_MAX:
+        del _NOTIFY_FAILURE_LOG[0]
+
+
+def get_emotion_notify_audit() -> dict:
+    """누락된 알림 통계 — 헬스체크용."""
+    return {
+        "total_failures": len(_NOTIFY_FAILURE_LOG),
+        "recent": _NOTIFY_FAILURE_LOG[-20:],
+    }
+
+
+def reset_emotion_notify_audit() -> None:
+    _NOTIFY_FAILURE_LOG.clear()
