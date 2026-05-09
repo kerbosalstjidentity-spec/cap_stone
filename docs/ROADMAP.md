@@ -204,7 +204,7 @@
 - [x] **W9-#2** 22_평가 `compliance_rate` → `production_ready_rate` KeyError 수정 — `22_모델_평가:160` — [하/백엔드] — ✅ 74574b6 (2026-05-09)
 - [x] **W9-#3** 12_사기점수 ALPHA/BETA env 외부화 — `12_실시간_사기:119` — [하/백엔드] — ✅ ac48c0d (2026-05-09)
 - [x] **W9-#4** 13_룰엔진 `window_minutes` 기본값 5로 조정 — `13_규칙_엔진:249` — [하/백엔드] — ✅ 84fc101 (2026-05-09)
-- [x] **W9-#5** 14_행동시그널 임계값 env 분리 + 원점수 보존 — `14_행동_시그널:185,187` — [하/백엔드] — ✅ tbd (2026-05-09)
+- [x] **W9-#5** 14_행동시그널 임계값 env 분리 + 원점수 보존 — `14_행동_시그널:185,187` — [하/백엔드] — ✅ 1c3d3bb (2026-05-09)
 - [x] **W9-#6** 21_알림 Redis pub/sub vs 직접 send 중복 제거, mark_all_read commit 통일 — `21_알림_시스템:202,206` — [하/백엔드] — ✅ 762b67a (2026-05-02, W4-#6과 함께)
 - [ ] **W9-#7** 18_AB bundle_b 로드 실패 ERROR 로그 + soft_review 키 분리 — `18_AB_테스트:155,182` — [하/백엔드]
 - [ ] **W9-#8** 06_LSTM 클램프 발생률 헬스체크 메트릭 + seed 고정 훅 — `06_지출_예측_LSTM:232,233` — [하/백엔드]
@@ -279,4 +279,4 @@
 | 2026-05-09 | W9-#4 | VelocityRule window_minutes 기본 10→5 (profile.velocity 키 1m/5m/15m 정합화, 회귀 21 PASS) | 84fc101 |
 | 2026-05-09 | W9-#1 | 사기 퀴즈 채점 정답 검증 버그 수정 (_FRAUD_SCENARIOS id 부여 + _fraud_correct_answer_map 으로 question_id↔정답 대조) + 3 PASS | 98f29ff |
 | 2026-05-09 | W9-#2 | evaluation_suite.py 'compliance_rate' KeyError 수정 (실제 키 production_ready_rate 로 print 2곳 교체) | 74574b6 |
-| 2026-05-09 | W9-#5 | 행동 시그널 임계값 6종 env 외부화 (BEHAVIOR_T_*) + raw_score 필드 + UNTRUSTED_DECAY env (기존 회귀 11 PASS — W1-#6 untrusted decay 미반영 테스트 동시 정정) | tbd |
+| 2026-05-09 | W9-#5 | 행동 시그널 임계값 6종 env 외부화 (BEHAVIOR_T_*) + raw_score 필드 + UNTRUSTED_DECAY env (기존 회귀 11 PASS — W1-#6 untrusted decay 미반영 테스트 동시 정정) | 1c3d3bb |
