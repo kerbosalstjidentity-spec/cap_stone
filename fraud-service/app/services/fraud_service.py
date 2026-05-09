@@ -20,6 +20,9 @@ SYSTEM_CONFIG = {
     # env 로 운영 중 조정 가능.
     "COST_BLOCK_KRW":  float(os.getenv("COST_BLOCK_KRW",  "3000000")),    # 3M expected loss → BLOCK
     "COST_REVIEW_KRW": float(os.getenv("COST_REVIEW_KRW", "500000")),     # 0.5M expected loss → REVIEW
+    # W5-#1: 앙상블 가중치 동적 조정용 (admin API 로 런타임 갱신, ensemble.set_weights 호출)
+    "ENSEMBLE_ALPHA":  float(os.getenv("ENSEMBLE_ALPHA", "0.7")),
+    "ENSEMBLE_BETA":   float(os.getenv("ENSEMBLE_BETA",  "0.3")),
 }
 
 

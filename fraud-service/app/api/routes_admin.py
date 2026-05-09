@@ -101,6 +101,21 @@ def admin_stats():
     return stats_collector.summary()
 
 
+# --- W5-#1: 앙상블 가중치 동적 조정 ---
+
+@router.get("/api/ensemble-weights")
+def admin_get_ensemble_weights():
+    from app.scoring.ensemble import get_weights
+    return get_weights()
+
+
+@router.patch("/api/ensemble-weights")
+def admin_set_ensemble_weights(body: dict):
+    """body 예시: {"alpha": 0.6, "beta": 0.4}. 합 0~1.5 안전 클립."""
+    from app.scoring.ensemble import set_weights
+    return set_weights(alpha=body.get("alpha"), beta=body.get("beta"))
+
+
 # --- W7.5-#6: SLO 대시보드 ---
 
 @router.get("/api/slo")

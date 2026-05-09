@@ -30,10 +30,25 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-# 앙상블 가중치 — W9-#3: env 외부화 (ENSEMBLE_ALPHA / ENSEMBLE_BETA).
-# 정합성 보장을 위해 합이 1.0 가까이 되도록 하되, 강제 정규화는 운영자 책임.
+# 앙상블 가중치 — W9-#3: env 외부화 / W5-#1: 동적 조정 가능
+# - ENSEMBLE_ALPHA / ENSEMBLE_BETA env 로 시작 시 주입
+# - set_weights(alpha, beta) 로 런타임 갱신 (admin API 통합 지점)
 ALPHA = _env_float("ENSEMBLE_ALPHA", 0.7)   # XGBoost 비중
 BETA = _env_float("ENSEMBLE_BETA", 0.3)     # Isolation Forest 비중
+
+
+def set_weights(alpha: float | None = None, beta: float | None = None) -> dict:
+    """W5-#1: 운영 중 앙상블 가중치 변경. 합 0~1.5 안전 클립."""
+    global ALPHA, BETA
+    if alpha is not None:
+        ALPHA = max(0.0, min(float(alpha), 1.5))
+    if beta is not None:
+        BETA = max(0.0, min(float(beta), 1.5))
+    return {"alpha": ALPHA, "beta": BETA}
+
+
+def get_weights() -> dict:
+    return {"alpha": ALPHA, "beta": BETA}
 
 # IF score_samples 정규화 범위 — 도메인별로 다름.
 # (open V1..V30 분포: 대략 -0.5 ~ -0.05)
