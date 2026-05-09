@@ -23,14 +23,14 @@
 | W4 | 인프라 활성화 (P1) | 7 | 7 | 100% |
 | **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **8** | **8** | **100%** |
 | **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **7** | **100%** |
-| **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **2** | **33%** |
+| **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **3** | **50%** |
 | W5 | ML 정확성 (P1) | 8 | 0 | 0% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 0 | 0% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 2 | 13% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **47** | **46%** |
+| **합계** | | **103** | **48** | **47%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -138,7 +138,7 @@
 - [ ] **W7.5-#2** 사용자 시퀀스 LSTM 도입 (직전 N건 → 다음 정상도 예측) — `14-Track γ 확장` — [상/ML]
 - [x] **W7.5-#3** 시간대 외 거래 군집 탐지 (사용자별 평균 활동 시간 학습) — 신규 — [중/ML] — ✅ 587a213 (2026-05-07)
 - [ ] **W7.5-#4** chargeback 피드백 루프 (`POST /v1/fraud/feedback/chargeback` + ground truth 라벨) — 신규 — [상/백엔드]
-- [ ] **W7.5-#5** 적대적 회귀 테스트 (정교한 머니뮬 체인·smurfing·CASH_OUT 분할) — 신규 — [상/테스트]
+- [x] **W7.5-#5** 적대적 회귀 테스트 (정교한 머니뮬 체인·smurfing·CASH_OUT 분할) — 신규 — [상/테스트] — ✅ tbd (2026-05-07)
 - [ ] **W7.5-#6** FDS SLO 대시보드 (시나리오별 검출률·latency·FN/FP 시계열) — 신규 — [중/백엔드]
 
 ---
@@ -271,3 +271,4 @@
 | 2026-05-06 | W6.5-#7 | 그래프+비용 통합 회귀 테스트 (≥90% 강건 + 응답 필드 활성, 2 PASS) + uplift 마이크로 벤치 분리 (저금액 50K +10% BLOCK 관측) | 187e393 |
 | 2026-05-07 | W7.5-#1 | BalanceDrainRule (CASH_OUT/TRANSFER, drain≥90% AND amount≥500K AND old≥100K → BLOCK) + BALANCE_DRAIN fraud_type/임계값 0.55 + 10 PASS | 769266a |
 | 2026-05-07 | W7.5-#3 | OffHoursClusterRule (UserProfile.hour_histogram + 미사용시간대 REVIEW / ≤5% SOFT_REVIEW, ACCOUNT_TAKEOVER 매핑, InMemory/Redis 양쪽 노출) + 10 PASS | 587a213 |
+| 2026-05-07 | W7.5-#5 | 적대적 회귀 5종 (mule chain layering / smurfing 100K×20건 / CASH_OUT 25% drain 분할 + velocity 백업 / 단발 회피 한계 명시) + 5 PASS | tbd |
