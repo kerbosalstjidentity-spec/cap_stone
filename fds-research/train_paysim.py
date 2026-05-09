@@ -278,12 +278,25 @@ def main() -> None:
 
     raw_features = list(X.columns)  # --no-leakage 반영
     feature_names_with_if = raw_features + ["if_suspicion"]
+
+    # W5-#5: 학습 시점의 컬럼별 (mu, std) 를 번들에 저장 — 단건 평가에서
+    # routes_score 가 reason_codes 에 주입해 z-score 일관성 확보. 단건 입력은
+    # 분산이 0 이라 자체 mu/std 산출이 무의미함을 보정.
+    try:
+        _train_arr = np.asarray(X_tr, dtype=float)
+        feature_mu = _train_arr.mean(axis=0).tolist()
+        feature_std = np.maximum(_train_arr.std(axis=0), 1e-9).tolist()
+    except Exception:
+        feature_mu, feature_std = None, None
+
     bundle = {
         "domain": "paysim",
         "if_model": if_model,
         "rf_model": rf_model,
         "feature_names": feature_names_with_if,
         "raw_feature_names": raw_features,
+        "feature_mu": feature_mu,
+        "feature_std": feature_std,
         "type_categories": list(TYPE_CATEGORIES),
         "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "n_train": int(len(X_tr)),

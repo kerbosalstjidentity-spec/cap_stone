@@ -263,7 +263,7 @@ SHAP의 raw 값(`{fname: shap}` dict)을 그대로 쓰지 않고, 입력 특성 
 > Feature importance는 "이 피처가 모델 전체에 얼마나 중요한가"의 정적 지표, SHAP은 "이 한 건의 예측에서 각 피처가 +/- 얼마만큼 기여했는가"의 **사례별 분해**입니다. PayWise는 사용자별 설명을 위해 SHAP의 **부호(증가/감소)** 까지 활용해 한국어 문장으로 변환.
 
 **Q2. 단건 호출 시 z-score가 무력화되는 문제는요?**
-> ⑤절에서 지적한 대로 `top_feature_reasons`가 입력 행렬 내부 평균/표준편차를 쓰므로 1행 입력 시 z=0이 됩니다. 학습 데이터의 (mu, std)를 번들에 저장해두고 단건 호출 시 그것을 쓰는 방향이 후속 수정 작업.
+> ⑤절에서 지적한 대로 `top_feature_reasons`가 입력 행렬 내부 평균/표준편차를 쓰므로 1행 입력 시 z=0이 됩니다. 학습 데이터의 (mu, std)를 번들에 저장해두고 단건 호출 시 그것을 쓰는 방향이 후속 수정 작업. (✅ ROADMAP W5-#5 — `train_paysim.py` 가 학습 시 컬럼별 `feature_mu`/`feature_std` 산출해 번들 저장, `reason_codes` 의 3 함수에 `mu`/`std` 옵션 인자 추가, `routes_score` 가 번들 mu/std 를 reason_codes 에 주입)
 
 **Q3. 왜 XGBoost인가요? Random Forest나 LightGBM이 아니고?**
 > XGBoost는 SHAP `TreeExplainer`와의 호환이 가장 안정적이고, 결측치 처리가 내장돼 있어 본 ML 파이프라인의 Imputer 단순화에 유리. RF는 비교 대상이고, LightGBM은 추후 A/B 테스트(#18) 후보.

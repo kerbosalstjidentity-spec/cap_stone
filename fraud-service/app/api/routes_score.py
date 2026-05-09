@@ -71,9 +71,12 @@ def score(req: ScoreRequest):
 
     reason_code = ""
     reason_human: list[str] = []
+    # W5-#5: 번들에 학습 시 산출한 (feature_mu, feature_std) 가 있으면 단건 z-score 안정화
+    feat_mu = bundle.get("feature_mu")
+    feat_std = bundle.get("feature_std")
     if importances is not None:
-        reason_code = single_reason(X_t[0], names, importances)
-        reason_human = reason_code_to_human(X_t[0], names, importances)
+        reason_code = single_reason(X_t[0], names, importances, mu=feat_mu, std=feat_std)
+        reason_human = reason_code_to_human(X_t[0], names, importances, mu=feat_mu, std=feat_std)
 
     # W7-#6: shadow_evaluate ↔ /score wiring — bundle_b 가 있으면 동시 평가, 없으면 None
     ab_info = None
