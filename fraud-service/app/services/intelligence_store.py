@@ -139,8 +139,10 @@ class IntelligenceStore:
                 return out
             except Exception as e:
                 logger.warning("[intel-store] Redis lrange 실패, 폴백: %s", e)
+        # W9-#15: lock 범위 축소 — lock 안에서는 shallow copy 만, reverse 는 밖에서
         with self._lock:
-            return list(reversed(self._entries))
+            snapshot = list(self._entries)
+        return list(reversed(snapshot))
 
     def query(
         self,
@@ -148,7 +150,13 @@ class IntelligenceStore:
         pattern_type: str | None = None,
         tag: str | None = None,
     ) -> list[dict[str, Any]]:
-        """인텔리전스 조회. 접근 정책에 따라 detail 필드를 필터링."""
+        """인텔리전스 조회. 접근 정책에 따라 detail 필드를 필터링.
+
+        W9-#15: 응답 dict 의 ``detail`` 필드 타입은 ``dict[str, Any] | str``.
+        - 정책 만족 (``has_access=True``): 원본 ``dict`` 그대로
+        - 정책 불일치: ``"[ENCRYPTED: 접근 권한 부족]"`` 문자열
+        호출자는 ``isinstance(d, dict)`` 또는 ``has_access`` 플래그로 분기 처리.
+        """
         results = []
         for entry in self._all_entries():
             if pattern_type and entry.pattern_type != pattern_type:
