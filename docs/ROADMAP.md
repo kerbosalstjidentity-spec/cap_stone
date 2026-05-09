@@ -28,9 +28,9 @@
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 0 | 0% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
-| W9 | Quick wins (P3) | 16 | 12 | 75% |
+| W9 | Quick wins (P3) | 16 | 13 | 81% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **61** | **59%** |
+| **합계** | | **103** | **62** | **60%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -207,7 +207,7 @@
 - [x] **W9-#5** 14_행동시그널 임계값 env 분리 + 원점수 보존 — `14_행동_시그널:185,187` — [하/백엔드] — ✅ 1c3d3bb (2026-05-09)
 - [x] **W9-#6** 21_알림 Redis pub/sub vs 직접 send 중복 제거, mark_all_read commit 통일 — `21_알림_시스템:202,206` — [하/백엔드] — ✅ 762b67a (2026-05-02, W4-#6과 함께)
 - [x] **W9-#7** 18_AB bundle_b 로드 실패 ERROR 로그 + soft_review 키 분리 — `18_AB_테스트:155,182` — [하/백엔드] — ✅ 6ff5fef (2026-05-09)
-- [ ] **W9-#8** 06_LSTM 클램프 발생률 헬스체크 메트릭 + seed 고정 훅 — `06_지출_예측_LSTM:232,233` — [하/백엔드]
+- [x] **W9-#8** 06_LSTM 클램프 발생률 헬스체크 메트릭 + seed 고정 훅 — `06_지출_예측_LSTM:232,233` — [하/백엔드] — ✅ tbd (2026-05-09)
 - [ ] **W9-#9** 08_카테고리 ingest 경로 wiring + 키워드 우선순위 문서화 — `08_카테고리_자동_분류:157,159` — [하/백엔드]
 - [ ] **W9-#10** 09_감정 알림 누락 감사 로그 + 의존성 주입 정리 — `09_감정_기반_소비_분석:305,307` — [하/백엔드]
 - [x] **W9-#11** 04_대시보드 MyData 동의 철회 소유권 검증 — `04_보안_대시보드:289` — [하/백엔드] — ✅ f5bd917 (2026-05-09)
@@ -285,3 +285,4 @@
 | 2026-05-09 | W9-#11 | MyData 동의 철회 소유권 검증 (revoke_mydata_consent: get_current_user 주입 + JWT user_id 와 consent owner 일치 검사 + admin 우회) + 4 PASS | f5bd917 |
 | 2026-05-09 | W9-#15 | intelligence_store query Lock 범위 축소 (snapshot 만 lock 안, reversed 밖) + detail 타입 docstring 명시 (dict | "[ENCRYPTED:...]" 문자열) — 회귀 6 PASS | 566f9a1 |
 | 2026-05-09 | W9-#16 | fds_scripts 패키지 등록 (__init__.py) + routes_evaluation.py sys.path 디렉터리 주입 → from fds_scripts.evaluation_suite import 로 전환 + 2 PASS | 36a3252 |
+| 2026-05-09 | W9-#8 | LSTM 클램프 발생률 헬스체크 (get_clamp_health, threshold 5%) + LSTM_SEED env 시드 고정 훅 (np/torch 동시) + 6 PASS | tbd |

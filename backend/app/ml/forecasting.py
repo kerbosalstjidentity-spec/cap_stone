@@ -6,7 +6,15 @@ xlsx 참고: 시계열 분석 — LSTM / GRU
 
 사용자의 월별 지출 시계열 → 다음 달 예측.
 데이터 부족 시 이동평균 fallback.
+
+W9-#8:
+- 음수 → 0 클램프 발생률을 헬스체크용으로 누적 (clamp_stats)
+- LSTM_SEED env 로 결정성 확보 (np/torch seed 동시 적용)
 """
+from __future__ import annotations
+
+import os
+import threading
 
 import numpy as np
 
@@ -16,6 +24,54 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
+
+
+# ── W9-#8: 클램프 발생률 + seed 훅 ─────────────────────────────
+
+_clamp_lock = threading.Lock()
+_clamp_stats = {"total_predictions": 0, "clamped": 0}
+
+
+def _record_clamp(predicted: float, was_clamped: bool) -> None:
+    with _clamp_lock:
+        _clamp_stats["total_predictions"] += 1
+        if was_clamped:
+            _clamp_stats["clamped"] += 1
+
+
+def get_clamp_health() -> dict:
+    """헬스체크용 클램프 비율 — 분포 음수 빈도가 높으면 모델 캘리브레이션 의심."""
+    with _clamp_lock:
+        total = _clamp_stats["total_predictions"]
+        clamped = _clamp_stats["clamped"]
+    rate = clamped / total if total else 0.0
+    return {
+        "total_predictions": total,
+        "clamped": clamped,
+        "clamp_rate": round(rate, 4),
+        "threshold_warning": rate >= 0.05,  # 5% 이상이면 모델 점검 권고
+    }
+
+
+def reset_clamp_stats() -> None:
+    with _clamp_lock:
+        _clamp_stats["total_predictions"] = 0
+        _clamp_stats["clamped"] = 0
+
+
+def seed_lstm(seed: int | None = None) -> int:
+    """numpy/torch 시드 일괄 고정. seed=None → LSTM_SEED env (기본 42)."""
+    if seed is None:
+        try:
+            seed = int(os.environ.get("LSTM_SEED", "42"))
+        except ValueError:
+            seed = 42
+    np.random.seed(seed)
+    if TORCH_AVAILABLE:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    return seed
 
 
 class _LSTMModel(nn.Module if TORCH_AVAILABLE else object):
@@ -103,6 +159,8 @@ class SpendForecaster:
                 pred_norm = self.model(X_t).item()
 
             predicted = pred_norm * self._scaler_std + self._scaler_mean
+            # W9-#8: 음수 → 0 클램프 통계 누적
+            _record_clamp(predicted, predicted < 0)
             return {
                 "predicted": round(max(0, predicted), 2),
                 "confidence": 0.7,
