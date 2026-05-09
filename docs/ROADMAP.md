@@ -178,7 +178,7 @@
 - [ ] **W7-#3** 모델 점수 분포 일별 모니터링 (평균·분위수 시계열) — `mlops/04:89` — [중/백엔드]
 - [ ] **W7-#4** 분포 변화 임계값 알람 + **자동 롤백** — `mlops/04:91,92` — [상/인프라]
 - [ ] **W7-#5** A/B 트래픽 비율 동적 조정 API (1% → 10% → 50%) — `18_AB:168` + `mlops/02:94` + `mlops/03:90` — [상/백엔드]
-- [x] **W7-#6** shadow_evaluate ↔ `_evaluate_one` wiring + `_record()` — `18_AB:174` — [중/ML] — ✅ tbd (2026-05-09)
+- [x] **W7-#6** shadow_evaluate ↔ `_evaluate_one` wiring + `_record()` — `18_AB:174` — [중/ML] — ✅ f4d1b95 (2026-05-09)
 - [ ] **W7-#7** A/B 통계적 유의성 검정 자동화 (chi-square / t-test) — `mlops/03:92` — [상/ML]
 - [ ] **W7-#8** HMAC 기반 A/B 라우팅 키로 예측 불가능성 강화 — `18_AB:180` — [중/보안]
 - [ ] **W7-#9** ground truth precision/recall 비교 메트릭 — `18_AB:178` — [상/ML]
@@ -292,4 +292,4 @@
 | 2026-05-09 | W5-#1 | 앙상블 가중치 동적 조정 (ensemble.set_weights/get_weights + GET/PATCH /admin/api/ensemble-weights, 합 0~1.5 클립) + SYSTEM_CONFIG ENSEMBLE_ALPHA/BETA + 5 PASS / 회귀 5 PASS | d2932b8 |
 | 2026-05-09 | W7-#2 | LatencyMiddleware (X-Process-Time-Ms / X-P50-Ms / X-P99-Ms 응답 헤더) + GET /admin/api/latency 경로별 통계 + 4 PASS / 회귀 13 PASS | 23a6df9 |
 | 2026-05-09 | W6-#2 | model_loader `@lru_cache(maxsize=1)` + clear_model_cache/model_cache_info 노출, 동일 경로 hit 캐시 + 4 PASS / 회귀 13 PASS | 8c4df96 |
-| 2026-05-09 | W7-#6 | shadow_evaluate ↔ /v1/score wiring + _evaluate_one 끝 ab_test._record(variant, action), ScoreRequest.tx_id / FraudEvaluateRequest.ab_variant 추가 + 4 PASS / 회귀 7 PASS | tbd |
+| 2026-05-09 | W7-#6 | shadow_evaluate ↔ /v1/score wiring + _evaluate_one 끝 ab_test._record(variant, action), ScoreRequest.tx_id / FraudEvaluateRequest.ab_variant 추가 + 4 PASS / 회귀 7 PASS | f4d1b95 |
