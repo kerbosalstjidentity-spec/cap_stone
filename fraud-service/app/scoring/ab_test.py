@@ -11,16 +11,49 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import threading
 from collections import defaultdict
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 _MODEL_B_PATH = os.getenv("MODEL_B_PATH", "")
 _TRAFFIC_PCT = int(os.getenv("AB_TRAFFIC_PCT", "0"))
 
 _lock = threading.Lock()
-_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"count": 0, "block": 0, "review": 0, "pass": 0})
+# W9-#7: soft_review 를 review 와 별도 키로 분리 (이전엔 review 에 합산)
+_stats: dict[str, dict[str, int]] = defaultdict(
+    lambda: {"count": 0, "block": 0, "review": 0, "soft_review": 0, "pass": 0}
+)
+
+
+def load_bundle_b() -> dict | None:
+    """W9-#7: MODEL_B_PATH 가 설정돼 있으면 로드, 실패 시 ERROR 로그.
+
+    이전엔 무음 실패 — A/B 평가가 비활성된 채 운영자가 인지하지 못함.
+    """
+    if not _MODEL_B_PATH:
+        return None
+    try:
+        import joblib
+    except ImportError:
+        logger.error("ab_test.load_bundle_b: joblib 미설치 — A/B 비활성")
+        return None
+    try:
+        bundle = joblib.load(_MODEL_B_PATH)
+        if not isinstance(bundle, dict):
+            logger.error("ab_test.load_bundle_b: %s 가 dict 가 아님 (%s)",
+                         _MODEL_B_PATH, type(bundle).__name__)
+            return None
+        return bundle
+    except FileNotFoundError:
+        logger.error("ab_test.load_bundle_b: %s 파일 없음", _MODEL_B_PATH)
+        return None
+    except Exception as e:
+        logger.error("ab_test.load_bundle_b: %s 로드 실패 — %s", _MODEL_B_PATH, e)
+        return None
 
 
 def _route_to_b(tx_id: str) -> bool:
@@ -32,13 +65,18 @@ def _route_to_b(tx_id: str) -> bool:
 
 
 def _record(variant: str, action: str) -> None:
+    """W9-#7: soft_review 를 별도 키로 카운트 (이전엔 review 와 혼합)."""
     with _lock:
         _stats[variant]["count"] += 1
-        key = action.lower().replace("_review", "").replace("soft_", "")
-        if key in ("block", "review", "pass"):
-            _stats[variant][key] += 1
-        elif "review" in action.lower():
+        a = (action or "").upper()
+        if a == "BLOCK":
+            _stats[variant]["block"] += 1
+        elif a == "REVIEW":
             _stats[variant]["review"] += 1
+        elif a == "SOFT_REVIEW":
+            _stats[variant]["soft_review"] += 1
+        elif a == "PASS":
+            _stats[variant]["pass"] += 1
 
 
 def shadow_evaluate(

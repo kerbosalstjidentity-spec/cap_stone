@@ -28,9 +28,9 @@
 | W6 | 모델 영속화·MLOps (P1) | 8 | 0 | 0% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 0 | 0% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
-| W9 | Quick wins (P3) | 16 | 8 | 50% |
+| W9 | Quick wins (P3) | 16 | 9 | 56% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **57** | **55%** |
+| **합계** | | **103** | **58** | **56%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -206,7 +206,7 @@
 - [x] **W9-#4** 13_룰엔진 `window_minutes` 기본값 5로 조정 — `13_규칙_엔진:249` — [하/백엔드] — ✅ 84fc101 (2026-05-09)
 - [x] **W9-#5** 14_행동시그널 임계값 env 분리 + 원점수 보존 — `14_행동_시그널:185,187` — [하/백엔드] — ✅ 1c3d3bb (2026-05-09)
 - [x] **W9-#6** 21_알림 Redis pub/sub vs 직접 send 중복 제거, mark_all_read commit 통일 — `21_알림_시스템:202,206` — [하/백엔드] — ✅ 762b67a (2026-05-02, W4-#6과 함께)
-- [ ] **W9-#7** 18_AB bundle_b 로드 실패 ERROR 로그 + soft_review 키 분리 — `18_AB_테스트:155,182` — [하/백엔드]
+- [x] **W9-#7** 18_AB bundle_b 로드 실패 ERROR 로그 + soft_review 키 분리 — `18_AB_테스트:155,182` — [하/백엔드] — ✅ tbd (2026-05-09)
 - [ ] **W9-#8** 06_LSTM 클램프 발생률 헬스체크 메트릭 + seed 고정 훅 — `06_지출_예측_LSTM:232,233` — [하/백엔드]
 - [ ] **W9-#9** 08_카테고리 ingest 경로 wiring + 키워드 우선순위 문서화 — `08_카테고리_자동_분류:157,159` — [하/백엔드]
 - [ ] **W9-#10** 09_감정 알림 누락 감사 로그 + 의존성 주입 정리 — `09_감정_기반_소비_분석:305,307` — [하/백엔드]
@@ -281,3 +281,4 @@
 | 2026-05-09 | W9-#2 | evaluation_suite.py 'compliance_rate' KeyError 수정 (실제 키 production_ready_rate 로 print 2곳 교체) | 74574b6 |
 | 2026-05-09 | W9-#5 | 행동 시그널 임계값 6종 env 외부화 (BEHAVIOR_T_*) + raw_score 필드 + UNTRUSTED_DECAY env (기존 회귀 11 PASS — W1-#6 untrusted decay 미반영 테스트 동시 정정) | 1c3d3bb |
 | 2026-05-09 | W9-#12 | TOTP valid_window env 노출 (TOTP_VALID_WINDOW, 기본 1, 0~5 클립, totp_config.py 분리) — routes_auth 3곳 + routes_stepup 1곳 적용 + 5 PASS | 58e8d0e |
+| 2026-05-09 | W9-#7 | A/B bundle_b 로드 실패 ERROR 로그 (load_bundle_b()) + soft_review 키 분리 (_record action 매핑 정정) + 4 PASS / 회귀 2 PASS | tbd |
