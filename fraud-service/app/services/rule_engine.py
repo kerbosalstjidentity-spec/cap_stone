@@ -140,7 +140,10 @@ class VelocityRule(Rule):
     """최근 velocity_window 분 내 건수 ≥ max_count → BLOCK."""
     rule_id = "VELOCITY_FREQ"
 
-    def __init__(self, window_minutes: int = 10, max_count: int = 3) -> None:
+    # W9-#4: 기본 window 를 10→5분으로 단축. profile.velocity 의 표준 키
+    # ("1m"/"5m"/"15m") 와 정합화 (10분 키는 미존재해서 위 fallback 분기를
+    #타고 있었다 — 의도된 시그널이 절반만 동작).
+    def __init__(self, window_minutes: int = 5, max_count: int = 3) -> None:
         self.window_minutes = window_minutes
         self.max_count = max_count
 
