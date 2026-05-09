@@ -20,8 +20,9 @@ from pydantic import BaseModel
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.deps import get_current_user
 from app.db.session import get_session
-from app.models.tables import AuditChainEntry
+from app.models.tables import AuditChainEntry, User
 
 router = APIRouter(prefix="/v1/security", tags=["security-dashboard"])
 
@@ -345,15 +346,24 @@ async def list_mydata_consents(user_id: str) -> dict[str, Any]:
 
 
 @router.post("/mydata/revoke/{consent_id}")
-async def revoke_mydata_consent(consent_id: str) -> dict[str, Any]:
-    """마이데이터 동의 철회.
+async def revoke_mydata_consent(
+    consent_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """마이데이터 동의 철회 — W9-#11: JWT 사용자와 소유권 일치 강제.
 
-    consent_id로 레지스트리를 검색하므로 user_id를 외부에서 받지 않는다.
-    프로덕션: JWT에서 user_id를 추출해 소유권 검증 후 철회해야 한다.
+    consent_id 가 다른 사용자의 동의이면 403. 운영자(role=admin) 만 우회 가능.
     """
+    is_admin = getattr(current_user, "role", None) == "admin"
     for user_id, consents in _MYDATA_CONSENTS.items():
         for c in consents:
             if c["consent_id"] == consent_id:
+                # W9-#11: 소유권 검증 — JWT user_id 와 consent owner 가 다르면 거부
+                if not is_admin and str(user_id) != str(current_user.id):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="다른 사용자의 동의는 철회할 수 없습니다.",
+                    )
                 c["status"] = "revoked"
                 return {"status": "revoked", "consent_id": consent_id, "user_id": user_id}
     raise HTTPException(status_code=404, detail="Consent not found")
