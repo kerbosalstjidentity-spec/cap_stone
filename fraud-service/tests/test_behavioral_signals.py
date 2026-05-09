@@ -26,7 +26,9 @@ class TestAnalyzeSignals:
         }
         result = analyze_signals(signals)
         assert "FAST_FORM_FILL" in result.flags
-        assert result.risk_score >= 0.4
+        # W9-#5: 서명 없으면 untrusted decay (×0.5) 적용. raw_score 로 원점수 검증
+        assert result.raw_score >= 0.4
+        assert result.risk_score >= 0.2  # decay 후
 
     def test_tor_detected(self):
         signals = {
@@ -34,7 +36,8 @@ class TestAnalyzeSignals:
         }
         result = analyze_signals(signals)
         assert "TOR_DETECTED" in result.flags
-        assert result.risk_score >= 0.5
+        assert result.raw_score >= 0.5
+        assert result.risk_score >= 0.25  # decay 후
 
     def test_vpn_detected(self):
         signals = {
@@ -42,7 +45,8 @@ class TestAnalyzeSignals:
         }
         result = analyze_signals(signals)
         assert "VPN_DETECTED" in result.flags
-        assert result.risk_score >= 0.2
+        assert result.raw_score >= 0.2
+        assert result.risk_score >= 0.1  # decay 후
 
     def test_multiple_flags(self):
         signals = {
@@ -55,7 +59,9 @@ class TestAnalyzeSignals:
         }
         result = analyze_signals(signals)
         assert len(result.flags) >= 3
-        assert result.risk_score == 1.0  # capped
+        # W9-#5: raw_score 는 1.0 cap, 서명 없어 risk_score 는 0.5 (decay)
+        assert result.raw_score == 1.0
+        assert result.risk_score >= 0.5
 
     def test_normal_user(self):
         signals = {
@@ -76,7 +82,8 @@ class TestAnalyzeSignals:
         }
         result = analyze_signals(signals)
         assert result.risk_score == 0.0
-        assert result.flags == []
+        # W9-#5: 서명 없으면 UNVERIFIED_SIGNALS 플래그가 추가됨 — 정상 거동
+        assert result.flags == ["UNVERIFIED_SIGNALS"]
 
     def test_excessive_paste(self):
         signals = {

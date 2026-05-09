@@ -32,10 +32,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SignalRiskResult:
     """행동 시그널 기반 리스크 분석 결과."""
-    risk_score: float       # 0.0 ~ 1.0
+    risk_score: float       # 0.0 ~ 1.0 (untrusted 감쇠·clip 적용 후)
     flags: list[str]        # 감지된 이상 플래그
     detail: dict[str, Any]  # 각 시그널별 상세
     verified: bool = False  # 클라이언트 HMAC 서명 검증 결과 (False면 untrusted)
+    raw_score: float = 0.0  # W9-#5: untrusted 감쇠/clip 이전 원점수 (가중치 튜닝용)
 
 
 # ──────────────────────────────────────────────
@@ -44,6 +45,35 @@ class SignalRiskResult:
 
 _SIGNAL_SECRET = os.getenv("BEHAVIOR_SIGNAL_SECRET", "")
 _SIGNAL_MAX_AGE_S = int(os.getenv("BEHAVIOR_SIGNAL_MAX_AGE_S", "300"))
+
+
+def _envf(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _envi(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+# W9-#5: 임계값 env 외부화 — 사용자별/도메인별 튜닝 가능.
+_T_MOUSE_VAR = _envf("BEHAVIOR_T_MOUSE_VAR", 0.01)
+_T_FORM_FILL_MS = _envi("BEHAVIOR_T_FORM_FILL_MS", 3000)
+_T_PASTE_COUNT = _envi("BEHAVIOR_T_PASTE_COUNT", 3)
+_T_TAB_CHANGES = _envi("BEHAVIOR_T_TAB_CHANGES", 10)
+_T_DWELL_MS = _envi("BEHAVIOR_T_DWELL_MS", 2000)
+_UNTRUSTED_DECAY = _envf("BEHAVIOR_UNTRUSTED_DECAY", 0.5)
 
 
 def _canonical_payload(signals: dict[str, Any], timestamp: int | str) -> bytes:
@@ -119,7 +149,7 @@ def analyze_signals(
     signals가 None이면 분석 불가 → 중립(0.0) 반환.
     """
     if not signals:
-        return SignalRiskResult(risk_score=0.0, flags=[], detail={}, verified=False)
+        return SignalRiskResult(risk_score=0.0, flags=[], detail={}, verified=False, raw_score=0.0)
 
     verified = verify_signal_signature(signals, signature, timestamp)
     # 서버 관찰값으로 보강 — 클라이언트가 위조한 IP/국가 등을 무력화
@@ -132,23 +162,23 @@ def analyze_signals(
     # ── 행동 생체인식 ──────────────────────────────────────
     biometrics = signals.get("behavioral_biometrics", {})
 
-    # 마우스 속도 분산이 극단적으로 낮으면 봇 의심
+    # 마우스 속도 분산이 극단적으로 낮으면 봇 의심 (W9-#5: env 임계)
     mouse_var = biometrics.get("mouse_speed_variance")
-    if mouse_var is not None and mouse_var < 0.01:
+    if mouse_var is not None and mouse_var < _T_MOUSE_VAR:
         score += 0.3
         flags.append("BOT_MOUSE_PATTERN")
         detail["mouse_speed_variance"] = mouse_var
 
-    # 폼 작성 시간이 3초 미만이면 자동 입력 의심
+    # 폼 작성 시간이 임계 미만이면 자동 입력 의심
     fill_ms = biometrics.get("form_fill_duration_ms")
-    if fill_ms is not None and fill_ms < 3000:
+    if fill_ms is not None and fill_ms < _T_FORM_FILL_MS:
         score += 0.4
         flags.append("FAST_FORM_FILL")
         detail["form_fill_duration_ms"] = fill_ms
 
     # 클립보드 붙여넣기 횟수
     paste = biometrics.get("clipboard_paste_count")
-    if paste is not None and paste >= 3:
+    if paste is not None and paste >= _T_PASTE_COUNT:
         score += 0.2
         flags.append("EXCESSIVE_PASTE")
         detail["clipboard_paste_count"] = paste
@@ -157,13 +187,13 @@ def analyze_signals(
     session = signals.get("session_context", {})
 
     tab_changes = session.get("tab_focus_changes")
-    if tab_changes is not None and tab_changes > 10:
+    if tab_changes is not None and tab_changes > _T_TAB_CHANGES:
         score += 0.1
         flags.append("HIGH_TAB_SWITCHING")
         detail["tab_focus_changes"] = tab_changes
 
     dwell = session.get("page_dwell_time_ms")
-    if dwell is not None and dwell < 2000:
+    if dwell is not None and dwell < _T_DWELL_MS:
         score += 0.15
         flags.append("VERY_SHORT_DWELL")
         detail["page_dwell_time_ms"] = dwell
@@ -183,12 +213,13 @@ def analyze_signals(
         score += 0.15
         flags.append("PROXY_DETECTED")
 
+    # W9-#5: 원점수(untrusted 감쇠·clip 이전) 보존 — 가중치 튜닝/관측용
+    raw_score = round(min(score, 1.0), 4)
+
     # W1-#6: 서명 미검증 시 untrusted 가중치 + 플래그
     if not verified:
         flags.append("UNVERIFIED_SIGNALS")
-        # 서명되지 않은 시그널은 클라이언트 신호 비중을 절반으로 감쇠
-        # (서버 관찰값에 더 의존)
-        score = score * 0.5
+        score = score * _UNTRUSTED_DECAY
 
     # 최종 점수 클리핑
     risk_score = min(score, 1.0)
@@ -198,4 +229,5 @@ def analyze_signals(
         flags=flags,
         detail=detail,
         verified=verified,
+        raw_score=raw_score,
     )
