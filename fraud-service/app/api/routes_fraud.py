@@ -14,6 +14,7 @@ from app.services.policy_merge import (
     classify_fraud_type,
     fraud_type_label_ko,
 )
+from app.scoring.sequence_score import score_sequence, sequence_store
 from app.services.feedback_store import feedback_store, precision_recall_summary
 from app.services.profile_store import profile_store
 from app.services.stats_collector import stats_collector
@@ -88,6 +89,22 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
         score=float(tx_data.get("score", 0.0) or 0.0),
         fraud_type=fraud_type,
     )
+
+    # W7.5-#2: 사용자 시퀀스 점수 — 직전 N건 대비 현재 거래의 이상도
+    seq_user = tx_data.get("user_id", "")
+    seq_score_info = None
+    if seq_user:
+        seq_score_info = score_sequence(
+            seq_user,
+            float(tx_data.get("amount", 0) or 0),
+            int(tx_data.get("hour", -1) or -1),
+        )
+        # 평가 후 시퀀스 store 에 현재 거래 append (다음 평가에서 사용)
+        sequence_store.append(
+            seq_user,
+            float(tx_data.get("amount", 0) or 0),
+            int(tx_data.get("hour", -1) or -1),
+        )
 
     # W5.5-#8: 평가 직후 profile_store 갱신 — velocity/avg_amount 룰이 다음 거래에서
     # 발동할 수 있도록 한다. 이전엔 외부 호출자가 별도로 /v1/profile/ingest 를
@@ -169,6 +186,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
             "flags": signal_result.flags,
         } if signal_result.flags else None,
         "graph_features": graph_feats,
+        "sequence_score": seq_score_info,
     }
 
 
