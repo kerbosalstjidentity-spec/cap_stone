@@ -2,21 +2,27 @@
 
 fds_scripts/evaluation_suite.py의 함수를 API로 래핑하여
 프론트엔드에서 직접 실행·조회할 수 있게 한다.
+
+W9-#16: 이전엔 ``sys.path.insert`` 로 fds_scripts 디렉터리를 import 경로에
+주입했으나, fds_scripts 가 ``__init__.py`` 를 갖춘 패키지가 됐으므로
+PROJECT_ROOT 만 sys.path 에 있으면 정상 import 된다. uvicorn 부팅 시
+이미 PROJECT_ROOT 가 포함되어 있어 별도 조작 불필요.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
 
-# fds_scripts를 import path에 추가
-_fds_dir = str(Path(__file__).resolve().parent.parent.parent.parent / "fds_scripts")
-if _fds_dir not in sys.path:
-    sys.path.insert(0, _fds_dir)
+# uvicorn 부팅 시 cwd 가 backend/ 인 경우를 대비해 PROJECT_ROOT 만 보강
+_project_root = str(Path(__file__).resolve().parents[3])
+if _project_root not in sys.path:
+    sys.path.append(_project_root)
 
-from evaluation_suite import (  # noqa: E402
+from fds_scripts.evaluation_suite import (  # noqa: E402
     benchmark_abe_vs_standard,
     benchmark_blockchain_vs_central,
     benchmark_encryption_hybrid,
