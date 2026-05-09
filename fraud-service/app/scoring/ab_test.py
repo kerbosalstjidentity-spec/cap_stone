@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import os
 import threading
@@ -21,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 _MODEL_B_PATH = os.getenv("MODEL_B_PATH", "")
 _TRAFFIC_PCT = int(os.getenv("AB_TRAFFIC_PCT", "0"))
+# W7-#8: HMAC 라우팅 키 — 외부에서 tx_id 를 통제하더라도 어느 분기로 갈지
+# 예측 불가능. 시크릿 미설정 시 기존 MD5 동작 (호환).
+_AB_HMAC_SECRET = os.getenv("AB_HMAC_SECRET", "")
 
 _lock = threading.Lock()
 # W9-#7: soft_review 를 review 와 별도 키로 분리 (이전엔 review 에 합산)
@@ -57,10 +61,20 @@ def load_bundle_b() -> dict | None:
 
 
 def _route_to_b(tx_id: str) -> bool:
-    """tx_id 해시 기반 결정적 라우팅."""
+    """tx_id 해시 기반 결정적 라우팅.
+
+    W7-#8: ``AB_HMAC_SECRET`` env 가 설정되면 HMAC-SHA256 기반.
+    공격자가 tx_id 를 만들어도 분기 결과 예측 불가능.
+    """
     if _TRAFFIC_PCT <= 0:
         return False
-    h = int(hashlib.md5(tx_id.encode()).hexdigest(), 16) % 100
+    if _AB_HMAC_SECRET:
+        digest = hmac.new(
+            _AB_HMAC_SECRET.encode(), tx_id.encode(), hashlib.sha256
+        ).hexdigest()
+        h = int(digest, 16) % 100
+    else:
+        h = int(hashlib.md5(tx_id.encode()).hexdigest(), 16) % 100
     return h < _TRAFFIC_PCT
 
 

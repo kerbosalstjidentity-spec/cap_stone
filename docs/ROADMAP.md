@@ -26,11 +26,11 @@
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **6** | **100%** |
 | W5 | ML 정확성 (P1) | 8 | 4 | 50% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 1 | 13% |
-| W7 | 드리프트·관측·A/B (P1) | 9 | 2 | 22% |
+| W7 | 드리프트·관측·A/B (P1) | 9 | 3 | 33% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **72** | **70%** |
+| **합계** | | **103** | **73** | **71%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -180,7 +180,7 @@
 - [ ] **W7-#5** A/B 트래픽 비율 동적 조정 API (1% → 10% → 50%) — `18_AB:168` + `mlops/02:94` + `mlops/03:90` — [상/백엔드]
 - [x] **W7-#6** shadow_evaluate ↔ `_evaluate_one` wiring + `_record()` — `18_AB:174` — [중/ML] — ✅ f4d1b95 (2026-05-09)
 - [ ] **W7-#7** A/B 통계적 유의성 검정 자동화 (chi-square / t-test) — `mlops/03:92` — [상/ML]
-- [ ] **W7-#8** HMAC 기반 A/B 라우팅 키로 예측 불가능성 강화 — `18_AB:180` — [중/보안]
+- [x] **W7-#8** HMAC 기반 A/B 라우팅 키로 예측 불가능성 강화 — `18_AB:180` — [중/보안] — ✅ tbd (2026-05-10)
 - [ ] **W7-#9** ground truth precision/recall 비교 메트릭 — `18_AB:178` — [상/ML]
 
 ---
@@ -296,3 +296,4 @@
 | 2026-05-09 | W5-#8 | 감정 라벨 룰 JSON 외부화 (backend/app/policies/emotion_rules.json + reload_emotion_rules + EMOTION_RULES_PATH env) — 시간대/주말/스트레스 가중치/위험 등급/메시지 일괄 + 4 PASS | f6123ed |
 | 2026-05-09 | W5-#5 | train_paysim 번들에 feature_mu/feature_std 저장 + reason_codes 3 함수에 mu/std 옵션 인자 + routes_score 가 번들 mu/std 를 reason_codes 에 주입 (단건 z-score 일관성) + 4 PASS / 회귀 7 PASS | 9de2c1f |
 | 2026-05-10 | W5-#7 | KMeans 자동 K (silhouette k=2..6 최대화, KMEANS_AUTO_K env), cold-start 플래그 (표본<n_clusters → fit 스킵·predict 응답에 cold_start:True), labels 6단계 확장 + 4 PASS / 회귀 8 PASS | 84dd4b9 |
+| 2026-05-10 | W7-#8 | A/B 라우팅 HMAC-SHA256 (AB_HMAC_SECRET env, 미설정 시 MD5 폴백) — 외부 tx_id 통제 환경에서도 분기 예측 불가능 + 4 PASS / 회귀 8 PASS | tbd |
