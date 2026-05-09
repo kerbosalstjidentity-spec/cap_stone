@@ -251,27 +251,35 @@ async def get_course_progress_endpoint(
 # ── Module 3: 사기 예방 교육 (퀴즈) ──────────────────────────
 
 _FRAUD_SCENARIOS = [
-    {"summary": "평일 오후 2시, 국내 편의점에서 4,500원 결제", "amount": 4500, "hour": 14, "foreign": False, "cat": "food", "is_fraud": False,
+    {"id": "FQ_001", "summary": "평일 오후 2시, 국내 편의점에서 4,500원 결제", "amount": 4500, "hour": 14, "foreign": False, "cat": "food", "is_fraud": False,
      "rules": [], "explanation": "소액의 국내 일상 거래로 정상입니다."},
-    {"summary": "새벽 3시, 해외 IP에서 150만원 전자제품 결제", "amount": 1500000, "hour": 3, "foreign": True, "cat": "shopping", "is_fraud": True,
+    {"id": "FQ_002", "summary": "새벽 3시, 해외 IP에서 150만원 전자제품 결제", "amount": 1500000, "hour": 3, "foreign": True, "cat": "shopping", "is_fraud": True,
      "rules": ["TIME_RISK", "FOREIGN_IP", "AMOUNT_REVIEW"], "explanation": "새벽 시간대 + 해외 IP + 고액 결제 = 3가지 위험 신호가 동시 발생했습니다."},
-    {"summary": "점심시간, 회사 근처 식당에서 12,000원 결제", "amount": 12000, "hour": 12, "foreign": False, "cat": "food", "is_fraud": False,
+    {"id": "FQ_003", "summary": "점심시간, 회사 근처 식당에서 12,000원 결제", "amount": 12000, "hour": 12, "foreign": False, "cat": "food", "is_fraud": False,
      "rules": [], "explanation": "일반적인 점심 식사 패턴으로 정상입니다."},
-    {"summary": "10분 내에 같은 가맹점에서 9,900원씩 5회 연속 결제", "amount": 9900, "hour": 15, "foreign": False, "cat": "shopping", "is_fraud": True,
+    {"id": "FQ_004", "summary": "10분 내에 같은 가맹점에서 9,900원씩 5회 연속 결제", "amount": 9900, "hour": 15, "foreign": False, "cat": "shopping", "is_fraud": True,
      "rules": ["SPLIT_TXN", "VELOCITY_FREQ"], "explanation": "1만원 미만으로 분할하여 연속 결제하는 전형적인 분할 거래 사기 패턴입니다."},
-    {"summary": "월급날 오전 9시, 적금 자동이체 50만원", "amount": 500000, "hour": 9, "foreign": False, "cat": "finance", "is_fraud": False,
+    {"id": "FQ_005", "summary": "월급날 오전 9시, 적금 자동이체 50만원", "amount": 500000, "hour": 9, "foreign": False, "cat": "finance", "is_fraud": False,
      "rules": [], "explanation": "정기적인 금융 거래로 정상입니다."},
-    {"summary": "처음 보는 해외 가맹점에서 새벽 1시에 300만원 결제", "amount": 3000000, "hour": 1, "foreign": True, "cat": "shopping", "is_fraud": True,
+    {"id": "FQ_006", "summary": "처음 보는 해외 가맹점에서 새벽 1시에 300만원 결제", "amount": 3000000, "hour": 1, "foreign": True, "cat": "shopping", "is_fraud": True,
      "rules": ["TIME_RISK", "FOREIGN_IP", "AMOUNT_REVIEW", "NEW_MERCHANT"], "explanation": "심야 + 해외 + 고액 + 첫 거래 가맹점으로 매우 의심스러운 거래입니다."},
-    {"summary": "주말 오후, 넷플릭스 구독 결제 17,000원", "amount": 17000, "hour": 16, "foreign": False, "cat": "entertainment", "is_fraud": False,
+    {"id": "FQ_007", "summary": "주말 오후, 넷플릭스 구독 결제 17,000원", "amount": 17000, "hour": 16, "foreign": False, "cat": "entertainment", "is_fraud": False,
      "rules": [], "explanation": "정기 구독 서비스 결제로 정상입니다."},
-    {"summary": "평균 소비의 8배인 400만원이 새로운 쇼핑몰에서 결제", "amount": 4000000, "hour": 22, "foreign": False, "cat": "shopping", "is_fraud": True,
+    {"id": "FQ_008", "summary": "평균 소비의 8배인 400만원이 새로운 쇼핑몰에서 결제", "amount": 4000000, "hour": 22, "foreign": False, "cat": "shopping", "is_fraud": True,
      "rules": ["AMOUNT_REVIEW", "AMOUNT_SPIKE", "NEW_MERCHANT"], "explanation": "평소 평균의 8배 금액 + 신규 가맹점으로 이상 거래입니다."},
-    {"summary": "출퇴근 시간 교통카드 1,250원 결제", "amount": 1250, "hour": 8, "foreign": False, "cat": "transport", "is_fraud": False,
+    {"id": "FQ_009", "summary": "출퇴근 시간 교통카드 1,250원 결제", "amount": 1250, "hour": 8, "foreign": False, "cat": "transport", "is_fraud": False,
      "rules": [], "explanation": "일상적인 대중교통 이용으로 정상입니다."},
-    {"summary": "같은 카드로 서로 다른 2개 도시에서 30분 내 결제", "amount": 250000, "hour": 14, "foreign": False, "cat": "shopping", "is_fraud": True,
+    {"id": "FQ_010", "summary": "같은 카드로 서로 다른 2개 도시에서 30분 내 결제", "amount": 250000, "hour": 14, "foreign": False, "cat": "shopping", "is_fraud": True,
      "rules": ["VELOCITY_FREQ"], "explanation": "물리적으로 불가능한 이동 속도로, 카드 복제 의심 거래입니다."},
 ]
+
+
+def _fraud_correct_answer_map() -> dict[str, str]:
+    """W9-#1: 사기 퀴즈 정답 매핑 (id → 정답 라벨). 채점 시 question_id 로 조회."""
+    return {
+        s["id"]: ("의심 거래" if s["is_fraud"] else "정상 거래")
+        for s in _FRAUD_SCENARIOS
+    }
 
 
 @router.post("/quiz/fraud", summary="사기 탐지 퀴즈")
@@ -279,7 +287,7 @@ async def fraud_quiz(user_id: str, count: int = 5) -> dict:
     selected = random.sample(_FRAUD_SCENARIOS, min(count, len(_FRAUD_SCENARIOS)))
     questions = [
         FraudQuizQuestion(
-            question_id=f"FQ_{i+1:03d}",
+            question_id=s["id"],
             transaction_summary=s["summary"],
             amount=s["amount"],
             hour=s["hour"],
@@ -290,7 +298,7 @@ async def fraud_quiz(user_id: str, count: int = 5) -> dict:
             explanation=s["explanation"],
             triggered_rules=s["rules"],
         )
-        for i, s in enumerate(selected)
+        for s in selected
     ]
     return {"user_id": user_id, "questions": questions, "total": len(questions)}
 
@@ -302,7 +310,12 @@ async def submit_fraud_quiz(
     question_ids: list[str],
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    correct = len([a for a in answers if a == "의심 거래" or a == "정상 거래"])
+    # W9-#1: question_id 별 정답과 실제 답변을 대조 (이전엔 단순 라벨 유효성만 검사)
+    correct_map = _fraud_correct_answer_map()
+    correct = 0
+    for qid, ans in zip(question_ids, answers):
+        if correct_map.get(qid) == ans:
+            correct += 1
     score = (correct / len(answers) * 100) if answers else 0
     await edu_db.save_quiz_score(user_id, "fraud", score, len(answers), correct, session)
     return {"user_id": user_id, "score": score, "correct": correct, "total": len(answers)}
