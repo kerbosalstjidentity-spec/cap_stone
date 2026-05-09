@@ -212,7 +212,7 @@
 - [x] **W9-#10** 09_감정 알림 누락 감사 로그 + 의존성 주입 정리 — `09_감정_기반_소비_분석:305,307` — [하/백엔드] — ✅ 707d739 (2026-05-09)
 - [x] **W9-#11** 04_대시보드 MyData 동의 철회 소유권 검증 — `04_보안_대시보드:289` — [하/백엔드] — ✅ f5bd917 (2026-05-09)
 - [x] **W9-#12** 01_기본인증 TOTP `valid_window` env 노출 — `01_기본인증:220` — [하/백엔드] — ✅ 58e8d0e (2026-05-09)
-- [x] **W9-#13** 15_ABAC BidirectionalPolicy/CPABE_Simulator를 research/로 분리 — `15_ABAC_ABE:523` — [하/문서] — ✅ tbd (2026-05-09)
+- [x] **W9-#13** 15_ABAC BidirectionalPolicy/CPABE_Simulator를 research/로 분리 — `15_ABAC_ABE:523` — [하/문서] — ✅ 69e7edb (2026-05-09)
 - [x] **W9-#14** 16_블록체인 싱글턴 환경변수 오버라이드 — `16_블록체인:369` — [하/인프라] — ✅ 3a511c6 (2026-05-02)
 - [x] **W9-#15** 17_위협 query Lock 범위 축소 + detail 타입 명시 — `17_위협_인텔리전스:172,174` — [하/백엔드] — ✅ 566f9a1 (2026-05-09)
 - [x] **W9-#16** 22_평가 `sys.path` 조작 제거 + 패키지 등록 — `22_모델_평가:152` — [중/백엔드] — ✅ 36a3252 (2026-05-09)
@@ -288,4 +288,4 @@
 | 2026-05-09 | W9-#8 | LSTM 클램프 발생률 헬스체크 (get_clamp_health, threshold 5%) + LSTM_SEED env 시드 고정 훅 (np/torch 동시) + 6 PASS | 14ab8a3 |
 | 2026-05-09 | W9-#9 | 카테고리 ingest 경로 wiring (_autoclassify_if_other in spend_profile_db) + 키워드 우선순위 docstring 명시 (삽입 순서) + 6 PASS | e9d56ff |
 | 2026-05-09 | W9-#10 | 감정 알림 누락 감사 로그 (_audit_emotion_notify_failure / get_emotion_notify_audit, max 200) + check_and_notify 의존성 주입 (notify_fn keyword-only) + status 반환 + 4 PASS | 707d739 |
-| 2026-05-09 | W9-#13 | BidirectionalPolicy/CPABE_Simulator → app/research/abac_simulation.py 분리 + abe_engine __getattr__ lazy alias (순환 import 회피, 후방 호환) + 4 PASS / 회귀 16 PASS | tbd |
+| 2026-05-09 | W9-#13 | BidirectionalPolicy/CPABE_Simulator → app/research/abac_simulation.py 분리 + abe_engine __getattr__ lazy alias (순환 import 회피, 후방 호환) + 4 PASS / 회귀 16 PASS | 69e7edb |
