@@ -241,91 +241,16 @@ def hash_policy(access_structure: str) -> str:
     return hashlib.sha256(access_structure.encode("utf-8")).hexdigest()[:16]
 
 
-# ── AACE 양방향 접근 제어 ──────────────────────────────────────
-
-@dataclass
-class BidirectionalPolicy:
-    """SRS 2: No-read + No-write 동시 적용 정책.
-
-    - no_read_structure: 이 조건 만족 시 읽기 차단
-    - no_write_structure: 이 조건 만족 시 쓰기 차단
-    """
-    resource: str
-    no_read_structure: str = ""
-    no_write_structure: str = ""
-    normal_access_structure: str = ""
-
-    def can_read(self, user_attrs: set[str]) -> bool:
-        if self.no_read_structure and evaluate_access_structure(self.no_read_structure, user_attrs):
-            return False
-        if self.normal_access_structure:
-            return evaluate_access_structure(self.normal_access_structure, user_attrs)
-        return True
-
-    def can_write(self, user_attrs: set[str]) -> bool:
-        if self.no_write_structure and evaluate_access_structure(self.no_write_structure, user_attrs):
-            return False
-        if self.normal_access_structure:
-            return evaluate_access_structure(self.normal_access_structure, user_attrs)
-        return True
+# ── AACE 양방향 접근 제어 / CP-ABE 시뮬레이터 ──────────────────
+# W9-#13: 분리 — 신규 코드는 ``app.research.abac_simulation`` 에서 import.
+# 호환을 위해 lazy alias 유지 (순환 import 회피 위해 __getattr__ 사용).
 
 
-# ── CP-ABE 4단계 시뮬레이터 ────────────────────────────────────
-
-class CPABE_Simulator:
-    """SRS 5: CP-ABE 4단계 흐름 시뮬레이션.
-
-    Setup → KeyGen → Encrypt → Decrypt
-    """
-    def __init__(self, master_secret: str = "sim-master-secret") -> None:
-        self._master_secret = master_secret
-        self._public_params: dict[str, Any] = {}
-        self._user_keys: dict[str, dict[str, Any]] = {}
-
-    def setup(self) -> dict[str, Any]:
-        """1단계: 공개 파라미터 + 마스터 키 생성."""
-        self._public_params = {
-            "group": "BN256",
-            "g": hashlib.sha256(b"generator").hexdigest()[:16],
-            "policy_universe": ["role:*", "dept:*", "clearance:*"],
-        }
-        return {"status": "ok", "public_params": self._public_params}
-
-    def keygen(self, user_id: str, attributes: list[str]) -> dict[str, Any]:
-        """2단계: 속성 기반 사용자 비밀키 생성."""
-        sk_material = hashlib.sha256(
-            f"{self._master_secret}:{user_id}:{','.join(sorted(attributes))}".encode()
-        ).hexdigest()
-        self._user_keys[user_id] = {"sk": sk_material, "attributes": attributes}
-        return {
-            "user_id": user_id,
-            "attributes": attributes,
-            "sk_hash": sk_material[:16] + "...",  # 실제 키는 숨김
-        }
-
-    def encrypt(self, plaintext: str, access_structure: str) -> dict[str, Any]:
-        """3단계: 접근 구조로 암호화."""
-        policy_hash = hash_policy(access_structure)
-        ct_material = hashlib.sha256(
-            f"{plaintext}:{policy_hash}:{self._master_secret}".encode()
-        ).hexdigest()
-        return {
-            "ciphertext": ct_material[:32] + "...",
-            "policy_hash": policy_hash,
-            "access_structure_hidden": True,
-        }
-
-    def decrypt(self, ct: dict[str, Any], user_id: str, user_attrs: set[str],
-                access_structure: str) -> dict[str, Any]:
-        """4단계: 속성 만족 시 복호화."""
-        if user_id not in self._user_keys:
-            return {"success": False, "reason": "No user key — run keygen first"}
-        policy_hash = hash_policy(access_structure)
-        if ct.get("policy_hash") != policy_hash:
-            return {"success": False, "reason": "Policy hash mismatch"}
-        if evaluate_access_structure(access_structure, user_attrs):
-            return {"success": True, "plaintext": "[decrypted]", "user_id": user_id}
-        return {"success": False, "reason": "Attributes do not satisfy access structure"}
+def __getattr__(name: str):
+    if name in ("BidirectionalPolicy", "CPABE_Simulator"):
+        from app.research import abac_simulation as _sim
+        return getattr(_sim, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ── 정책 로더 ──────────────────────────────────────────────────
