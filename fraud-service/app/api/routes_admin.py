@@ -206,6 +206,15 @@ def admin_ab_significance():
     return compute_significance()
 
 
+# W7-#9: ground truth precision/recall (variant 별)
+@router.get("/api/ab-precision-recall")
+def admin_ab_precision_recall():
+    from app.services.feedback_store import precision_recall_by_variant
+    with stats_collector._lock:
+        entries = list(stats_collector._entries)
+    return precision_recall_by_variant(entries)
+
+
 @router.delete("/api/ab-stats")
 def admin_reset_ab_stats():
     ab_test.reset_stats()

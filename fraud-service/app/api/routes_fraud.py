@@ -152,6 +152,7 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
         latency_ms=_latency_ms,
         scenario_label=tx_data.get("scenario_label") or None,
         expected_action=tx_data.get("expected_action") or None,
+        ab_variant=str(tx_data.get("ab_variant", "") or "").lower() or None,
     )
     audit_logger.write(
         tx_id=tx_data.get("tx_id", ""),

@@ -45,6 +45,7 @@ class StatEntry:
     latency_ms: float | None = None
     scenario_label: str | None = None
     expected_action: str | None = None  # ground truth (시나리오는 BLOCK/REVIEW 기대)
+    ab_variant: str | None = None  # W7-#9: variant 별 precision/recall 비교용
     ts: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
 
 
@@ -74,6 +75,7 @@ class StatsCollector:
         latency_ms: float | None = None,
         scenario_label: str | None = None,
         expected_action: str | None = None,
+        ab_variant: str | None = None,
     ) -> None:
         if scenario_label is None:
             scenario_label = _infer_scenario(tx_id)
@@ -91,6 +93,7 @@ class StatsCollector:
                     latency_ms=latency_ms,
                     scenario_label=scenario_label,
                     expected_action=expected_action,
+                    ab_variant=ab_variant,
                 )
             )
 

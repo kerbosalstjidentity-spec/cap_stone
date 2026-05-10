@@ -148,6 +148,50 @@ def _build_store():
 feedback_store = _build_store()
 
 
+def precision_recall_by_variant(stats_entries: list[Any]) -> dict[str, Any]:
+    """W7-#9: A/B variant 별 precision/recall/F1 비교.
+
+    StatEntry.ab_variant 가 None 인 항목은 ``unlabeled`` 로 묶음. 비교 대상이
+    아니지만 합계 검증용으로 노출.
+    """
+    detect = {"BLOCK", "REVIEW"}
+    cb_ids = {e.tx_id for e in feedback_store.all()}
+
+    buckets: dict[str, dict[str, int]] = {}
+    for e in stats_entries:
+        variant = e.ab_variant or "unlabeled"
+        b = buckets.setdefault(variant, {"tp": 0, "fn": 0, "fp": 0, "tn": 0})
+        is_fraud = e.tx_id in cb_ids
+        is_detected = e.final_action in detect
+        if is_fraud and is_detected:
+            b["tp"] += 1
+        elif is_fraud and not is_detected:
+            b["fn"] += 1
+        elif not is_fraud and is_detected:
+            b["fp"] += 1
+        else:
+            b["tn"] += 1
+
+    out: dict[str, Any] = {}
+    for variant, b in buckets.items():
+        tp, fn, fp, tn = b["tp"], b["fn"], b["fp"], b["tn"]
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+        out[variant] = {
+            "tp": tp, "fn": fn, "fp": fp, "tn": tn,
+            "precision": round(precision, 4),
+            "recall": round(recall, 4),
+            "f1": round(f1, 4),
+            "n": tp + fn + fp + tn,
+        }
+    return {
+        "by_variant": out,
+        "chargeback_total": len(cb_ids),
+        "evaluated_total": sum(v["n"] for v in out.values()),
+    }
+
+
 def precision_recall_summary(stats_entries: list[Any]) -> dict[str, Any]:
     """평가 이력(StatEntry list) + chargeback 라벨로 precision/recall 계산.
 
