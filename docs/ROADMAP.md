@@ -165,7 +165,7 @@
 - [x] **W6-#3** 번들 포맷 스키마 정의 + 로드 시 키/predict_proba/입력차원 검증 — `pipeline/02:95` + `mlops/02:91` — [중/백엔드] — ✅ b16d6e3 (2026-05-10)
 - [x] **W6-#4** 메타데이터 자동 검증 (AUC 임계값 미달 시 거부) — `pipeline/02:97` + `mlops/04:90` — [중/ML] — ✅ b156390 (2026-05-10)
 - [ ] **W6-#5** fds-research → fraud-service MLflow/DVC 버전 관리 + CI/CD — `20_학습:200` + `pipeline/02:94` + `mlops/02:90` — [상/인프라]
-- [x] **W6-#6** 학습 환경 컨테이너화 (Dockerfile + CI 학습) — `mlops/01:91` — [상/인프라] — ✅ tbd (2026-05-10)
+- [x] **W6-#6** 학습 환경 컨테이너화 (Dockerfile + CI 학습) — `mlops/01:91` — [상/인프라] — ✅ ff7ee5e (2026-05-10)
 - [x] **W6-#7** 학습 진행 상태 DB 테이블 기록 (부분 실패 추적) — `20_학습:114` — [중/백엔드] — ✅ cc093de (2026-05-10)
 - [x] **W6-#8** ORDER BY random() → TABLESAMPLE BERNOULLI 최적화 — `20_학습:157` — [중/백엔드] — ✅ 0638906 (2026-05-10)
 
@@ -312,4 +312,4 @@
 | 2026-05-10 | W6-#4 | 번들 메타데이터 AUC 자동 검증 (`validate_metadata_auc()` + MODEL_BUNDLE_MIN_AUC env 옵트인 임계값, metrics.auc/holdout_auc/holdout.auc 다중 추출, 미달 시 None+warning, strict 모드 raise) + 8 PASS / 회귀 13 PASS | b156390 |
 | 2026-05-10 | W6-#7 | 학습 진행 DB (`TrainingRun` 테이블 + `services/training_progress.py` begin_run/complete_run/fail_run/recent_runs, per_model_status JSON, status = success/partial/failed 자동 분류) + 6 PASS | cc093de |
 | 2026-05-10 | W6-#8 | TABLESAMPLE 절 헬퍼 (`trainer._random_sample_clause` PostgreSQL BERNOULLI(pct) 생성, target/total*100*2.5 0.1~50% 안전 클립, ML_TABLESAMPLE_DISABLE env, 비-PG 자동 폴백) + 5 PASS | 0638906 |
-| 2026-05-10 | W6-#6 | 학습 컨테이너 Dockerfile (`fds-research/Dockerfile` python:3.11-slim + 빌드 deps + requirements 캐시 레이어 + train_paysim CMD, .dockerignore 로 data/outputs 제외) + 5 PASS 정적 정합성 | tbd |
+| 2026-05-10 | W6-#6 | 학습 컨테이너 Dockerfile (`fds-research/Dockerfile` python:3.11-slim + 빌드 deps + requirements 캐시 레이어 + train_paysim CMD, .dockerignore 로 data/outputs 제외) + 5 PASS 정적 정합성 | ff7ee5e |
