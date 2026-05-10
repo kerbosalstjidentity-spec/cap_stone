@@ -20,6 +20,11 @@ from app.schemas.auth import (
     StepUpVerifyResponse,
 )
 from app.services.fraud_client import fetch_fraud_profile
+from app.services.stepup_threshold import (
+    adaptive_stepup,
+    get_adaptive_threshold,
+    record_risk_score,
+)
 
 router = APIRouter(prefix="/v1/auth/stepup", tags=["stepup"])
 
@@ -63,8 +68,11 @@ async def request_challenge(
     session: AsyncSession = Depends(get_session),
 ) -> StepUpChallengeResponse:
     risk_score = await _get_risk_score(current_user.user_id)
+    # W5-#3: 사용자별 적응 임계값 (history>=min_history 면 mean + k*std)
+    record_risk_score(current_user.user_id, risk_score)
+    threshold = get_adaptive_threshold(current_user.user_id)
 
-    if risk_score < settings.STEPUP_RISK_THRESHOLD:
+    if risk_score < threshold:
         return StepUpChallengeResponse(
             required=False,
             method="none",

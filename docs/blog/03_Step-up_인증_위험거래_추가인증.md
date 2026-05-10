@@ -236,7 +236,7 @@ _method_label = {
 > 모든 거래에 2FA를 강제하면 사용자 경험이 무너집니다. RBA(Risk-Based Authentication)는 평상시 마찰을 0으로 두고, fraud-service 점수가 임계값을 넘는 순간만 마찰 추가. 보안과 UX의 균형.
 
 **Q2. 임계값(0.6)은 어떻게 정했나요?**
-> 도메인 휴리스틱. ML 점수 분포에서 SOFT_REVIEW(0.005)과 REVIEW(0.35) 사이의 운영 보수 지점. ROC 분석 기반 자동 튜닝은 운영 데이터 누적 후 후속 작업.
+> 도메인 휴리스틱. ML 점수 분포에서 SOFT_REVIEW(0.005)과 REVIEW(0.35) 사이의 운영 보수 지점. ROC 분석 기반 자동 튜닝은 운영 데이터 누적 후 후속 작업. (✅ ROADMAP W5-#3 — `app/services/stepup_threshold.py` 사용자별 risk_score 히스토리 기반 적응 임계값 = clip(mean + k·std, 0.4, 0.9), 표본 < min_history 또는 std=0 면 글로벌 fallback, `STEPUP_ADAPTIVE_*` env 노출, routes_stepup 가 `/challenge` 호출 시 `record_risk_score` + `get_adaptive_threshold`)
 
 **Q3. fraud-service가 다운되면 step-up 인증은 어떻게?**
 > `fraud_client.fetch_fraud_profile()`이 5초 타임아웃 후 fail-open(평상 인증 흐름) 또는 fail-close(전부 step-up 강제) 정책 선택 가능. 현재는 fail-open으로 가용성 우선.
