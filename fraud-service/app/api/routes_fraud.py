@@ -139,6 +139,13 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
     except Exception:
         pass
     _latency_ms = (time.perf_counter() - _t0) * 1000.0
+    # W7-#1: feature drift 추적 (amount/score live 분포)
+    try:
+        from app.services.drift_detector import drift_detector
+        drift_detector.record("amount", float(tx_data.get("amount", 0) or 0))
+        drift_detector.record("score", float(tx_data.get("score", 0) or 0))
+    except Exception:
+        pass
     stats_collector.record(
         tx_data.get("tx_id", ""), final_action, triggered,
         float(tx_data.get("score", 0)), float(tx_data.get("amount", 0)),

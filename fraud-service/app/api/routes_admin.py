@@ -134,6 +134,13 @@ def admin_slo(bucket_minutes: int = 1, buckets: int = 60):
     )
 
 
+@router.get("/api/drift")
+def admin_drift(threshold: float = 0.2):
+    """W7-#1: 피처별 KS 통계량 + 분위수 차이 + 드리프트 여부."""
+    from app.services.drift_detector import drift_detector
+    return drift_detector.report(threshold=max(0.0, min(1.0, threshold)))
+
+
 @router.get("/api/score-distribution")
 def admin_score_distribution(days: int = 7):
     """W7-#3: 일별 점수 분포 (mean/p50/p95/p99/min/max/block_rate)."""
