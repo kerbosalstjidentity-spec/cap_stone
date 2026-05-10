@@ -134,6 +134,28 @@ def admin_slo(bucket_minutes: int = 1, buckets: int = 60):
     )
 
 
+@router.get("/api/alarm")
+def admin_alarm_status():
+    """W7-#4: 자동 롤백 상태 + 마지막 체크 신호."""
+    from app.services.alarm_manager import alarm_manager
+    return alarm_manager.state()
+
+
+@router.post("/api/alarm/check")
+def admin_alarm_check(body: dict | None = None):
+    """W7-#4: 즉시 체크 (force=true 면 무조건 롤백 트리거)."""
+    from app.services.alarm_manager import alarm_manager
+    force = bool((body or {}).get("force", False))
+    return alarm_manager.check_and_act(force=force)
+
+
+@router.post("/api/alarm/restore")
+def admin_alarm_restore():
+    """W7-#4: 롤백 해제 + 가중치 복원."""
+    from app.services.alarm_manager import alarm_manager
+    return alarm_manager.restore_default_weights()
+
+
 @router.get("/api/drift")
 def admin_drift(threshold: float = 0.2):
     """W7-#1: 피처별 KS 통계량 + 분위수 차이 + 드리프트 여부."""

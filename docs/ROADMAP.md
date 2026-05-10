@@ -26,11 +26,11 @@
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **6** | **100%** |
 | W5 | ML 정확성 (P1) | 8 | 4 | 50% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 1 | 13% |
-| W7 | 드리프트·관측·A/B (P1) | 9 | 5 | 56% |
+| W7 | 드리프트·관측·A/B (P1) | 9 | 6 | 67% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **75** | **73%** |
+| **합계** | | **103** | **76** | **74%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -176,7 +176,7 @@
 - [x] **W7-#1** Feature drift 자동 탐지 (KS 검정 / 분위수 차이) — `mlops/04:87` + `threat/04:90` — [상/ML] — ✅ 9a19771 (2026-05-10)
 - [x] **W7-#2** 추론 latency 단계별 측정 + 응답헤더/메트릭 노출 (P99) — `pipeline/03:108` + `mlops/04:88` — [중/백엔드] — ✅ 23a6df9 (2026-05-09)
 - [x] **W7-#3** 모델 점수 분포 일별 모니터링 (평균·분위수 시계열) — `mlops/04:89` — [중/백엔드] — ✅ 4a22b7a (2026-05-10)
-- [ ] **W7-#4** 분포 변화 임계값 알람 + **자동 롤백** — `mlops/04:91,92` — [상/인프라]
+- [x] **W7-#4** 분포 변화 임계값 알람 + **자동 롤백** — `mlops/04:91,92` — [상/인프라] — ✅ tbd (2026-05-10)
 - [ ] **W7-#5** A/B 트래픽 비율 동적 조정 API (1% → 10% → 50%) — `18_AB:168` + `mlops/02:94` + `mlops/03:90` — [상/백엔드]
 - [x] **W7-#6** shadow_evaluate ↔ `_evaluate_one` wiring + `_record()` — `18_AB:174` — [중/ML] — ✅ f4d1b95 (2026-05-09)
 - [ ] **W7-#7** A/B 통계적 유의성 검정 자동화 (chi-square / t-test) — `mlops/03:92` — [상/ML]
@@ -299,3 +299,4 @@
 | 2026-05-10 | W7-#8 | A/B 라우팅 HMAC-SHA256 (AB_HMAC_SECRET env, 미설정 시 MD5 폴백) — 외부 tx_id 통제 환경에서도 분기 예측 불가능 + 4 PASS / 회귀 8 PASS | b1fc4d1 |
 | 2026-05-10 | W7-#3 | 점수 분포 일별 모니터링 (`stats_collector.score_distribution_daily` + `GET /admin/api/score-distribution?days=N`, mean/p50/p95/p99/min/max + block_rate) + 4 PASS / 회귀 15 PASS | 4a22b7a |
 | 2026-05-10 | W7-#1 | Feature drift KS 검정 (`drift_detector.py` 양측 KS + Smirnov p-value 근사 + 분위수 차이, evaluate flow 가 amount/score live 기록 + `GET /admin/api/drift?threshold=0.2`) + 6 PASS / 회귀 17 PASS | 9a19771 |
+| 2026-05-10 | W7-#4 | 분포 알람 + 자동 롤백 (`alarm_manager.py` drift/score_p99_delta 임계값 → ensemble.set_weights(0,0) 강제 + audit log, `/admin/api/alarm` GET·check·restore + saved_weights 복원) + 6 PASS / 회귀 16 PASS | tbd |
