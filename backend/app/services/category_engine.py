@@ -70,3 +70,60 @@ def classify(mcc: int | None = None, text: str = "") -> SpendCategory:
     if text:
         return classify_by_keyword(text)
     return SpendCategory.OTHER
+
+
+# W5-#6: 분류 신뢰도 (confidence) — 다운스트림 (감정 분석/추천 가중치) 에서
+# 자신 없는 분류는 weight 를 낮추도록.
+#
+# 신뢰도 산출 규칙 (단순/투명):
+#   - MCC 매칭으로 비-OTHER 분류 → 0.95 (가장 신뢰)
+#   - 키워드 매칭으로 비-OTHER → 매칭된 키워드 길이/텍스트 길이 비율 기반:
+#       완전 일치(키워드==텍스트)에 가까울수록 1.0, 텍스트가 길수록 0.5~0.8
+#   - 다중 키워드 매칭 시 매칭 개수 +0.05 가산 (cap 0.95)
+#   - OTHER → 0.0 (분류 실패 = 신뢰 0)
+def _keyword_confidence(text: str) -> tuple[SpendCategory, float, list[str]]:
+    text_lower = text.lower()
+    matched: list[str] = []
+    first: SpendCategory | None = None
+    for keyword, cat in _KEYWORD_MAP.items():
+        if keyword.lower() in text_lower:
+            matched.append(keyword)
+            if first is None:
+                first = cat
+    if first is None:
+        return SpendCategory.OTHER, 0.0, []
+    # 첫 매칭 키워드 길이 / 텍스트 길이 ∈ (0,1]
+    first_kw_len = len(matched[0])
+    text_len = max(1, len(text.strip()))
+    base = min(0.95, max(0.5, first_kw_len / text_len))
+    bonus = min(0.95 - base, 0.05 * (len(matched) - 1))
+    return first, round(base + bonus, 4), matched
+
+
+def classify_with_confidence(
+    mcc: int | None = None, text: str = ""
+) -> dict:
+    """W5-#6: 카테고리 + confidence + source + matched_keywords 반환."""
+    if mcc is not None:
+        cat = classify_by_mcc(mcc)
+        if cat != SpendCategory.OTHER:
+            return {
+                "category": cat,
+                "confidence": 0.95,
+                "source": "mcc",
+                "matched_keywords": [],
+            }
+    if text:
+        cat, conf, matched = _keyword_confidence(text)
+        return {
+            "category": cat,
+            "confidence": conf,
+            "source": "keyword" if matched else "fallback",
+            "matched_keywords": matched,
+        }
+    return {
+        "category": SpendCategory.OTHER,
+        "confidence": 0.0,
+        "source": "fallback",
+        "matched_keywords": [],
+    }
