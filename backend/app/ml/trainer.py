@@ -28,14 +28,25 @@ logger = logging.getLogger(__name__)
 CATEGORY_INDEX = {c.value: i for i, c in enumerate(SpendCategory)}
 
 
-async def train_all(session: AsyncSession) -> dict:
-    """모든 ML 모델 학습. 반환값은 각 모델 학습 결과 요약."""
+async def train_all(session: AsyncSession, *, persist: bool = True) -> dict:
+    """모든 ML 모델 학습. 반환값은 각 모델 학습 결과 요약.
+
+    W6-#1: ``persist=True`` (기본) 면 학습 후 ``ML_BUNDLE_DIR`` 에 joblib.dump.
+    """
     results = {}
 
     results["clustering"] = await _train_clustering(session)
     results["anomaly"] = await _train_anomaly(session)
     results["classifier"] = await _train_classifier(session)
     results["forecaster"] = await _train_forecaster(session)
+
+    if persist:
+        try:
+            from app.ml.persistence import dump_all_models
+            results["persisted"] = dump_all_models()
+        except Exception as exc:
+            logger.warning("dump_all_models 실패: %s", exc)
+            results["persisted"] = {"error": str(exc)}
 
     logger.info("ML training complete: %s", results)
     return results
