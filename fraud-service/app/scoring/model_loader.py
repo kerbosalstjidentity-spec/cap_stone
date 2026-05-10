@@ -103,6 +103,52 @@ def validate_bundle(bundle: Any) -> tuple[bool, list[str]]:
     return len(problems) == 0, problems
 
 
+def _extract_auc(bundle: dict) -> float | None:
+    """W6-#4: 번들 metrics 에서 AUC 추출. 도메인별 위치 다름.
+
+    paysim: ``metrics.holdout_auc`` 또는 ``metrics.auc``
+    open:   ``metrics.holdout.auc``
+    못 찾으면 None.
+    """
+    metrics = bundle.get("metrics")
+    if not isinstance(metrics, dict):
+        return None
+    for key in ("holdout_auc", "auc", "roc_auc"):
+        v = metrics.get(key)
+        if isinstance(v, (int, float)):
+            return float(v)
+    holdout = metrics.get("holdout")
+    if isinstance(holdout, dict):
+        for key in ("auc", "roc_auc"):
+            v = holdout.get(key)
+            if isinstance(v, (int, float)):
+                return float(v)
+    return None
+
+
+def validate_metadata_auc(bundle: dict) -> tuple[bool, str | None]:
+    """W6-#4: ``MODEL_BUNDLE_MIN_AUC`` env (기본 0.0=비활성) 임계값 비교.
+
+    - 임계값 0 → 항상 통과 (옵트인)
+    - AUC 추출 불가 + 임계값>0 → 거부 (메트릭 없음 = 미검증 모델)
+    - AUC < 임계값 → 거부
+    반환: (ok, reject_reason | None)
+    """
+    raw = os.environ.get("MODEL_BUNDLE_MIN_AUC", "0")
+    try:
+        min_auc = float(raw)
+    except ValueError:
+        min_auc = 0.0
+    if min_auc <= 0:
+        return True, None
+    auc = _extract_auc(bundle)
+    if auc is None:
+        return False, f"메타데이터 AUC 추출 불가 (min={min_auc})"
+    if auc < min_auc:
+        return False, f"AUC {auc:.4f} < 임계값 {min_auc:.4f}"
+    return True, None
+
+
 @functools.lru_cache(maxsize=1)
 def _load_bundle_cached(path_str: str) -> dict[str, Any] | None:
     try:
@@ -115,6 +161,15 @@ def _load_bundle_cached(path_str: str) -> dict[str, Any] | None:
         if os.environ.get("MODEL_BUNDLE_STRICT", "").lower() in ("1", "true", "yes"):
             raise BundleSchemaError(msg)
         # 비-strict 모드에선 None 반환 (운영 안전)
+        import logging
+        logging.getLogger(__name__).warning(msg)
+        return None
+    # W6-#4: 메타데이터 AUC 검증
+    auc_ok, auc_reason = validate_metadata_auc(bundle)
+    if not auc_ok:
+        msg = f"번들 메타데이터 AUC 검증 실패 ({path_str}): {auc_reason}"
+        if os.environ.get("MODEL_BUNDLE_STRICT", "").lower() in ("1", "true", "yes"):
+            raise BundleSchemaError(msg)
         import logging
         logging.getLogger(__name__).warning(msg)
         return None
