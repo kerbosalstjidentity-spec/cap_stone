@@ -12,7 +12,7 @@ from __future__ import annotations
 import threading
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # tx_id prefix → scenario_label 자동 매핑 (scenario_generator + 적대적 회귀)
 _SCENARIO_PREFIX: dict[str, str] = {
@@ -223,6 +223,71 @@ class StatsCollector:
             },
             "timeseries": timeseries,
         }
+
+    # --- W7-#3: 점수 분포 일별 모니터링 ---
+
+    def score_distribution_daily(self, *, days: int = 7) -> dict:
+        """최근 ``days`` 일 동안 일자별 점수 분포 (UTC 기준).
+
+        per_day 배열: [{date, count, mean, p50, p95, p99, min, max,
+        action_block_rate}]. 분포 변화(W7-#4 자동 롤백 트리거)·이상 시점 추적용.
+        """
+        with self._lock:
+            entries = list(self._entries)
+        days = max(1, min(days, 90))
+        now = datetime.now(tz=timezone.utc)
+        cutoff = (now - timedelta(days=days - 1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+
+        buckets: dict[str, list[StatEntry]] = defaultdict(list)
+        for e in entries:
+            if e.ts < cutoff:
+                continue
+            key = e.ts.strftime("%Y-%m-%d")
+            buckets[key].append(e)
+
+        per_day: list[dict] = []
+        for i in range(days):
+            day = (cutoff + timedelta(days=i)).strftime("%Y-%m-%d")
+            day_entries = buckets.get(day, [])
+            if not day_entries:
+                per_day.append({
+                    "date": day,
+                    "count": 0,
+                    "mean": 0.0,
+                    "p50": 0.0,
+                    "p95": 0.0,
+                    "p99": 0.0,
+                    "min": 0.0,
+                    "max": 0.0,
+                    "block_rate": 0.0,
+                })
+                continue
+            scores = [e.score for e in day_entries]
+            blocks = sum(1 for e in day_entries if e.final_action == "BLOCK")
+            per_day.append({
+                "date": day,
+                "count": len(day_entries),
+                "mean": round(sum(scores) / len(scores), 4),
+                "p50": round(_percentile(scores, 50), 4),
+                "p95": round(_percentile(scores, 95), 4),
+                "p99": round(_percentile(scores, 99), 4),
+                "min": round(min(scores), 4),
+                "max": round(max(scores), 4),
+                "block_rate": round(blocks / len(day_entries), 4),
+            })
+
+        # 전체 요약 (참조용)
+        all_scores = [e.score for e in entries if e.ts >= cutoff]
+        overall = {
+            "count": len(all_scores),
+            "mean": round(sum(all_scores) / len(all_scores), 4) if all_scores else 0.0,
+            "p50": round(_percentile(all_scores, 50), 4) if all_scores else 0.0,
+            "p95": round(_percentile(all_scores, 95), 4) if all_scores else 0.0,
+            "p99": round(_percentile(all_scores, 99), 4) if all_scores else 0.0,
+        }
+        return {"days": days, "per_day": per_day, "overall": overall}
 
     def reset(self) -> None:
         with self._lock:

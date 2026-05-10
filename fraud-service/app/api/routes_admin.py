@@ -134,6 +134,12 @@ def admin_slo(bucket_minutes: int = 1, buckets: int = 60):
     )
 
 
+@router.get("/api/score-distribution")
+def admin_score_distribution(days: int = 7):
+    """W7-#3: 일별 점수 분포 (mean/p50/p95/p99/min/max/block_rate)."""
+    return stats_collector.score_distribution_daily(days=max(1, min(days, 90)))
+
+
 @router.delete("/api/stats")
 def admin_reset_stats():
     stats_collector.reset()
