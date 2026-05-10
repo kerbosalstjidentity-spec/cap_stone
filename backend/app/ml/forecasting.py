@@ -140,46 +140,90 @@ class SpendForecaster:
         self.is_trained = True
         return {"status": "trained", "epochs": epochs, "final_loss": round(loss.item(), 6)}
 
-    def predict(self, recent_months: list[float]) -> dict:
+    def predict(
+        self,
+        recent_months: list[float],
+        *,
+        mc_samples: int = 0,
+    ) -> dict:
         """최근 N개월 → 다음 달 예측.
 
         Args:
             recent_months: 최근 seq_length 개월의 총 지출
+            mc_samples: W5-#4 — Monte Carlo dropout 분산 추정 샘플 수.
+                0(기본) 이면 결정적 단일 추론. >0 이면 학습 모드(드롭아웃 포함)
+                로 ``mc_samples`` 회 추론해 표준편차/95% 구간을 함께 반환.
 
         Returns:
-            {"predicted": 금액, "confidence": 0~1, "method": "lstm"|"moving_avg"}
+            {"predicted", "confidence", "method", "std", "ci95_low", "ci95_high"}
         """
         if self.is_trained and TORCH_AVAILABLE and len(recent_months) >= self.seq_length:
             data = np.array(recent_months[-self.seq_length:], dtype=np.float32)
             data_norm = (data - self._scaler_mean) / self._scaler_std
             X_t = torch.FloatTensor(data_norm).unsqueeze(0).unsqueeze(-1)
 
-            self.model.eval()
-            with torch.no_grad():
-                pred_norm = self.model(X_t).item()
+            samples: list[float] = []
+            if mc_samples > 0:
+                # 드롭아웃 활성 + 입력 노이즈로 의사-MC dropout (LSTMCell 내부
+                # 드롭아웃이 없는 단순 모델이므로 입력 jitter 로 대체).
+                self.model.train()
+                with torch.no_grad():
+                    for _ in range(mc_samples):
+                        noise = torch.randn_like(X_t) * 0.02
+                        out = self.model(X_t + noise).item()
+                        samples.append(out * self._scaler_std + self._scaler_mean)
+                self.model.eval()
+                arr = np.asarray(samples, dtype=float)
+                predicted = float(arr.mean())
+                std = float(arr.std(ddof=1)) if len(arr) > 1 else 0.0
+                ci_low = float(np.quantile(arr, 0.025))
+                ci_high = float(np.quantile(arr, 0.975))
+                # 분산이 클수록 신뢰도 ↓ (표준편차 / 평균 = CV)
+                cv = abs(std / predicted) if predicted else 1.0
+                confidence = round(max(0.1, min(0.95, 0.9 - cv)), 4)
+            else:
+                self.model.eval()
+                with torch.no_grad():
+                    pred_norm = self.model(X_t).item()
+                predicted = pred_norm * self._scaler_std + self._scaler_mean
+                std = 0.0
+                ci_low = predicted
+                ci_high = predicted
+                confidence = 0.7
 
-            predicted = pred_norm * self._scaler_std + self._scaler_mean
             # W9-#8: 음수 → 0 클램프 통계 누적
             _record_clamp(predicted, predicted < 0)
             return {
                 "predicted": round(max(0, predicted), 2),
-                "confidence": 0.7,
+                "confidence": confidence,
                 "method": "lstm",
+                "std": round(std, 4),
+                "ci95_low": round(max(0, ci_low), 2),
+                "ci95_high": round(max(0, ci_high), 2),
+                "mc_samples": int(mc_samples),
             }
 
         # Fallback: 가중 이동평균 (최근 값에 가중치)
         if not recent_months:
-            return {"predicted": 0, "confidence": 0, "method": "no_data"}
+            return {"predicted": 0, "confidence": 0, "method": "no_data",
+                    "std": 0.0, "ci95_low": 0, "ci95_high": 0, "mc_samples": 0}
 
         n = len(recent_months)
         weights = np.arange(1, n + 1, dtype=float)
         weights /= weights.sum()
         predicted = float(np.dot(recent_months, weights))
+        # 이동평균은 가중 표준편차로 분산 추정
+        var = float(np.dot(weights, (np.asarray(recent_months) - predicted) ** 2))
+        std = float(np.sqrt(var))
 
         return {
             "predicted": round(predicted, 2),
             "confidence": min(0.3 + 0.1 * n, 0.6),
             "method": "weighted_moving_avg",
+            "std": round(std, 4),
+            "ci95_low": round(max(0, predicted - 1.96 * std), 2),
+            "ci95_high": round(predicted + 1.96 * std, 2),
+            "mc_samples": 0,
         }
 
 
