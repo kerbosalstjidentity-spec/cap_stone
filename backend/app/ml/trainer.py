@@ -10,6 +10,7 @@ PostgreSQL에서 거래 데이터를 읽어 4가지 모델을 학습:
 """
 
 import logging
+import os
 from collections import defaultdict
 
 import numpy as np
@@ -26,6 +27,25 @@ from app.schemas.spend import SpendCategory
 logger = logging.getLogger(__name__)
 
 CATEGORY_INDEX = {c.value: i for i, c in enumerate(SpendCategory)}
+
+
+# W6-#8: ``ORDER BY random()`` 은 큰 테이블에서 풀 스캔 + 정렬 → O(N log N).
+# PostgreSQL ``TABLESAMPLE BERNOULLI(p)`` 는 페이지 단위 베르누이 샘플링으로
+# O(p · N). 1M rows + p=1% 기준 수십~수백 배 빠름. SQLite 등 미지원 백엔드는
+# 자동 폴백.
+def _random_sample_clause(table_name: str, target_n: int, total_estimate: int = 100_000):
+    """대상 표본 크기 → TABLESAMPLE BERNOULLI 절. 사용 비활성 시 None."""
+    if os.environ.get("ML_TABLESAMPLE_DISABLE", "").lower() in ("1", "true", "yes"):
+        return None
+    # PostgreSQL 만 지원 — DB URL 로 가볍게 판별
+    db_url = os.environ.get("DATABASE_URL", "") + os.environ.get("DB_URL", "")
+    if "postgres" not in db_url.lower():
+        return None
+    if total_estimate <= target_n:
+        return None
+    # 안전 마진 2~3배: target_n / total * 100 % * 2.5
+    pct = max(0.1, min(50.0, (target_n / total_estimate) * 100.0 * 2.5))
+    return text(f"{table_name} TABLESAMPLE BERNOULLI({pct:.4f})")
 
 
 async def train_all(session: AsyncSession, *, persist: bool = True) -> dict:
