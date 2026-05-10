@@ -24,13 +24,13 @@
 | **W5.5** | **FDS 강화: PaySim 도메인 확장 (P1, 신설)** | **8** | **8** | **100%** |
 | **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **7** | **100%** |
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **6** | **100%** |
-| W5 | ML 정확성 (P1) | 8 | 4 | 50% |
+| W5 | ML 정확성 (P1) | 8 | 5 | 63% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 1 | 13% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 9 | 100% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **79** | **77%** |
+| **합계** | | **103** | **80** | **78%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -148,7 +148,7 @@
 목표: 가중치 하드코딩·정규화 가정 등 ML 신뢰도 결함 해결.
 
 - [x] **W5-#1** 앙상블 ALPHA/BETA → `SYSTEM_CONFIG`/env 외부화 + 동적 조정 — `12_사기점수:119` + `journey/04:99` + `threat/04:86` — [중/ML] — ✅ d2932b8 (2026-05-09)
-- [ ] **W5-#2** IF 정규화 상수 → 학습 시 quantile 기반 자동 추정 후 번들 저장 — `12_사기점수:323` + `pipeline/03:106` — [상/ML]
+- [x] **W5-#2** IF 정규화 상수 → 학습 시 quantile 기반 자동 추정 후 번들 저장 — `12_사기점수:323` + `pipeline/03:106` — [상/ML] — ✅ tbd (2026-05-10)
 - [ ] **W5-#3** 사용자별 적응형 step-up 임계값 (전역 0.6 제거) — `03_Step-up:239` + `journey/04:102` + `threat/02:87` — [상/ML]
 - [ ] **W5-#4** LSTM 신뢰도 → 예측 분산 추정 + 모델 가중치 영속화 — `06_LSTM:229,231` — [상/ML]
 - [x] **W5-#5** XGBoost 학습 (mu, std) 번들 저장 → 단건 z-score 일관성 — `07_XAI:266` — [중/ML] — ✅ 9de2c1f (2026-05-09)
@@ -303,3 +303,4 @@
 | 2026-05-10 | W7-#5 | A/B 트래픽 비율 동적 조정 (`ab_test.get/set_traffic_pct`, GET·PATCH `/admin/api/ab-traffic`, 0~100 클립, 프로세스 재시작 없이 ramp-up 1%→10%→50%) + 4 PASS / 회귀 12 PASS | e4fd05f |
 | 2026-05-10 | W7-#7 | A/B 통계적 유의성 (`ab_stats.py` two-proportion z-test + 3분할 카이제곱 df=2 closed-form, scipy 미의존) + GET /admin/api/ab-significance + 6 PASS / 회귀 14 PASS | 24081a5 |
 | 2026-05-10 | W7-#9 | variant 별 ground truth precision/recall (`StatEntry.ab_variant` + `feedback_store.precision_recall_by_variant` + GET `/admin/api/ab-precision-recall`, chargeback ↔ 평가 이력 join) + 3 PASS / 회귀 17 PASS | 1f88df5 |
+| 2026-05-10 | W5-#2 | IF 정규화 quantile 자동 (train_paysim 가 IF score 분포의 1%/99% quantile 을 `anomaly_low/high` 로 번들 저장, `_resolve_anomaly_range(bundle=)` 가 번들 우선) + 5 PASS / 회귀 11 PASS | tbd |

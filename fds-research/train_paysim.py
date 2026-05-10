@@ -239,7 +239,15 @@ def main() -> None:
         n_jobs=-1,
     )
     if_model.fit(X_tr.values)
-    if_suspicion_tr = -if_model.score_samples(X_tr.values)
+    # W5-#2: IF score_samples 분포에서 quantile 기반 정규화 범위 자동 추정.
+    # LOW = 분포 1% (가장 이상한 끝), HIGH = 99% (가장 정상 끝). 도메인 정적
+    # 상수 ANOMALY_RANGES["paysim"] 의 자동 보정판으로 번들에 저장.
+    _if_scores_tr = if_model.score_samples(X_tr.values)
+    anomaly_low = float(np.quantile(_if_scores_tr, 0.01))
+    anomaly_high = float(np.quantile(_if_scores_tr, 0.99))
+    if anomaly_low >= anomaly_high:  # 안전 가드
+        anomaly_low, anomaly_high = float(_if_scores_tr.min()), float(_if_scores_tr.max())
+    if_suspicion_tr = -_if_scores_tr
     X_tr_h = X_tr.copy()
     X_tr_h["if_suspicion"] = if_suspicion_tr.astype("float32")
 
@@ -297,6 +305,9 @@ def main() -> None:
         "raw_feature_names": raw_features,
         "feature_mu": feature_mu,
         "feature_std": feature_std,
+        # W5-#2: 학습 시 IF score 분포의 (1%, 99%) quantile 정규화 범위.
+        "anomaly_low": anomaly_low,
+        "anomaly_high": anomaly_high,
         "type_categories": list(TYPE_CATEGORIES),
         "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "n_train": int(len(X_tr)),

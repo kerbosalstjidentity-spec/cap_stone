@@ -63,13 +63,37 @@ ANOMALY_RANGES: dict[str, tuple[float, float]] = {
 }
 
 
-def _normalize_anomaly(raw_score: float, *, domain: str = "open") -> float:
+def _resolve_anomaly_range(
+    domain: str,
+    *,
+    bundle: dict | None = None,
+) -> tuple[float, float]:
+    """W5-#2: 정규화 (low, high) 결정.
+
+    번들에 학습 시 산출된 ``anomaly_low`` / ``anomaly_high`` (quantile 기반)가
+    있으면 그 값을 우선. 없으면 ``ANOMALY_RANGES[domain]`` 정적 상수.
+    """
+    if bundle is not None:
+        lo = bundle.get("anomaly_low")
+        hi = bundle.get("anomaly_high")
+        if lo is not None and hi is not None and float(lo) < float(hi):
+            return float(lo), float(hi)
+    return ANOMALY_RANGES.get(domain, ANOMALY_RANGES["open"])
+
+
+def _normalize_anomaly(
+    raw_score: float,
+    *,
+    domain: str = "open",
+    bundle: dict | None = None,
+) -> float:
     """``IsolationForest.score_samples()`` 반환값 → [0, 1] 이상 확률.
 
-    ``domain`` 별로 분포가 달라 ``ANOMALY_RANGES`` 의 (LOW, HIGH) 를 사용.
-    LOW = 매우 이상한 끝, HIGH = 정상 끝. 선형 클립.
+    W5-#2: ``bundle`` 에 quantile 기반 ``anomaly_low/high`` 가 저장돼 있으면
+    그 값을 사용 (도메인별 정적 상수 ``ANOMALY_RANGES`` 보다 우선). 학습 시
+    분포로 자동 보정 → 운영 데이터 분포 변화에 강건.
     """
-    low, high = ANOMALY_RANGES.get(domain, ANOMALY_RANGES["open"])
+    low, high = _resolve_anomaly_range(domain, bundle=bundle)
     clipped = max(low, min(high, raw_score))
     normalized = (clipped - high) / (low - high)
     return float(normalized)
@@ -90,7 +114,9 @@ def ensemble_score(
 
     try:
         raw = float(iso.score_samples(X)[0])
-        anomaly = _normalize_anomaly(raw, domain=bundle.get("domain", "open"))
+        anomaly = _normalize_anomaly(
+            raw, domain=bundle.get("domain", "open"), bundle=bundle,
+        )
         combined = ALPHA * xgb_proba + BETA * anomaly
         return round(min(combined, 1.0), 6), round(raw, 6)
     except Exception:
@@ -121,5 +147,7 @@ def score_paysim_bundle(bundle: dict[str, Any], X_raw: np.ndarray) -> dict[str, 
     return {
         "fraud_probability": round(proba, 6),
         "anomaly_score": round(raw, 6),
-        "anomaly_normalized": round(_normalize_anomaly(raw, domain="paysim"), 6),
+        "anomaly_normalized": round(
+            _normalize_anomaly(raw, domain="paysim", bundle=bundle), 6
+        ),
     }
