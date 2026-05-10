@@ -199,6 +199,13 @@ def admin_ab_stats():
     return {"ab_stats": ab_test.get_stats()}
 
 
+# W7-#7: A/B 통계적 유의성 검정
+@router.get("/api/ab-significance")
+def admin_ab_significance():
+    from app.scoring.ab_stats import compute_significance
+    return compute_significance()
+
+
 @router.delete("/api/ab-stats")
 def admin_reset_ab_stats():
     ab_test.reset_stats()
