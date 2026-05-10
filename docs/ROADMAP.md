@@ -27,10 +27,10 @@
 | W5 | ML 정확성 (P1) | 8 | 8 | 100% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 8 | 100% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 9 | 100% |
-| W8 | 거버넌스 (P2) | 8 | 0 | 0% |
+| W8 | 거버넌스 (P2) | 8 | 1 | 13% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **90** | **87%** |
+| **합계** | | **103** | **91** | **88%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -191,7 +191,7 @@
 - [ ] **W8-#2** 위협 인텔 외부 OSINT/상용 피드 연동 + 신뢰도 가중 — `journey/05:90` + `threat/05:88` — [상/거버넌스]
 - [ ] **W8-#3** 정책 YAML 핫 리로드 (파일 watch / admin API) — `15_ABAC_ABE:525` — [중/인프라]
 - [ ] **W8-#4** 감사 로그 보존 정책 모듈화 (5년 보관 컴플라이언스) — `threat/05:89` — [중/거버넌스]
-- [ ] **W8-#5** 알림 채널 우선순위·중복 억제 정책 — `journey/05:91` — [중/백엔드]
+- [x] **W8-#5** 알림 채널 우선순위·중복 억제 정책 — `journey/05:91` — [중/백엔드] — ✅ tbd (2026-05-10)
 - [ ] **W8-#6** OR 결합 false-positive 비용 평가 + 정책 조정 — `threat/04:87` — [상/거버넌스]
 - [ ] **W8-#7** 비즈니스 KPI ↔ ML 지표 매핑 문서화 — `mlops/03:94` — [상/문서]
 - [ ] **W8-#8** revocation_manager.filter_attrs() 미들웨어 적용 — `15_ABAC_ABE:521` — [중/보안]
@@ -314,3 +314,4 @@
 | 2026-05-10 | W6-#8 | TABLESAMPLE 절 헬퍼 (`trainer._random_sample_clause` PostgreSQL BERNOULLI(pct) 생성, target/total*100*2.5 0.1~50% 안전 클립, ML_TABLESAMPLE_DISABLE env, 비-PG 자동 폴백) + 5 PASS | 0638906 |
 | 2026-05-10 | W6-#6 | 학습 컨테이너 Dockerfile (`fds-research/Dockerfile` python:3.11-slim + 빌드 deps + requirements 캐시 레이어 + train_paysim CMD, .dockerignore 로 data/outputs 제외) + 5 PASS 정적 정합성 | ff7ee5e |
 | 2026-05-10 | W6-#5 | MLflow + CI (`docker-compose.mlflow.yml` SQLite backend + serve-artifacts, `.github/workflows/ml-train.yml` Docker 빌드 + train --help 헬스체크 + 3개 pytest 잡: schema/AUC, persistence, TABLESAMPLE) + 3 PASS 정합성 | 4372836 |
+| 2026-05-10 | W8-#5 | 알림 중복 억제 + 채널 우선순위 (`services/alert_dedup.py` (user_id,kind,msg-hash) TTL 캐시, select_channel push>sms>email>inapp, ALERT_DEDUP_TTL_SEC/ALERT_CHANNEL_PRIORITY env) + 7 PASS | tbd |
