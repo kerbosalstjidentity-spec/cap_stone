@@ -175,7 +175,7 @@
 
 - [ ] **W7-#1** Feature drift 자동 탐지 (KS 검정 / 분위수 차이) — `mlops/04:87` + `threat/04:90` — [상/ML]
 - [x] **W7-#2** 추론 latency 단계별 측정 + 응답헤더/메트릭 노출 (P99) — `pipeline/03:108` + `mlops/04:88` — [중/백엔드] — ✅ 23a6df9 (2026-05-09)
-- [x] **W7-#3** 모델 점수 분포 일별 모니터링 (평균·분위수 시계열) — `mlops/04:89` — [중/백엔드] — ✅ tbd (2026-05-10)
+- [x] **W7-#3** 모델 점수 분포 일별 모니터링 (평균·분위수 시계열) — `mlops/04:89` — [중/백엔드] — ✅ 4a22b7a (2026-05-10)
 - [ ] **W7-#4** 분포 변화 임계값 알람 + **자동 롤백** — `mlops/04:91,92` — [상/인프라]
 - [ ] **W7-#5** A/B 트래픽 비율 동적 조정 API (1% → 10% → 50%) — `18_AB:168` + `mlops/02:94` + `mlops/03:90` — [상/백엔드]
 - [x] **W7-#6** shadow_evaluate ↔ `_evaluate_one` wiring + `_record()` — `18_AB:174` — [중/ML] — ✅ f4d1b95 (2026-05-09)
@@ -297,4 +297,4 @@
 | 2026-05-09 | W5-#5 | train_paysim 번들에 feature_mu/feature_std 저장 + reason_codes 3 함수에 mu/std 옵션 인자 + routes_score 가 번들 mu/std 를 reason_codes 에 주입 (단건 z-score 일관성) + 4 PASS / 회귀 7 PASS | 9de2c1f |
 | 2026-05-10 | W5-#7 | KMeans 자동 K (silhouette k=2..6 최대화, KMEANS_AUTO_K env), cold-start 플래그 (표본<n_clusters → fit 스킵·predict 응답에 cold_start:True), labels 6단계 확장 + 4 PASS / 회귀 8 PASS | 84dd4b9 |
 | 2026-05-10 | W7-#8 | A/B 라우팅 HMAC-SHA256 (AB_HMAC_SECRET env, 미설정 시 MD5 폴백) — 외부 tx_id 통제 환경에서도 분기 예측 불가능 + 4 PASS / 회귀 8 PASS | b1fc4d1 |
-| 2026-05-10 | W7-#3 | 점수 분포 일별 모니터링 (`stats_collector.score_distribution_daily` + `GET /admin/api/score-distribution?days=N`, mean/p50/p95/p99/min/max + block_rate) + 4 PASS / 회귀 15 PASS | tbd |
+| 2026-05-10 | W7-#3 | 점수 분포 일별 모니터링 (`stats_collector.score_distribution_daily` + `GET /admin/api/score-distribution?days=N`, mean/p50/p95/p99/min/max + block_rate) + 4 PASS / 회귀 15 PASS | 4a22b7a |
