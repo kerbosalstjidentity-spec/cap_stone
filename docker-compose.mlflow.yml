@@ -1,0 +1,43 @@
+# W6-#5 — 로컬 MLflow tracking 서버.
+#
+# 사용:
+#   docker compose -f docker-compose.mlflow.yml up -d
+#
+# 학습 스크립트에서:
+#   import mlflow
+#   mlflow.set_tracking_uri("http://localhost:5000")
+#   mlflow.set_experiment("paywise-fds")
+#   with mlflow.start_run():
+#       mlflow.log_params(args.__dict__)
+#       mlflow.log_metrics(metrics)
+#       mlflow.log_artifact("outputs/bundle.joblib")
+#
+# Backing store: SQLite (file). Artifact store: 로컬 볼륨.
+# 운영 환경에서는 PostgreSQL + S3/MinIO 로 교체 권장.
+
+version: "3.9"
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.18.0
+    container_name: paywise-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+      --serve-artifacts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  mlflow_data:
+    driver: local

@@ -25,12 +25,12 @@
 | **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **7** | **100%** |
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **6** | **100%** |
 | W5 | ML 정확성 (P1) | 8 | 8 | 100% |
-| W6 | 모델 영속화·MLOps (P1) | 8 | 7 | 88% |
+| W6 | 모델 영속화·MLOps (P1) | 8 | 8 | 100% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 9 | 100% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **89** | **86%** |
+| **합계** | | **103** | **90** | **87%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -164,7 +164,7 @@
 - [x] **W6-#2** `model_loader.py`에 `@functools.lru_cache(maxsize=1)` — `20_학습:178` — [하/백엔드] — ✅ 8c4df96 (2026-05-09)
 - [x] **W6-#3** 번들 포맷 스키마 정의 + 로드 시 키/predict_proba/입력차원 검증 — `pipeline/02:95` + `mlops/02:91` — [중/백엔드] — ✅ b16d6e3 (2026-05-10)
 - [x] **W6-#4** 메타데이터 자동 검증 (AUC 임계값 미달 시 거부) — `pipeline/02:97` + `mlops/04:90` — [중/ML] — ✅ b156390 (2026-05-10)
-- [ ] **W6-#5** fds-research → fraud-service MLflow/DVC 버전 관리 + CI/CD — `20_학습:200` + `pipeline/02:94` + `mlops/02:90` — [상/인프라]
+- [x] **W6-#5** fds-research → fraud-service MLflow/DVC 버전 관리 + CI/CD — `20_학습:200` + `pipeline/02:94` + `mlops/02:90` — [상/인프라] — ✅ tbd (2026-05-10)
 - [x] **W6-#6** 학습 환경 컨테이너화 (Dockerfile + CI 학습) — `mlops/01:91` — [상/인프라] — ✅ ff7ee5e (2026-05-10)
 - [x] **W6-#7** 학습 진행 상태 DB 테이블 기록 (부분 실패 추적) — `20_학습:114` — [중/백엔드] — ✅ cc093de (2026-05-10)
 - [x] **W6-#8** ORDER BY random() → TABLESAMPLE BERNOULLI 최적화 — `20_학습:157` — [중/백엔드] — ✅ 0638906 (2026-05-10)
@@ -313,3 +313,4 @@
 | 2026-05-10 | W6-#7 | 학습 진행 DB (`TrainingRun` 테이블 + `services/training_progress.py` begin_run/complete_run/fail_run/recent_runs, per_model_status JSON, status = success/partial/failed 자동 분류) + 6 PASS | cc093de |
 | 2026-05-10 | W6-#8 | TABLESAMPLE 절 헬퍼 (`trainer._random_sample_clause` PostgreSQL BERNOULLI(pct) 생성, target/total*100*2.5 0.1~50% 안전 클립, ML_TABLESAMPLE_DISABLE env, 비-PG 자동 폴백) + 5 PASS | 0638906 |
 | 2026-05-10 | W6-#6 | 학습 컨테이너 Dockerfile (`fds-research/Dockerfile` python:3.11-slim + 빌드 deps + requirements 캐시 레이어 + train_paysim CMD, .dockerignore 로 data/outputs 제외) + 5 PASS 정적 정합성 | ff7ee5e |
+| 2026-05-10 | W6-#5 | MLflow + CI (`docker-compose.mlflow.yml` SQLite backend + serve-artifacts, `.github/workflows/ml-train.yml` Docker 빌드 + train --help 헬스체크 + 3개 pytest 잡: schema/AUC, persistence, TABLESAMPLE) + 3 PASS 정합성 | tbd |

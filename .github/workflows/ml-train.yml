@@ -1,0 +1,78 @@
+# W6-#5 — 학습 컨테이너 빌드 + 헬스 체크 CI.
+#
+# 1. fds-research/Dockerfile 빌드
+# 2. train_paysim.py --help 헬스 체크 (의존성 import 까지 검증)
+# 3. backend / fraud-service pytest (영향받은 테스트만)
+#
+# MLflow 적재는 별도 워크플로우 (학습 트리거 시) 가정. 본 CI 는 build/test 만.
+
+name: ML Train CI
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "fds-research/**"
+      - "backend/app/ml/**"
+      - "fraud-service/app/scoring/**"
+      - ".github/workflows/ml-train.yml"
+  pull_request:
+    paths:
+      - "fds-research/**"
+      - "backend/app/ml/**"
+      - "fraud-service/app/scoring/**"
+  workflow_dispatch:
+
+jobs:
+  build-train-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build train image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: fds-research/Dockerfile
+          tags: paywise-train:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Train script health check
+        run: docker run --rm paywise-train:ci python train_paysim.py --help
+
+  pytest-fraud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install -r fraud-service/requirements.txt
+          pip install pytest joblib
+      - name: Run schema/AUC validation tests
+        run: |
+          cd fraud-service
+          pytest tests/test_bundle_schema.py tests/test_bundle_metadata_auc.py tests/test_model_loader_cache.py -q
+
+  pytest-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pytest
+      - name: Run ML persistence/progress tests
+        run: |
+          cd backend
+          pytest tests/test_ml_persistence.py tests/test_training_progress.py tests/test_tablesample_clause.py -q
