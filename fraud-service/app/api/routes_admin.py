@@ -177,6 +177,23 @@ def admin_reset_stats():
 
 # --- A/B 테스트 통계 ---
 
+# W7-#5: A/B 트래픽 비율 동적 조정
+@router.get("/api/ab-traffic")
+def admin_ab_traffic():
+    return {"traffic_pct": ab_test.get_traffic_pct()}
+
+
+@router.patch("/api/ab-traffic")
+def admin_set_ab_traffic(body: dict):
+    """body 예시: {"traffic_pct": 10}. 0~100 클립."""
+    pct = body.get("traffic_pct")
+    if pct is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="traffic_pct 필수")
+    new = ab_test.set_traffic_pct(pct)
+    return {"traffic_pct": new}
+
+
 @router.get("/api/ab-stats")
 def admin_ab_stats():
     return {"ab_stats": ab_test.get_stats()}

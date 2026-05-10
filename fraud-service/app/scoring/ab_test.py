@@ -60,6 +60,25 @@ def load_bundle_b() -> dict | None:
         return None
 
 
+def get_traffic_pct() -> int:
+    """W7-#5: 현재 B 트래픽 비율(0~100) 조회."""
+    return _TRAFFIC_PCT
+
+
+def set_traffic_pct(pct: int) -> int:
+    """W7-#5: B 트래픽 비율을 런타임에 동적 조정.
+
+    1% → 10% → 50% 단계적 ramp-up 시나리오. 0~100 안전 클립.
+    """
+    global _TRAFFIC_PCT
+    try:
+        v = int(pct)
+    except (TypeError, ValueError):
+        v = _TRAFFIC_PCT
+    _TRAFFIC_PCT = max(0, min(100, v))
+    return _TRAFFIC_PCT
+
+
 def _route_to_b(tx_id: str) -> bool:
     """tx_id 해시 기반 결정적 라우팅.
 
