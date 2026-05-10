@@ -166,7 +166,7 @@
 - [x] **W6-#4** 메타데이터 자동 검증 (AUC 임계값 미달 시 거부) — `pipeline/02:97` + `mlops/04:90` — [중/ML] — ✅ b156390 (2026-05-10)
 - [ ] **W6-#5** fds-research → fraud-service MLflow/DVC 버전 관리 + CI/CD — `20_학습:200` + `pipeline/02:94` + `mlops/02:90` — [상/인프라]
 - [ ] **W6-#6** 학습 환경 컨테이너화 (Dockerfile + CI 학습) — `mlops/01:91` — [상/인프라]
-- [x] **W6-#7** 학습 진행 상태 DB 테이블 기록 (부분 실패 추적) — `20_학습:114` — [중/백엔드] — ✅ tbd (2026-05-10)
+- [x] **W6-#7** 학습 진행 상태 DB 테이블 기록 (부분 실패 추적) — `20_학습:114` — [중/백엔드] — ✅ cc093de (2026-05-10)
 - [ ] **W6-#8** ORDER BY random() → TABLESAMPLE BERNOULLI 최적화 — `20_학습:157` — [중/백엔드]
 
 ---
@@ -310,4 +310,4 @@
 | 2026-05-10 | W6-#1 | train_all 결과 joblib 영속화 (`app/ml/persistence.py` cluster/anomaly/classifier/forecaster dump_all/load_all, ML_BUNDLE_DIR env, train_all(persist=True) 자동 dump) + 2 PASS | 6ff46af |
 | 2026-05-10 | W6-#3 | 번들 스키마 검증 (`model_loader.validate_bundle()` domain별 필수 키 + predict_proba/score_samples 콜러블 + feature_mu/std 길이 + anomaly_low/high 정합성, MODEL_BUNDLE_STRICT env strict, lru_cache 통합) + 8 PASS / 회귀 4 PASS | b16d6e3 |
 | 2026-05-10 | W6-#4 | 번들 메타데이터 AUC 자동 검증 (`validate_metadata_auc()` + MODEL_BUNDLE_MIN_AUC env 옵트인 임계값, metrics.auc/holdout_auc/holdout.auc 다중 추출, 미달 시 None+warning, strict 모드 raise) + 8 PASS / 회귀 13 PASS | b156390 |
-| 2026-05-10 | W6-#7 | 학습 진행 DB (`TrainingRun` 테이블 + `services/training_progress.py` begin_run/complete_run/fail_run/recent_runs, per_model_status JSON, status = success/partial/failed 자동 분류) + 6 PASS | tbd |
+| 2026-05-10 | W6-#7 | 학습 진행 DB (`TrainingRun` 테이블 + `services/training_progress.py` begin_run/complete_run/fail_run/recent_runs, per_model_status JSON, status = success/partial/failed 자동 분류) + 6 PASS | cc093de |
