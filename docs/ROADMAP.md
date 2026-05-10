@@ -179,7 +179,7 @@
 - [x] **W7-#4** 분포 변화 임계값 알람 + **자동 롤백** — `mlops/04:91,92` — [상/인프라] — ✅ f9ba448 (2026-05-10)
 - [x] **W7-#5** A/B 트래픽 비율 동적 조정 API (1% → 10% → 50%) — `18_AB:168` + `mlops/02:94` + `mlops/03:90` — [상/백엔드] — ✅ e4fd05f (2026-05-10)
 - [x] **W7-#6** shadow_evaluate ↔ `_evaluate_one` wiring + `_record()` — `18_AB:174` — [중/ML] — ✅ f4d1b95 (2026-05-09)
-- [x] **W7-#7** A/B 통계적 유의성 검정 자동화 (chi-square / t-test) — `mlops/03:92` — [상/ML] — ✅ tbd (2026-05-10)
+- [x] **W7-#7** A/B 통계적 유의성 검정 자동화 (chi-square / t-test) — `mlops/03:92` — [상/ML] — ✅ 24081a5 (2026-05-10)
 - [x] **W7-#8** HMAC 기반 A/B 라우팅 키로 예측 불가능성 강화 — `18_AB:180` — [중/보안] — ✅ b1fc4d1 (2026-05-10)
 - [ ] **W7-#9** ground truth precision/recall 비교 메트릭 — `18_AB:178` — [상/ML]
 
@@ -301,4 +301,4 @@
 | 2026-05-10 | W7-#1 | Feature drift KS 검정 (`drift_detector.py` 양측 KS + Smirnov p-value 근사 + 분위수 차이, evaluate flow 가 amount/score live 기록 + `GET /admin/api/drift?threshold=0.2`) + 6 PASS / 회귀 17 PASS | 9a19771 |
 | 2026-05-10 | W7-#4 | 분포 알람 + 자동 롤백 (`alarm_manager.py` drift/score_p99_delta 임계값 → ensemble.set_weights(0,0) 강제 + audit log, `/admin/api/alarm` GET·check·restore + saved_weights 복원) + 6 PASS / 회귀 16 PASS | f9ba448 |
 | 2026-05-10 | W7-#5 | A/B 트래픽 비율 동적 조정 (`ab_test.get/set_traffic_pct`, GET·PATCH `/admin/api/ab-traffic`, 0~100 클립, 프로세스 재시작 없이 ramp-up 1%→10%→50%) + 4 PASS / 회귀 12 PASS | e4fd05f |
-| 2026-05-10 | W7-#7 | A/B 통계적 유의성 (`ab_stats.py` two-proportion z-test + 3분할 카이제곱 df=2 closed-form, scipy 미의존) + GET /admin/api/ab-significance + 6 PASS / 회귀 14 PASS | tbd |
+| 2026-05-10 | W7-#7 | A/B 통계적 유의성 (`ab_stats.py` two-proportion z-test + 3분할 카이제곱 df=2 closed-form, scipy 미의존) + GET /admin/api/ab-significance + 6 PASS / 회귀 14 PASS | 24081a5 |
