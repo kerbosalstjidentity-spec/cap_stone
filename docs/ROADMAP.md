@@ -25,12 +25,12 @@
 | **W6.5** | **FDS 강화: 그래프 + 비용 가중 (P1, 신설)** | **7** | **7** | **100%** |
 | **W7.5** | **FDS 강화: 시계열·운영 신뢰성 (P2, 신설)** | **6** | **6** | **100%** |
 | W5 | ML 정확성 (P1) | 8 | 8 | 100% |
-| W6 | 모델 영속화·MLOps (P1) | 8 | 2 | 25% |
+| W6 | 모델 영속화·MLOps (P1) | 8 | 3 | 38% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 9 | 100% |
 | W8 | 거버넌스 (P2) | 8 | 0 | 0% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **84** | **82%** |
+| **합계** | | **103** | **85** | **83%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -162,7 +162,7 @@
 
 - [x] **W6-#1** `train_all()` 결과 `joblib.dump`로 디스크 저장 + 부팅 시 자동 로드 — `20_학습:198` — [중/ML] — ✅ 6ff46af (2026-05-10)
 - [x] **W6-#2** `model_loader.py`에 `@functools.lru_cache(maxsize=1)` — `20_학습:178` — [하/백엔드] — ✅ 8c4df96 (2026-05-09)
-- [ ] **W6-#3** 번들 포맷 스키마 정의 + 로드 시 키/predict_proba/입력차원 검증 — `pipeline/02:95` + `mlops/02:91` — [중/백엔드]
+- [x] **W6-#3** 번들 포맷 스키마 정의 + 로드 시 키/predict_proba/입력차원 검증 — `pipeline/02:95` + `mlops/02:91` — [중/백엔드] — ✅ tbd (2026-05-10)
 - [ ] **W6-#4** 메타데이터 자동 검증 (AUC 임계값 미달 시 거부) — `pipeline/02:97` + `mlops/04:90` — [중/ML]
 - [ ] **W6-#5** fds-research → fraud-service MLflow/DVC 버전 관리 + CI/CD — `20_학습:200` + `pipeline/02:94` + `mlops/02:90` — [상/인프라]
 - [ ] **W6-#6** 학습 환경 컨테이너화 (Dockerfile + CI 학습) — `mlops/01:91` — [상/인프라]
@@ -308,3 +308,4 @@
 | 2026-05-10 | W5-#4 | LSTM 신뢰도 + 예측 분산 (`predict(recent_months, mc_samples=N)` 입력 jitter MC, std/ci95_low/ci95_high 노출, 신뢰도 = 0.9 - CV 클립, WMA fallback 도 가중 표준편차로 CI 산출) + 4 PASS / 회귀 10 PASS | acd475b |
 | 2026-05-10 | W5-#3 | 사용자별 적응형 step-up 임계값 (`app/services/stepup_threshold.py` clip(mean + k·std, 0.4, 0.9), 표본<min_history/std=0 → 글로벌 fallback, STEPUP_ADAPTIVE_* env, routes_stepup `/challenge` 가 record_risk_score + get_adaptive_threshold 사용) + 7 PASS | c0d7558 |
 | 2026-05-10 | W6-#1 | train_all 결과 joblib 영속화 (`app/ml/persistence.py` cluster/anomaly/classifier/forecaster dump_all/load_all, ML_BUNDLE_DIR env, train_all(persist=True) 자동 dump) + 2 PASS | 6ff46af |
+| 2026-05-10 | W6-#3 | 번들 스키마 검증 (`model_loader.validate_bundle()` domain별 필수 키 + predict_proba/score_samples 콜러블 + feature_mu/std 길이 + anomaly_low/high 정합성, MODEL_BUNDLE_STRICT env strict, lru_cache 통합) + 8 PASS / 회귀 4 PASS | tbd |
