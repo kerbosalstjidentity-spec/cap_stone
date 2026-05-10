@@ -333,3 +333,30 @@ class EmotionTag(TimestampMixin, Base):
 
     user: Mapped["User"] = relationship(back_populates="emotion_tags")
     transaction: Mapped["Transaction"] = relationship(back_populates="emotion_tag")
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  W6-#7: 학습 진행 상태 추적 (부분 실패 추적용)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class TrainingRun(Base):
+    """``train_all()`` 한 회 실행 상태.
+
+    - ``status``: ``running`` / ``success`` / ``partial`` / ``failed``
+    - ``started_at`` / ``finished_at``: UTC
+    - ``per_model_status``: 각 모델별 결과 JSON 직렬화 문자열
+    - ``error``: 실패 시 메시지 일부 (1000자 컷)
+    """
+    __tablename__ = "training_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    trigger: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    per_model_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
