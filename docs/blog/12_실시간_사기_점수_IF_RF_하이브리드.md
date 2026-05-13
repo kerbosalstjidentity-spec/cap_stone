@@ -319,7 +319,8 @@ def _evaluate_one(tx_data: dict) -> dict[str, Any]:
 
 - **앙상블 가중치 ALPHA/BETA 하드코딩**: 0.7/0.3 비율이 모듈 상수로 박혀 있다. 새 데이터 분포에서 IF 의 기여도가 더 커야 할 경우 코드 수정 → 배포가 필요하므로, [ensemble.py:13](fraud-service/app/scoring/ensemble.py:13) 주석에 표기된 대로 `.env` 또는 `SYSTEM_CONFIG` 로 빼는 작업이 우선순위 높다. A/B 테스트 (#18) 와 결합하면 가중치 자동 튜닝까지 가능하다.
 
-- **IF 정규화 상수의 데이터 드리프트 취약성**: `_normalize_anomaly` 의 `LOW=-0.5, HIGH=-0.05` 는 학습 시점의 score 분포를 가정한다. 시간이 지나 거래 분포가 바뀌면 IF 점수의 실제 범위도 바뀌어 클리핑이 모든 점수를 0 또는 1로 몰아넣을 수 있다. 학습마다 quantile (예: 5th/95th) 기반으로 상수를 재계산해 번들에 함께 저장하는 것이 안전하다.
+- **IF 정규화 상수의 데이터 드리프트 취약성**: `_normalize_anomaly` 의 `LOW=-0.5, HIGH=-0.05` 는 학습 시점의 score 분포를 가정한다. 시간이 지나 거래 분포가 바뀌면 IF 점수의 실제 범위도 바뀌어 클리핑이 모든 점수를 0 또는 1로 몰아넣을 수 있다. 학습마다 quantile (예: 5th/95th) 기반으로 상수를 재계산해 번들에 함께 저장하는 것이 안전하다. (✅ ROADMAP W5-#2 — `train_paysim.py` IF score 1%/99% quantile → `anomaly_low/high` 번들 저장, `_resolve_anomaly_range(bundle=)` 가 번들 우선 사용)
+- **앙상블 ALPHA/BETA 동적 조정** (✅ ROADMAP W5-#1 — `ensemble.set_weights/get_weights` + GET/PATCH `/admin/api/ensemble-weights`, 합 0~1.5 클립)
 
 - **단건 호출 시 reason_code 의 z-score 무력화**: `top_feature_reasons` 는 입력 행렬 내부 평균/표준편차를 사용하므로 1행 입력에선 항상 z=0 이 된다. 결과적으로 reason 은 단순 importance top-3 가 되어 거래마다 동일한 reason 이 나올 위험이 있다. 학습 데이터의 통계 (mu, std) 를 번들에 저장해두고 단건 호출 시 그것을 사용해야 거래별 차별화가 생긴다.
 
