@@ -27,10 +27,10 @@
 | W5 | ML 정확성 (P1) | 8 | 8 | 100% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 8 | 100% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 9 | 100% |
-| W8 | 거버넌스 (P2) | 8 | 2 | 25% |
+| W8 | 거버넌스 (P2) | 8 | 3 | 38% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **92** | **89%** |
+| **합계** | | **103** | **93** | **90%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -194,7 +194,7 @@
 - [x] **W8-#5** 알림 채널 우선순위·중복 억제 정책 — `journey/05:91` — [중/백엔드] — ✅ bbccf0f (2026-05-10)
 - [ ] **W8-#6** OR 결합 false-positive 비용 평가 + 정책 조정 — `threat/04:87` — [상/거버넌스]
 - [ ] **W8-#7** 비즈니스 KPI ↔ ML 지표 매핑 문서화 — `mlops/03:94` — [상/문서]
-- [ ] **W8-#8** revocation_manager.filter_attrs() 미들웨어 적용 — `15_ABAC_ABE:521` — [중/보안]
+- [x] **W8-#8** revocation_manager.filter_attrs() 미들웨어 적용 — `15_ABAC_ABE:521` — [중/보안] — ✅ tbd (2026-05-10)
 
 ---
 
@@ -316,3 +316,4 @@
 | 2026-05-10 | W6-#5 | MLflow + CI (`docker-compose.mlflow.yml` SQLite backend + serve-artifacts, `.github/workflows/ml-train.yml` Docker 빌드 + train --help 헬스체크 + 3개 pytest 잡: schema/AUC, persistence, TABLESAMPLE) + 3 PASS 정합성 | 4372836 |
 | 2026-05-10 | W8-#5 | 알림 중복 억제 + 채널 우선순위 (`services/alert_dedup.py` (user_id,kind,msg-hash) TTL 캐시, select_channel push>sms>email>inapp, ALERT_DEDUP_TTL_SEC/ALERT_CHANNEL_PRIORITY env) + 7 PASS | bbccf0f |
 | 2026-05-10 | W8-#3 | 정책 핫 리로드 (`policy_loader.py` PolicyFile mtime 폴링 lazy reload + force_reload + register_policy/reload_all 레지스트리, YAML→JSON 폴백, 깨진 파일 시 캐시 유지) + 6 PASS | 8c92ffe |
+| 2026-05-10 | W8-#8 | revocation_manager.filter_attrs 실제 적용 (`abe_auth._filter_revoked_attrs(user_id, dict)` dict→k:v set 직렬화 후 user_id 스코프 필터, 잔존 키만 dict 복원 + admin GET/POST /admin/api/revocations) + 5 PASS | tbd |

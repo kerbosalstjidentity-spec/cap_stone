@@ -259,6 +259,26 @@ def remove_blacklist(body: dict):
     return {"removed": True, "kind": kind, "value": value}
 
 
+# W8-#8: ABE 속성 revocation 관리
+@router.get("/api/revocations")
+def admin_list_revocations():
+    from app.services.abe_engine import revocation_manager
+    return {"revoked": revocation_manager.list_revoked()}
+
+
+@router.post("/api/revocations", status_code=201)
+def admin_revoke_attribute(body: dict):
+    """body: {"user_id": "u1", "attribute": "role:admin"}"""
+    user_id = (body or {}).get("user_id", "")
+    attribute = (body or {}).get("attribute", "")
+    if not user_id or not attribute:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="user_id, attribute 필수")
+    from app.services.abe_engine import revocation_manager
+    revocation_manager.revoke(user_id, attribute)
+    return {"user_id": user_id, "attribute": attribute, "revoked": True}
+
+
 @router.get("/api/whitelist")
 def get_whitelist():
     return {"whitelist": access_list.whitelist_all()}

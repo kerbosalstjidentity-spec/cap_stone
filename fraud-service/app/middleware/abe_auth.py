@@ -110,15 +110,32 @@ def _path_to_resource(path: str, sensitivity_hint: str | None = None) -> Resourc
     return ResourceAttributes(resource_type="generic", sensitivity=ClearanceLevel.LOW, data_classification="public")
 
 
-def _filter_revoked_attrs(attrs: dict) -> dict:
-    """revocation_manager 가 있으면 적용, 없으면 통과 (W8-#8 선반영)."""
+def _filter_revoked_attrs(user_id: str, attrs: dict) -> dict:
+    """W8-#8: revocation_manager.filter_attrs(user_id, attr_set) 미들웨어 적용.
+
+    AttributeToken.attributes 는 {key: value} dict 형태.
+    revocation_manager.filter_attrs() 는 ``"key:value"`` 또는 ``"value"`` 형태의
+    문자열 set 을 받으므로 dict → set 직렬화 후 필터, 다시 dict 복원.
+    """
     try:
         from app.services.abe_engine import revocation_manager
-        if hasattr(revocation_manager, "filter_attrs"):
-            return revocation_manager.filter_attrs(attrs)
+        if not hasattr(revocation_manager, "filter_attrs"):
+            return attrs
+        # dict → {"key:value"} set (revocation key 형식)
+        attr_set: set[str] = set()
+        kv_map: dict[str, str] = {}
+        for k, v in (attrs or {}).items():
+            token_str = f"{k}:{v}"
+            attr_set.add(token_str)
+            kv_map[token_str] = k
+        filtered = revocation_manager.filter_attrs(user_id, attr_set)
+        if filtered == attr_set:
+            return attrs
+        # 남은 키만 dict 로 복원
+        kept_keys = {kv_map[t] for t in filtered if t in kv_map}
+        return {k: v for k, v in attrs.items() if k in kept_keys}
     except Exception:
-        pass
-    return attrs
+        return attrs
 
 
 def _forbidden_response(detail_dev: str, policy: str | None, user_attrs: list[str]) -> JSONResponse:
@@ -159,10 +176,11 @@ class AbeAuthMiddleware(BaseHTTPMiddleware):
         if raw:
             try:
                 decoded = json.loads(b64decode(raw).decode("utf-8"))
-                # 취소된 속성은 미들웨어 단계에서 즉시 제거
-                effective_attrs = _filter_revoked_attrs(decoded.get("attributes", {}))
+                _uid = decoded.get("user_id", "unknown")
+                # 취소된 속성은 미들웨어 단계에서 즉시 제거 (W8-#8)
+                effective_attrs = _filter_revoked_attrs(_uid, decoded.get("attributes", {}))
                 token = AttributeToken(
-                    user_id=decoded.get("user_id", "unknown"),
+                    user_id=_uid,
                     attributes=effective_attrs,
                 )
             except Exception:
