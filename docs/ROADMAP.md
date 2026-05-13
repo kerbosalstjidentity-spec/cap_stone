@@ -221,11 +221,11 @@
 
 ## W10 — 검증·문서화
 
-- [x] **W10-#1** e2e 통합 테스트 (회원가입 → step-up → 사기탐지 → 감사) 시나리오 통과 — ✅ tbd1 (2026-05-10)
-- [x] **W10-#2** 부하 테스트: P99 latency, Kafka 처리량, 감사 체인 1M 삽입 — ✅ tbd2 (2026-05-10)
-- [x] **W10-#3** 각 블로그 글의 "향후 과제" 섹션에 (✅ ROADMAP W?-#?) 표기 일괄 갱신 — ✅ tbd3 (2026-05-10)
-- [x] **W10-#4** `docs/blog/perspectives/mlops/04_운영_관측과_향후_과제.md`에 "1차 마무리" 부록 추가 — ✅ tbd4 (2026-05-10)
-- [x] **W10-#5** 메모리 `paywise_features_progress.md` / `paywise_perspectives_progress.md` 산출물 경로 + 완료 표시 갱신 — ✅ tbd5 (2026-05-10)
+- [x] **W10-#1** e2e 통합 테스트 (회원가입 → step-up → 사기탐지 → 감사) 시나리오 통과 — ✅ 193dee4 (2026-05-10)
+- [x] **W10-#2** 부하 테스트: P99 latency, Kafka 처리량, 감사 체인 1M 삽입 — ✅ 193dee4 (2026-05-10)
+- [x] **W10-#3** 각 블로그 글의 "향후 과제" 섹션에 (✅ ROADMAP W?-#?) 표기 일괄 갱신 — ✅ 193dee4 (2026-05-10)
+- [x] **W10-#4** `docs/blog/perspectives/mlops/04_운영_관측과_향후_과제.md`에 "1차 마무리" 부록 추가 — ✅ 193dee4 (2026-05-10)
+- [x] **W10-#5** 메모리 `paywise_features_progress.md` / `paywise_perspectives_progress.md` 산출물 경로 + 완료 표시 갱신 — ✅ 193dee4 (2026-05-10)
 
 ---
 
@@ -322,8 +322,8 @@
 | 2026-05-10 | W8-#2 | OSINT 어댑터 추상화 (`osint_adapter.py` OsintFeedAdapter ABC + AbuseIPDBAdapter Mock + combine_reports naive Bayes 가중 합산, lookup_with_adapters 예외 격리) + 9 PASS | 33b7dea |
 | 2026-05-10 | W8-#6 | OR 결합 FP 비용 평가 (`fp_cost_analyzer.py` or_fp_combined 독립가정 + expected_fp_count_per_day 룰별 + recommend_disable high-cost·low-TP + kappa_redundancy 중복도) + 8 PASS | c466f83 |
 | 2026-05-10 | W8-#7 | KPI ↔ ML 지표 매핑 문서 (`docs/kpi_ml_mapping.md` 6대 비즈니스 KPI ↔ admin API 엔드포인트 매핑 + total_cost 공식 + 4개 알람 규칙) + 4 PASS | 5a6e979 |
-| 2026-05-10 | W10-#1 | e2e 통합 시나리오 (voice phishing → BLOCK → audit → SLO → chargeback → variant 별 precision/recall, fraud-service 단일 프로세스 내 시퀀스 자동화) + 4 PASS | tbd1 |
-| 2026-05-10 | W10-#2 | 부하 테스트 스크립트 (`scripts/loadtest/run.py` asyncio + aiohttp, p50/p95/p99 latency + success_rate + RPS, --n/--concurrency/--url CLI) + 4 PASS 정합성 | tbd2 |
-| 2026-05-10 | W10-#3 | 블로그 마커 일괄 갱신 + `docs/roadmap_blog_coverage.md` 정책/감사 스크립트 임베드 (Quick wins 제외 100% 회수, missing 12 = 의도적 Quick wins) | tbd3 |
-| 2026-05-10 | W10-#4 | mlops/04 "1차 마무리" 부록 (W7/W8 까지 운영화 체크리스트 21항목 표 + ROADMAP 마커 5개 추가 + 캡스톤 범위 외 다음 마일스톤 4건) | tbd4 |
-| 2026-05-10 | W10-#5 | 메모리 산출물 갱신 (MEMORY.md 진척률 100/103, paywise_roadmap_progress 거버넌스 정본 3종 + W5~W10 완료 표기) | tbd5 |
+| 2026-05-10 | W10-#1 | e2e 통합 시나리오 (voice phishing → BLOCK → audit → SLO → chargeback → variant 별 precision/recall, fraud-service 단일 프로세스 내 시퀀스 자동화) + 4 PASS | 193dee4 |
+| 2026-05-10 | W10-#2 | 부하 테스트 스크립트 (`scripts/loadtest/run.py` asyncio + aiohttp, p50/p95/p99 latency + success_rate + RPS, --n/--concurrency/--url CLI) + 4 PASS 정합성 | 193dee4 |
+| 2026-05-10 | W10-#3 | 블로그 마커 일괄 갱신 + `docs/roadmap_blog_coverage.md` 정책/감사 스크립트 임베드 (Quick wins 제외 100% 회수, missing 12 = 의도적 Quick wins) | 193dee4 |
+| 2026-05-10 | W10-#4 | mlops/04 "1차 마무리" 부록 (W7/W8 까지 운영화 체크리스트 21항목 표 + ROADMAP 마커 5개 추가 + 캡스톤 범위 외 다음 마일스톤 4건) | 193dee4 |
+| 2026-05-10 | W10-#5 | 메모리 산출물 갱신 (MEMORY.md 진척률 100/103, paywise_roadmap_progress 거버넌스 정본 3종 + W5~W10 완료 표기) | 193dee4 |
