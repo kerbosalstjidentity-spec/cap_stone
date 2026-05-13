@@ -27,10 +27,10 @@
 | W5 | ML 정확성 (P1) | 8 | 8 | 100% |
 | W6 | 모델 영속화·MLOps (P1) | 8 | 8 | 100% |
 | W7 | 드리프트·관측·A/B (P1) | 9 | 9 | 100% |
-| W8 | 거버넌스 (P2) | 8 | 4 | 50% |
+| W8 | 거버넌스 (P2) | 8 | 5 | 63% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 0 | 0% |
-| **합계** | | **103** | **94** | **91%** |
+| **합계** | | **103** | **95** | **92%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -187,7 +187,7 @@
 
 ## W8 — 거버넌스·정책 통합 (P2)
 
-- [ ] **W8-#1** ABAC 룰 단일 진실 출처 확립 (backend 5개 vs fraud 8개 통합) — `journey/05:89` + `threat/03:88` — [상/거버넌스]
+- [x] **W8-#1** ABAC 룰 단일 진실 출처 확립 (backend 5개 vs fraud 8개 통합) — `journey/05:89` + `threat/03:88` — [상/거버넌스] — ✅ tbd (2026-05-10)
 - [ ] **W8-#2** 위협 인텔 외부 OSINT/상용 피드 연동 + 신뢰도 가중 — `journey/05:90` + `threat/05:88` — [상/거버넌스]
 - [x] **W8-#3** 정책 YAML 핫 리로드 (파일 watch / admin API) — `15_ABAC_ABE:525` — [중/인프라] — ✅ 8c92ffe (2026-05-10)
 - [x] **W8-#4** 감사 로그 보존 정책 모듈화 (5년 보관 컴플라이언스) — `threat/05:89` — [중/거버넌스] — ✅ 73a3b3d (2026-05-10)
@@ -318,3 +318,4 @@
 | 2026-05-10 | W8-#3 | 정책 핫 리로드 (`policy_loader.py` PolicyFile mtime 폴링 lazy reload + force_reload + register_policy/reload_all 레지스트리, YAML→JSON 폴백, 깨진 파일 시 캐시 유지) + 6 PASS | 8c92ffe |
 | 2026-05-10 | W8-#8 | revocation_manager.filter_attrs 실제 적용 (`abe_auth._filter_revoked_attrs(user_id, dict)` dict→k:v set 직렬화 후 user_id 스코프 필터, 잔존 키만 dict 복원 + admin GET/POST /admin/api/revocations) + 5 PASS | 3902bab |
 | 2026-05-10 | W8-#4 | 감사 로그 5년 보존 (`services/audit_retention.py` cutoff_datetime / classify_age active/warning/expired / count_expired_sync / purge_db 배치 삭제, AUDIT_RETENTION_DAYS 기본 1827 + DRYRUN/BATCH env) + 8 PASS | 73a3b3d |
+| 2026-05-10 | W8-#1 | ABAC 단일 진실 출처 (`policies/abac_unified.json` 8개 룰 정의 + backend 5개 부분집합 매핑 + `docs/abac_single_source_of_truth.md` 변경 절차 + 정합성 6 PASS) | tbd |

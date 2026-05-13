@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-05-10",
+  "description": "PayWise ABAC 단일 진실 출처 (Single Source of Truth) — W8-#1.\n\nbackend (시뮬레이터 5개 룰) 과 fraud-service (운영 엔진 8개 룰) 가 동일한 정책 키를 참조하도록 통합. 양쪽 모두 `app/services/policy_loader.PolicyFile` 로 본 파일을 로드(W8-#3 핫 리로드 호환).",
+  "canonical_owner": "fraud-service/app/services/abac_engine.py",
+  "shadow_reflection": "backend/app/services/abac_simulation.py (W9-#13 research 분리)",
+  "rules": {
+    "time_window": {
+      "description": "허용 거래 시각대 (KST 09~22). off-hours 는 step-up.",
+      "allow_hours": [9, 22],
+      "applies_to": ["transaction", "audit_log"]
+    },
+    "location_country": {
+      "description": "IP 국적이 KR/JP/US 외이면 REVIEW.",
+      "allow_countries": ["KR", "JP", "US"]
+    },
+    "device_type": {
+      "description": "mobile_unknown 디바이스는 신규 결제 차단.",
+      "block_types": ["mobile_unknown"]
+    },
+    "mfa_required": {
+      "description": "TOP_SECRET 리소스는 mfa_verified=true 강제.",
+      "required_for": ["top_secret"]
+    },
+    "threat_level": {
+      "description": "현재 threat 인텔리전스 위협 등급 (low/medium/high). high 시 모든 송금 step-up.",
+      "step_up_on": ["high"]
+    },
+    "clearance_match": {
+      "description": "subject.clearance >= resource.sensitivity 강제.",
+      "order": ["low", "medium", "high", "top_secret"]
+    },
+    "department_isolation": {
+      "description": "감사 로그는 audit/risk 부서만 열람.",
+      "audit_allowed": ["audit", "risk"]
+    },
+    "data_masking": {
+      "description": "민감 필드 (계좌번호, 주민번호) 마스킹 — clearance < HIGH 시 항상.",
+      "mask_below": "high",
+      "fields": ["account_number", "ssn", "card_number"]
+    }
+  },
+  "merge_strategy": {
+    "backend_5_rules": [
+      "time_window", "location_country", "device_type", "mfa_required", "clearance_match"
+    ],
+    "fraud_8_rules": [
+      "time_window", "location_country", "device_type", "mfa_required",
+      "threat_level", "clearance_match", "department_isolation", "data_masking"
+    ],
+    "note": "backend 시뮬레이터는 5개 룰만 평가 (운영 게이트가 아님). fraud-service 미들웨어가 8개 룰 전부 평가. 본 파일이 양쪽 의미를 정의하는 SoT."
+  }
+}
