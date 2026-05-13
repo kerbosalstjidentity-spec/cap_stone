@@ -192,8 +192,8 @@
 - [x] **W8-#3** 정책 YAML 핫 리로드 (파일 watch / admin API) — `15_ABAC_ABE:525` — [중/인프라] — ✅ 8c92ffe (2026-05-10)
 - [x] **W8-#4** 감사 로그 보존 정책 모듈화 (5년 보관 컴플라이언스) — `threat/05:89` — [중/거버넌스] — ✅ 73a3b3d (2026-05-10)
 - [x] **W8-#5** 알림 채널 우선순위·중복 억제 정책 — `journey/05:91` — [중/백엔드] — ✅ bbccf0f (2026-05-10)
-- [x] **W8-#6** OR 결합 false-positive 비용 평가 + 정책 조정 — `threat/04:87` — [상/거버넌스] — ✅ tbd (2026-05-10)
-- [x] **W8-#7** 비즈니스 KPI ↔ ML 지표 매핑 문서화 — `mlops/03:94` — [상/문서] — ✅ tbd2 (2026-05-10)
+- [x] **W8-#6** OR 결합 false-positive 비용 평가 + 정책 조정 — `threat/04:87` — [상/거버넌스] — ✅ c466f83 (2026-05-10)
+- [x] **W8-#7** 비즈니스 KPI ↔ ML 지표 매핑 문서화 — `mlops/03:94` — [상/문서] — ✅ 5a6e979 (2026-05-10)
 - [x] **W8-#8** revocation_manager.filter_attrs() 미들웨어 적용 — `15_ABAC_ABE:521` — [중/보안] — ✅ 3902bab (2026-05-10)
 
 ---
@@ -320,5 +320,5 @@
 | 2026-05-10 | W8-#4 | 감사 로그 5년 보존 (`services/audit_retention.py` cutoff_datetime / classify_age active/warning/expired / count_expired_sync / purge_db 배치 삭제, AUDIT_RETENTION_DAYS 기본 1827 + DRYRUN/BATCH env) + 8 PASS | 73a3b3d |
 | 2026-05-10 | W8-#1 | ABAC 단일 진실 출처 (`policies/abac_unified.json` 8개 룰 정의 + backend 5개 부분집합 매핑 + `docs/abac_single_source_of_truth.md` 변경 절차 + 정합성 6 PASS) | 2c534f6 |
 | 2026-05-10 | W8-#2 | OSINT 어댑터 추상화 (`osint_adapter.py` OsintFeedAdapter ABC + AbuseIPDBAdapter Mock + combine_reports naive Bayes 가중 합산, lookup_with_adapters 예외 격리) + 9 PASS | 33b7dea |
-| 2026-05-10 | W8-#6 | OR 결합 FP 비용 평가 (`fp_cost_analyzer.py` or_fp_combined 독립가정 + expected_fp_count_per_day 룰별 + recommend_disable high-cost·low-TP + kappa_redundancy 중복도) + 8 PASS | tbd |
-| 2026-05-10 | W8-#7 | KPI ↔ ML 지표 매핑 문서 (`docs/kpi_ml_mapping.md` 6대 비즈니스 KPI ↔ admin API 엔드포인트 매핑 + total_cost 공식 + 4개 알람 규칙) + 4 PASS | tbd2 |
+| 2026-05-10 | W8-#6 | OR 결합 FP 비용 평가 (`fp_cost_analyzer.py` or_fp_combined 독립가정 + expected_fp_count_per_day 룰별 + recommend_disable high-cost·low-TP + kappa_redundancy 중복도) + 8 PASS | c466f83 |
+| 2026-05-10 | W8-#7 | KPI ↔ ML 지표 매핑 문서 (`docs/kpi_ml_mapping.md` 6대 비즈니스 KPI ↔ admin API 엔드포인트 매핑 + total_cost 공식 + 4개 알람 규칙) + 4 PASS | 5a6e979 |
