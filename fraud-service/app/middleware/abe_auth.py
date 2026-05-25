@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 from base64 import b64decode
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Request, Response
@@ -41,6 +42,10 @@ from app.services.abe_engine import (
 
 _ABE_ENABLED = os.getenv("ABE_ENABLED", "false").lower() == "true"
 _TOKEN_HEADER = "X-ABE-Token"
+# W12-#1: 토큰 서명 검증 강제. production 에서는 자동 강제, dev/test 에서는 기본 off.
+_REQUIRE_SIGNATURE = os.getenv("ABE_REQUIRE_SIGNATURE", "").lower() == "true" or (
+    (os.getenv("ENV") or os.getenv("APP_ENV") or "").lower() in ("production", "prod")
+)
 
 # 정책 로드 (환경변수 또는 기본 경로)
 _POLICY_PATH = os.getenv(
@@ -140,6 +145,29 @@ def _filter_revoked_attrs(user_id: str, attrs: dict) -> dict:
         return attrs
 
 
+def _unauthorized_response(detail_dev: str) -> JSONResponse:
+    """401 응답 — 토큰 서명/만료 검증 실패. production 에서는 상세 사유 숨김."""
+    body = {
+        "error": "Unauthorized",
+        "detail": "유효하지 않은 인증 토큰입니다." if _is_prod() else detail_dev,
+    }
+    return JSONResponse(status_code=401, content=body)
+
+
+def _is_token_expired(expires_at: str) -> bool:
+    """expires_at ISO 8601 문자열이 현재 시각보다 과거면 True. 빈 값은 무시(만료 미설정)."""
+    if not expires_at:
+        return False
+    try:
+        exp = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        return exp < datetime.now(tz=timezone.utc)
+    except Exception:
+        # 파싱 불가 → 보수적으로 만료 취급
+        return True
+
+
 def _forbidden_response(detail_dev: str, policy: str | None, user_attrs: list[str]) -> JSONResponse:
     """403 응답 — production에서는 정책/속성 마스킹 (W1-#7)."""
     body: dict = {
@@ -178,19 +206,42 @@ class AbeAuthMiddleware(BaseHTTPMiddleware):
         if raw:
             try:
                 decoded = json.loads(b64decode(raw).decode("utf-8"))
-                _uid = decoded.get("user_id", "unknown")
-                # 취소된 속성은 미들웨어 단계에서 즉시 제거 (W8-#8)
-                effective_attrs = _filter_revoked_attrs(_uid, decoded.get("attributes", {}))
-                token = AttributeToken(
-                    user_id=_uid,
-                    attributes=effective_attrs,
-                )
             except Exception:
                 return JSONResponse(
                     status_code=400,
                     content={"error": "Bad Request", "detail": "유효하지 않은 ABE 토큰입니다."},
                 )
+            _uid = decoded.get("user_id", "unknown")
+            _issued = decoded.get("issued_at", "")
+            _sig = decoded.get("signature", "")
+            _expires = decoded.get("expires_at", "")
+            raw_attrs = decoded.get("attributes", {}) or {}
+
+            # W12-#1: 만료 검증 (expires_at 가 설정된 경우만)
+            if _is_token_expired(_expires):
+                return _unauthorized_response("토큰 만료")
+
+            # W12-#1: HMAC 서명 검증.
+            # production 또는 ABE_REQUIRE_SIGNATURE=true 면 강제, 서명 없거나 불일치 시 401.
+            # dev/test 에서는 서명 미제공 토큰을 허용하되, 서명이 *제공된* 경우 검증은 항상 수행.
+            from app.services.abe_engine import _ABE_SECRET
+            if _sig or _REQUIRE_SIGNATURE:
+                probe = AttributeToken(
+                    user_id=_uid, attributes=raw_attrs,
+                    issued_at=_issued, signature=_sig, expires_at=_expires,
+                )
+                if not probe.verify_signature(_ABE_SECRET):
+                    return _unauthorized_response("토큰 서명 불일치")
+
+            # 취소된 속성은 미들웨어 단계에서 즉시 제거 (W8-#8) — 서명 검증 후
+            effective_attrs = _filter_revoked_attrs(_uid, raw_attrs)
+            token = AttributeToken(
+                user_id=_uid, attributes=effective_attrs,
+                issued_at=_issued, signature=_sig, expires_at=_expires,
+            )
         else:
+            if _REQUIRE_SIGNATURE:
+                return _unauthorized_response("토큰 누락 — production 에서는 X-ABE-Token 필수")
             token = AttributeToken(user_id="anonymous", attributes=_DEFAULT_ATTRS)
 
         # ── 2) ABE 정책 매칭 (RBAC 수준) ─────────

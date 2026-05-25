@@ -31,7 +31,8 @@
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 5 | 100% |
 | **W11** | **ABAC/ABE end-to-end wiring (사후 추가)** | **2** | **2** | **100%** |
-| **합계** | | **105** | **105** | **100%** |
+| **W12** | **인증 강화 (사후 추가)** | **1** | **1** | **100%** |
+| **합계** | | **106** | **106** | **100%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -239,6 +240,14 @@
 
 ---
 
+## W12 — 인증 강화 (사후 추가)
+
+> `AttributeToken.verify_signature()` 가 구현돼 있으나 미들웨어가 호출하지 않아 위조 토큰도 통과되던 갭을 닫는 후속 작업.
+
+- [x] **W12-#1** HMAC 토큰 서명 검증 + `expires_at` 만료 검증 + `ABE_REQUIRE_SIGNATURE` env 강제 옵션 (production 자동 강제, 401 응답 분리) — `15_ABAC_ABE` — [상/보안] — ✅ (이번 커밋)
+
+---
+
 ## 변경 이력
 
 | 날짜 | 주차 | 작업 | 커밋 |
@@ -339,3 +348,4 @@
 | 2026-05-10 | W10-#5 | 메모리 산출물 갱신 (MEMORY.md 진척률 100/103, paywise_roadmap_progress 거버넌스 정본 3종 + W5~W10 완료 표기) | 193dee4 |
 | 2026-05-25 | W11-#1 | ABAC 결정 응답 마스킹 미들웨어 적용 (apply_abac_masking 헬퍼 + 200 JSON 응답 가로채기, BusinessHoursRule TOP_SECRET 잠복버그 동시 수정) + 4 PASS | edbae8a |
 | 2026-05-25 | W11-#2 | ABE encrypted_fields 미들웨어 적용 + revocation-aware TOCTOU 재검증 (filter_response 재귀 마스킹) + 2 PASS / 회귀 22 PASS | cb51a31 |
+| 2026-05-25 | W12-#1 | HMAC 토큰 서명 검증 + expires_at 만료 검증 + ABE_REQUIRE_SIGNATURE env 강제 (production 자동, 401 분리) + 4 PASS / 회귀 375 PASS | (이번 커밋) |
