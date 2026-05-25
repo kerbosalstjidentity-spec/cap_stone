@@ -413,8 +413,18 @@ def filter_response(
     if has_access:
         return response_data
 
-    filtered = dict(response_data)
-    for f in encrypted_fields:
-        if f in filtered:
-            filtered[f] = "[ENCRYPTED: 접근 권한 부족]"
-    return filtered
+    # W11-#2: 중첩 dict/list 까지 재귀적으로 encrypted_fields 마스킹
+    fields = set(encrypted_fields)
+    marker = "[ENCRYPTED: 접근 권한 부족]"
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {
+                k: (marker if k in fields else _walk(v))
+                for k, v in node.items()
+            }
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+        return node
+
+    return _walk(response_data)

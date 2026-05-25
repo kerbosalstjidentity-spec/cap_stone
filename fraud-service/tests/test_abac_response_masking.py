@@ -129,3 +129,61 @@ def test_abe_disabled_passthrough(seed_audit_block):
     body = resp.json()
     user_ids = [b.get("user_id") for b in body["blocks"]]
     assert "alice-123" in user_ids  # 마스킹 없음
+
+
+# ── W11-#2: ABE encrypted_fields (revocation-aware) ─────────────
+
+
+def test_revocation_mid_flight_masks_encrypted_fields(client_abe_on, seed_audit_block, monkeypatch):
+    """진입 시 정책 매칭은 통과했으나 응답 시점에 속성이 취소된 경우
+    encrypted_fields 만 ENCRYPTED 마커로 마스킹된다 (TOCTOU 방어)."""
+    from app.services import abe_engine as abe_mod
+
+    # 진입 시점 revocation 필터를 비활성화해 정책 통과를 보장
+    monkeypatch.setattr(abe_mw, "_filter_revoked_attrs", lambda uid, attrs: attrs)
+    # 응답 시점에 role:auditor 가 취소되도록 미리 등록
+    abe_mod.revocation_manager.revoke("auditor-revoked", "role:auditor")
+
+    try:
+        token = _token({
+            "_uid": "auditor-revoked",
+            "role": "auditor",
+            "dept": "compliance",
+            "clearance": "high",
+            "location": "internal",
+            "device_type": "desktop",
+            "mfa_verified": "true",
+        })
+        resp = client_abe_on.get("/v1/audit/recent?n=5", headers={"X-ABE-Token": token})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        # encrypted_fields = ["user_id", "amount", "score"] (yaml GET /v1/audit/*)
+        target = next(b for b in body["blocks"] if b.get("transaction_id") == "tx-mask-001")
+        assert target["user_id"] == "[ENCRYPTED: 접근 권한 부족]"
+        assert target["amount"] == "[ENCRYPTED: 접근 권한 부족]"
+        assert target["score"] == "[ENCRYPTED: 접근 권한 부족]"
+    finally:
+        # 글로벌 revocation_manager 청소
+        abe_mod.revocation_manager._revoked.pop("auditor-revoked:role:auditor", None)
+
+
+def test_valid_user_sees_unmasked_encrypted_fields(client_abe_on, seed_audit_block):
+    """정상 사용자 — encrypted_fields 가 정의돼 있어도 정책을 만족하므로 원본 노출.
+
+    (admin 사용 이유: BusinessHoursRule 의 시간대 의존성을 회피.)
+    """
+    token = _token({
+        "_uid": "admin-clean",
+        "role": "admin",
+        "dept": "fraud_team",
+        "clearance": "high",
+        "location": "internal",
+        "device_type": "desktop",
+        "mfa_verified": "true",
+    })
+    resp = client_abe_on.get("/v1/audit/recent?n=5", headers={"X-ABE-Token": token})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    target = next(b for b in body["blocks"] if b.get("transaction_id") == "tx-mask-001")
+    assert target["user_id"] == "alice-123"
+    assert target["amount"] == 12345.0

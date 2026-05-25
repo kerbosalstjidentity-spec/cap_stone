@@ -34,6 +34,7 @@ from app.services.abe_engine import (
     AccessPolicy,
     AttributeToken,
     evaluate_access_structure,
+    filter_response,
     find_policy,
     load_policies,
 )
@@ -247,6 +248,46 @@ class AbeAuthMiddleware(BaseHTTPMiddleware):
                     media_type=response.media_type,
                 )
             masked = apply_abac_masking(payload, decision)
+            # W11-#2: ABE 정책의 encrypted_fields 적용 (revocation-aware TOCTOU 재검증).
+            # 요청 진입 시 정책 매칭이 통과했어도, 처리 도중 속성이 취소되면
+            # 응답 시점 effective_attrs 로 재평가하여 민감 필드만 마스킹.
+            if policy and policy.encrypted_fields and isinstance(masked, dict):
+                masked = filter_response(
+                    masked,
+                    encrypted_fields=policy.encrypted_fields,
+                    user_attrs=user_attr_set,
+                    access_structure=policy.access_structure,
+                    user_id=token.user_id,
+                )
             return JSONResponse(content=masked, status_code=response.status_code)
+
+        # 마스킹 결정이 없어도 정책 encrypted_fields 가 있으면 revocation 재검증
+        if (
+            policy
+            and policy.encrypted_fields
+            and 200 <= response.status_code < 300
+            and response.headers.get("content-type", "").startswith("application/json")
+        ):
+            body = b""
+            async for chunk in response.body_iterator:
+                body += chunk
+            try:
+                payload = json.loads(body)
+            except Exception:
+                return Response(
+                    content=body,
+                    status_code=response.status_code,
+                    headers={k: v for k, v in response.headers.items() if k.lower() != "content-length"},
+                    media_type=response.media_type,
+                )
+            if isinstance(payload, dict):
+                payload = filter_response(
+                    payload,
+                    encrypted_fields=policy.encrypted_fields,
+                    user_attrs=user_attr_set,
+                    access_structure=policy.access_structure,
+                    user_id=token.user_id,
+                )
+            return JSONResponse(content=payload, status_code=response.status_code)
 
         return response
