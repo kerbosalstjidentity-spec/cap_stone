@@ -30,7 +30,8 @@
 | W8 | 거버넌스 (P2) | 8 | 8 | 100% |
 | W9 | Quick wins (P3) | 16 | 16 | 100% |
 | W10 | 검증·문서화 | 5 | 5 | 100% |
-| **합계** | | **103** | **103** | **100%** |
+| **W11** | **ABAC/ABE end-to-end wiring (사후 추가)** | **2** | **1** | **50%** |
+| **합계** | | **105** | **104** | **99%** |
 
 > 🔥 **W5.5/W6.5/W7.5 = FDS 강화 신설 스프린트** — 상세 명세는 [`FDS_ROADMAP.md`](FDS_ROADMAP.md), 다른 세션 인계는 [`FDS_RESUME.md`](FDS_RESUME.md). 캡스톤 발표에서 "진짜 FDS인가?" 질문 대응 핵심.
 
@@ -226,6 +227,15 @@
 - [x] **W10-#3** 각 블로그 글의 "향후 과제" 섹션에 (✅ ROADMAP W?-#?) 표기 일괄 갱신 — ✅ 193dee4 (2026-05-10)
 - [x] **W10-#4** `docs/blog/perspectives/mlops/04_운영_관측과_향후_과제.md`에 "1차 마무리" 부록 추가 — ✅ 193dee4 (2026-05-10)
 - [x] **W10-#5** 메모리 `paywise_features_progress.md` / `paywise_perspectives_progress.md` 산출물 경로 + 완료 표시 갱신 — ✅ 193dee4 (2026-05-10)
+
+---
+
+## W11 — ABAC/ABE end-to-end wiring (사후 추가)
+
+> W1-#5 가 "엔진 wiring" 까지만 정의되어 결정의 **소비(consumption)** 가 라우터에서 누락됐던 갭을 메우는 후속 작업. 2026-05-25 #15 ABAC 블로그 재검토 중 발견.
+
+- [x] **W11-#1** ABAC 결정의 `masked_fields` 가 200 응답에 실제 적용되도록 미들웨어에서 가로채 마스킹 — `15_ABAC_ABE` — [상/보안] — ✅ (이번 커밋)
+- [ ] **W11-#2** ABE 정책 YAML 의 `encrypted_fields` 를 라우터 응답에서 `filter_response()` 로 적용 (현재 ABAC 마스킹만 적용되고 ABE 정책 기반 필드 암호화는 미연결) — `15_ABAC_ABE` — [중/보안]
 
 ---
 

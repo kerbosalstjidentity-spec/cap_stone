@@ -28,6 +28,7 @@ from app.services.abac_engine import (
     EnvironmentAttributes,
     ResourceAttributes,
     SubjectAttributes,
+    apply_abac_masking,
 )
 from app.services.abe_engine import (
     AccessPolicy,
@@ -221,4 +222,31 @@ class AbeAuthMiddleware(BaseHTTPMiddleware):
         request.state.abe_attrs = token.attributes
         request.state.abe_token = token
         request.state.abac_decision = decision
-        return await call_next(request)
+
+        response = await call_next(request)
+
+        # W11-#1: ABAC 결정의 masked_fields 를 응답에 적용 (라우터 wiring 갭 메움)
+        # 200 + application/json 응답만 가공. SSE/스트리밍/에러는 원본 유지.
+        if (
+            decision.masking_level != "none"
+            and decision.masked_fields
+            and 200 <= response.status_code < 300
+            and response.headers.get("content-type", "").startswith("application/json")
+        ):
+            body = b""
+            async for chunk in response.body_iterator:
+                body += chunk
+            try:
+                payload = json.loads(body)
+            except Exception:
+                # 파싱 실패 시 원본 그대로
+                return Response(
+                    content=body,
+                    status_code=response.status_code,
+                    headers={k: v for k, v in response.headers.items() if k.lower() != "content-length"},
+                    media_type=response.media_type,
+                )
+            masked = apply_abac_masking(payload, decision)
+            return JSONResponse(content=masked, status_code=response.status_code)
+
+        return response

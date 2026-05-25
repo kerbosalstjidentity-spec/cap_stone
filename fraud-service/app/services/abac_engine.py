@@ -223,7 +223,7 @@ class ClearanceLevelRule(ABACRule):
 class BusinessHoursRule(ABACRule):
     """업무 시간 외 + 기밀 리소스 접근 시 등급별 차등 제어.
 
-    CRITICAL 민감도 → DENY (admin 제외)
+    TOP_SECRET 민감도 → DENY (admin 제외)
     HIGH 민감도 → MASK_COLUMN
     """
     rule_id = "BUSINESS_HOURS"
@@ -232,10 +232,10 @@ class BusinessHoursRule(ABACRule):
         if not env.is_business_hours and resource.sensitivity.value >= ClearanceLevel.HIGH.value:
             if subject.role == "admin":
                 return None  # 관리자는 예외
-            if resource.sensitivity.value >= ClearanceLevel.CRITICAL.value:
+            if resource.sensitivity.value >= ClearanceLevel.TOP_SECRET.value:
                 return {
                     "action": "DENY",
-                    "reason": "업무 시간 외 CRITICAL 데이터 접근 거부",
+                    "reason": "업무 시간 외 TOP_SECRET 데이터 접근 거부",
                 }
             return {
                 "action": "MASK_COLUMN",
@@ -343,6 +343,40 @@ def _mask_value(value: Any) -> str:
     if len(s) <= 2:
         return "***"
     return s[0] + "*" * (len(s) - 2) + s[-1]
+
+
+def apply_abac_masking(
+    payload: Any,
+    decision: AccessDecision | None,
+) -> Any:
+    """라우터 응답(dict | list[dict] | 중첩) 에 AccessDecision 의 마스킹을 적용한다.
+
+    W11-#1: 미들웨어가 평가만 하고 라우터가 결정을 안 읽던 갭을 메우기 위함.
+    - decision 이 None 이거나 masking_level == "none" → 원본
+    - decision.masked_fields 안의 키를 만나면 ``_mask_value`` 로 치환
+    - dict 의 값이 dict / list 면 재귀
+    """
+    if decision is None or not decision.allowed:
+        return payload
+    if decision.masking_level == "none" or not decision.masked_fields:
+        return payload
+
+    fields = set(decision.masked_fields)
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            out: dict[str, Any] = {}
+            for k, v in node.items():
+                if k in fields:
+                    out[k] = _mask_value(v)
+                else:
+                    out[k] = _walk(v)
+            return out
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+        return node
+
+    return _walk(payload)
 
 
 # ── FGAC vs CGAC 비교 유틸 (SRS 3 SC-01) ─────────────────────
