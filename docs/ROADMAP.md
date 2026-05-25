@@ -235,7 +235,7 @@
 > W1-#5 가 "엔진 wiring" 까지만 정의되어 결정의 **소비(consumption)** 가 라우터에서 누락됐던 갭을 메우는 후속 작업. 2026-05-25 #15 ABAC 블로그 재검토 중 발견.
 
 - [x] **W11-#1** ABAC 결정의 `masked_fields` 가 200 응답에 실제 적용되도록 미들웨어에서 가로채 마스킹 — `15_ABAC_ABE` — [상/보안] — ✅ edbae8a (2026-05-25)
-- [x] **W11-#2** ABE 정책 YAML 의 `encrypted_fields` 를 미들웨어 응답 단계에서 `filter_response()` 로 적용 + revocation-aware TOCTOU 재검증 — `15_ABAC_ABE` — [중/보안] — ✅ (이번 커밋)
+- [x] **W11-#2** ABE 정책 YAML 의 `encrypted_fields` 를 미들웨어 응답 단계에서 `filter_response()` 로 적용 + revocation-aware TOCTOU 재검증 — `15_ABAC_ABE` — [중/보안] — ✅ cb51a31
 
 ---
 
@@ -338,4 +338,4 @@
 | 2026-05-10 | W10-#4 | mlops/04 "1차 마무리" 부록 (W7/W8 까지 운영화 체크리스트 21항목 표 + ROADMAP 마커 5개 추가 + 캡스톤 범위 외 다음 마일스톤 4건) | 193dee4 |
 | 2026-05-10 | W10-#5 | 메모리 산출물 갱신 (MEMORY.md 진척률 100/103, paywise_roadmap_progress 거버넌스 정본 3종 + W5~W10 완료 표기) | 193dee4 |
 | 2026-05-25 | W11-#1 | ABAC 결정 응답 마스킹 미들웨어 적용 (apply_abac_masking 헬퍼 + 200 JSON 응답 가로채기, BusinessHoursRule TOP_SECRET 잠복버그 동시 수정) + 4 PASS | edbae8a |
-| 2026-05-25 | W11-#2 | ABE encrypted_fields 미들웨어 적용 + revocation-aware TOCTOU 재검증 (filter_response 재귀 마스킹) + 2 PASS / 회귀 22 PASS | (이번 커밋) |
+| 2026-05-25 | W11-#2 | ABE encrypted_fields 미들웨어 적용 + revocation-aware TOCTOU 재검증 (filter_response 재귀 마스킹) + 2 PASS / 회귀 22 PASS | cb51a31 |
