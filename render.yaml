@@ -8,7 +8,8 @@
 databases:
   - name: paywise-db
     databaseName: consume_pattern
-    user: postgres
+    # user 생략 → Render 가 유효한 사용자명 자동 생성 ('postgres'는 예약어라 금지).
+    # 앱은 connectionString 통째로 받으므로 사용자명 무관.
     plan: free
 
 services:
