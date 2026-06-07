@@ -18,4 +18,5 @@ COPY alembic.ini .
 
 EXPOSE 8020
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8020"]
+# 포트는 배포 플랫폼이 주는 $PORT 사용(없으면 8020) — 로컬 compose 와 Render 양쪽 호환
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8020}"]

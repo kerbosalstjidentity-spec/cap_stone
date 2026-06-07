@@ -16,4 +16,5 @@ COPY policies ./policies
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8010
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010"]
+# 포트는 배포 플랫폼이 주는 $PORT 사용(없으면 8010) — 로컬 compose 와 Render 양쪽 호환
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8010}"]

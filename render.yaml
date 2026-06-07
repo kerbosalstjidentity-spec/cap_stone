@@ -1,0 +1,65 @@
+# Render Blueprint — PayWise 백엔드/추론/DB (Kafka 제외)
+# 프론트(Next.js)는 Vercel 에 별도 배포 (docs/DEPLOY.md 참고).
+#
+# 배포: Render 대시보드 → New → Blueprint → 이 repo 연결 → 브랜치 선택 → Apply
+# Kafka 는 제외 — fraud-service 가 Kafka 없이도 graceful 하게 기동(producer try/except,
+# consumer 백그라운드 재시도)하므로 동기 HTTP 경로(backend→fraud)는 정상 동작.
+
+databases:
+  - name: paywise-db
+    databaseName: consume_pattern
+    user: postgres
+    plan: free
+
+services:
+  # ── Redis (Key Value) — 세션/스토어 ───────────────────────
+  - type: keyvalue
+    name: paywise-redis
+    plan: free
+    ipAllowList: []            # 내부 전용 (외부 차단)
+
+  # ── fraud-service (추론 API) ─────────────────────────────
+  - type: web
+    name: paywise-fraud
+    runtime: docker
+    plan: free
+    dockerfilePath: ./fraud-service/Dockerfile
+    dockerContext: ./fraud-service
+    healthCheckPath: /health
+    envVars:
+      - key: MODEL_PATH
+        value: /app/models/model_bundle_paysim_time_clean.joblib  # 이미지에 구운 모델
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: paywise-redis
+          property: connectionString
+      # KAFKA_BOOTSTRAP_SERVERS 미설정 → Kafka 비활성(graceful)
+
+  # ── backend (FastAPI, 시작 시 Alembic 자동 마이그레이션) ──
+  - type: web
+    name: paywise-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: paywise-db
+          property: connectionString    # postgresql:// → 코드가 +asyncpg 로 정규화
+      - key: DB_SSL
+        value: "true"                    # Render Postgres SSL 필수
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: paywise-redis
+          property: connectionString
+      # fraud-service 내부 주소 (Render 사설망: 서비스명 + 내부포트 10000)
+      - key: FRAUD_SERVICE_URL
+        value: http://paywise-fraud:10000
+      - key: JWT_SECRET_KEY
+        generateValue: true              # 기본 시크릿 대신 랜덤 생성

@@ -19,9 +19,14 @@ from app.models.base import Base
 import app.models.tables  # noqa: F401
 target_metadata = Base.metadata
 
-# DB URL을 app config에서 가져오기
+# DB URL을 app config에서 가져오기 (배포 호환: 스킴 정규화 + DB_SSL env)
+import os as _os
 from app.config import settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+_alembic_url = settings.DATABASE_URL
+if _alembic_url.startswith("postgresql://"):
+    _alembic_url = "postgresql+asyncpg://" + _alembic_url[len("postgresql://"):]
+config.set_main_option("sqlalchemy.url", _alembic_url)
+_alembic_ssl = _os.environ.get("DB_SSL", "").lower() in ("1", "true", "require", "yes", "on")
 
 
 def run_migrations_offline() -> None:
@@ -47,8 +52,8 @@ async def run_async_migrations():
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        # Python 3.14 + asyncpg 0.31 호환: SSL 건너뛰기
-        connect_args={"ssl": False, "timeout": None},
+        # SSL 은 DB_SSL env 로 제어 (로컬=off / Render=on)
+        connect_args={"ssl": _alembic_ssl, "timeout": None},
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

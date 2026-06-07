@@ -7,3 +7,5 @@ models/*.pkl
 models/*.joblib
 models/*.txt
 !.gitkeep
+# 배포용 운영 모델만 예외로 추적(Render 이미지에 포함, 3MB)
+!models/model_bundle_paysim_time_clean.joblib
