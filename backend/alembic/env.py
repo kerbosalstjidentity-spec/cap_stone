@@ -21,12 +21,19 @@ target_metadata = Base.metadata
 
 # DB URL을 app config에서 가져오기 (배포 호환: 스킴 정규화 + DB_SSL env)
 import os as _os
+import ssl as _ssl
 from app.config import settings
 _alembic_url = settings.DATABASE_URL
 if _alembic_url.startswith("postgresql://"):
     _alembic_url = "postgresql+asyncpg://" + _alembic_url[len("postgresql://"):]
 config.set_main_option("sqlalchemy.url", _alembic_url)
-_alembic_ssl = _os.environ.get("DB_SSL", "").lower() in ("1", "true", "require", "yes", "on")
+# Render Postgres self-signed → SSL 사용하되 검증 끔
+if _os.environ.get("DB_SSL", "").lower() in ("1", "true", "require", "yes", "on"):
+    _alembic_ssl: object = _ssl.create_default_context()
+    _alembic_ssl.check_hostname = False
+    _alembic_ssl.verify_mode = _ssl.CERT_NONE
+else:
+    _alembic_ssl = False
 
 
 def run_migrations_offline() -> None:

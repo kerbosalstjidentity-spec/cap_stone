@@ -1,6 +1,7 @@
 """비동기 DB 세션 관리 — SQLAlchemy 2.0 async."""
 
 import os
+import ssl as _ssl
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -9,10 +10,17 @@ from app.config import settings
 # 배포(Render 등) 호환:
 #  - postgresql:// → postgresql+asyncpg:// (Render 는 평문 스킴 제공, asyncpg 필요)
 #  - SSL 은 DB_SSL env 로 제어: 로컬(미설정)=off(기존 동작), Render(DB_SSL=true)=on
+#    단, Render Postgres 는 self-signed 인증서 → SSL 사용하되 검증은 끔(CERT_NONE).
 _db_url = settings.DATABASE_URL
 if _db_url.startswith("postgresql://"):
     _db_url = "postgresql+asyncpg://" + _db_url[len("postgresql://"):]
-_db_ssl = os.environ.get("DB_SSL", "").lower() in ("1", "true", "require", "yes", "on")
+
+if os.environ.get("DB_SSL", "").lower() in ("1", "true", "require", "yes", "on"):
+    _db_ssl: object = _ssl.create_default_context()
+    _db_ssl.check_hostname = False
+    _db_ssl.verify_mode = _ssl.CERT_NONE
+else:
+    _db_ssl = False
 
 engine = create_async_engine(
     _db_url,
