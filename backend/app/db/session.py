@@ -45,13 +45,22 @@ async def get_session() -> AsyncSession:
 
 
 async def init_db() -> None:
-    """테이블 자동 생성 (개발용). 프로덕션에서는 Alembic 사용."""
+    """테이블 생성/검증. DB_RESET=true 면 모델 기준으로 스키마를 통째 재생성.
+
+    Render 등 배포에서 alembic 마이그레이션이 모델과 어긋나(예: 모델엔 있는데
+    마이그레이션엔 없는 컬럼) 발생하는 UndefinedColumn 류를 1회성으로 해소한다.
+    데이터가 없는 초기 배포에서만 DB_RESET 을 켜고, 동작 확인 후 끄면 된다.
+    """
     from app.models.base import Base
     import app.models.tables  # noqa: F401  — 모델 등록
 
+    reset = os.environ.get("DB_RESET", "").lower() in ("1", "true", "yes", "on")
     async with engine.begin() as conn:
+        if reset:
+            await conn.run_sync(Base.metadata.drop_all)
+            print("[DB] DB_RESET=on → 모든 모델 테이블 drop")
         await conn.run_sync(Base.metadata.create_all)
-    print("[DB] Tables created / verified")
+    print("[DB] Tables created / verified" + (" (reset)" if reset else ""))
 
 
 async def close_db() -> None:

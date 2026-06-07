@@ -54,6 +54,8 @@ services:
           property: connectionString    # postgresql:// → 코드가 +asyncpg 로 정규화
       - key: DB_SSL
         value: "true"                    # Render Postgres SSL 필수
+      - key: DB_RESET
+        value: "true"                    # ⚠️ 1회성: 모델 기준 스키마 재생성. 동작 확인 후 "false" 로!
       - key: REDIS_URL
         fromService:
           type: keyvalue
