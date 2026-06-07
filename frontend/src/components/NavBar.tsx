@@ -39,6 +39,15 @@ export default function NavBar({ activePath }: NavBarProps) {
               {link.label}
             </Link>
           ))}
+          {/* 사기 판정 데이터 3축 접근통제 데모 (별도 서비스 — 새 탭) */}
+          <a
+            href="https://fraud-access-control.onrender.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="사기 판정 데이터 칸단위 접근통제 (페르소나×구역×동작 + 단계 인증) 데모"
+          >
+            🔐 사기 접근통제
+          </a>
         </div>
 
         {/* 오른쪽: 사용자 정보 / 로그인 */}
